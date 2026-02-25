@@ -43,8 +43,8 @@ binds {
 
 	Mod+Ctrl+Left				{ move-column-left; }
 	Mod+Ctrl+Right				{ move-column-right; }
-	Mod+Ctrl+UP					{ move-window-up; }
-	Mod+Ctrl+Down				{ move-window-down; }
+	Mod+Ctrl+Up					{ move-window-up-or-to-workspace-up; }
+	Mod+Ctrl+Down				{ move-window-down-or-to-workspace-down; }
 
 	Mod+Home					{ focus-column-first; }
 	Mod+End						{ focus-column-last; }
@@ -53,12 +53,12 @@ binds {
 
 	Mod+Shift+Left				{ focus-monitor-left; }
 	Mod+Shift+Right				{ focus-monitor-right; }
-	Mod+Shift+UP				{ focus-monitor-up; }
+	Mod+Shift+Up				{ focus-monitor-up; }
 	Mod+Shift+Down				{ focus-monitor-down; }
 
 	// Mod+Shift+Ctrl+Left			{ move-column-to-monitor-left; }
 	// Mod+Shift+Ctrl+Right			{ move-column-to-monitor-right; }
-	// Mod+Shift+Ctrl+UP			{ move-column-to-monitor-up; }
+	// Mod+Shift+Ctrl+Up			{ move-column-to-monitor-up; }
 	// Mod+Shift+Ctrl+Down			{ move-column-to-monitor-down; }
 
 	// ─── Workspace Switching ───
