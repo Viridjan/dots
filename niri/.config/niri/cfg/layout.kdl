@@ -1,6 +1,8 @@
-// Settings that influence how windows are positioned and sized.
-// Find more information on the wiki:
-// https://niri-wm.github.io/niri/Configuration:-Layout
+/*
+Settings that influence how windows are positioned and sized.
+Find more information on the wiki:
+https://niri-wm.github.io/niri/Configuration:-Layout
+*/
 
 layout {
 
