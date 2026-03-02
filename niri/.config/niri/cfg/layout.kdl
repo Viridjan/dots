@@ -3,12 +3,9 @@ Settings that influence how windows are positioned and sized.
 Find more information on the wiki:
 https://niri-wm.github.io/niri/Configuration:-Layout
 */
-
 layout {
-
 	/* Set gaps around windows in logical pixels. */
 	gaps 13
-
 
 	/*
 	When to center a column when changing focus, options are:
@@ -22,7 +19,6 @@ layout {
 
 	/*  Needed for noctalia-shell to set wallpaper */
 	background-color "transparent"
-
 
 	/*
 	You can customize the widths that "switch-preset-column-width" (Mod+R) toggles between.
@@ -39,18 +35,14 @@ layout {
 		// fixed 1920
 	}
 
-
  	/* You can also customize the heights that "switch-preset-window-height" (Mod+Shift+R) toggles between. */
 	// preset-window-heights { }
-
 
 	/* You can change the default width of the new windows. */
 	default-column-width { proportion 0.5; }
 
-
 	/* If you leave the brackets empty, the windows themselves will decide their initial width. */
 	// default-column-width {}
-
 
 	/*
 	By default focus ring and border are rendered as a solid background rectangle
