@@ -69,5 +69,5 @@ input {
 	focus-follows-mouse
 
 	/* Enable workspace back & forth switching */
-	workspace-auto-back-and-forth
+	// workspace-auto-back-and-forth
 }
