@@ -1,4 +1,4 @@
-ssh-keygem -t ed25519 -C "email@email.com"
+ssh-keygen -t ed25519 -C "email@email.com"
 
 git clone git@github.com:Viridjan/dots.git
 
