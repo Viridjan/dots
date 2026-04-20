@@ -22,14 +22,6 @@ window-rule {
 	open-floating false
 }
 
-/* common app config */
-window-rule {
-	match title="Brave"
-	match title="Kitty"
-	match title="Alacritty"
-	default-column-width { proportion 0.5; }	
-}
-
 /* social workspace window rules */
 window-rule {
 	match title="Ferdium"
@@ -44,8 +36,20 @@ window-rule {
 	match title="Spotify"
 	match title="Steam"
 	match title="Dota 2"
-	open-on-workspace "music"
+	open-on-workspace "media"
 	open-focused false
+	default-column-width { proportion 0.5; }
+}
+
+/* common app config */
+window-rule {
+	match title="Brave"
+	match title="Kitty"
+	match title="Alacritty"
+	match title="Ghostty"
+	match app-id="firefox"
+	match app-id="whatsie"
+	match app-id="TelegramDesktop"
 	default-column-width { proportion 0.5; }
 }
 

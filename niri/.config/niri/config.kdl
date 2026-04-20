@@ -1,0 +1,18 @@
+/* Include stow config */
+include "cfg/autostart.kdl"
+include "cfg/keybinds.kdl"
+include "cfg/input.kdl"
+//include "cfg/display.kdl"
+include "cfg/layout.kdl"
+include "cfg/rules.kdl"
+include "cfg/misc.kdl"
+
+/* Include dms files */
+include "dms/colors.kdl"
+//include "dms/layout.kdl"
+include "dms/alttab.kdl"
+//include "dms/binds.kdl"
+include "dms/outputs.kdl"
+include "dms/cursor.kdl"
+
+include "dms/windowrules.kdl"

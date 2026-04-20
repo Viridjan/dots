@@ -66,7 +66,7 @@ input {
 	Setting max-scroll-amount="0%" makes it work only on windows already fully on screen.
 	focus-follows-mouse max-scroll-amount="0%"
 	*/
-	focus-follows-mouse
+	// focus-follows-mouse
 
 	/* Enable workspace back & forth switching */
 	// workspace-auto-back-and-forth
