@@ -25,12 +25,12 @@ binds {
 	Mod+Shift+Escape			{ show-hotkey-overlay; }
 
 	// ─── Applications ───
-	Mod+Return					hotkey-overlay-title="Open Terminal: kitty" { spawn "kitty"; }
-	Mod+Space					hotkey-overlay-title="Open App Launcher: noctalia launcher" { spawn-sh "qs -c noctalia-shell ipc call launcher toggle"; }
-	Mod+E						hotkey-overlay-title="File Manager: dolphin" { spawn "dolphin"; }
-	Mod+B						hotkey-overlay-title="Open Browser: brave" { spawn "brave"; }
-	// Mod+Alt+L					hotkey-overlay-title="Lock Screen: noctalia lock" { spawn-sh "qs -c noctalia-shell ipc call lockScreen lock"; }
-    Mod+Shift+Q					hotkey-overlay-title="Session Menu: noctalia sessionMenu" { spawn-sh "qs -c noctalia-shell ipc call sessionMenu toggle"; }
+	Mod+Return					hotkey-overlay-title="Open Terminal" { spawn "ghostty"; }
+	Mod+Space					hotkey-overlay-title="Open App Launcher" { spawn "dms" "ipc" "spotlight" "toggle"; }
+	Mod+E						hotkey-overlay-title="File Manager" { spawn "dolphin"; }
+	Mod+B						hotkey-overlay-title="Open Browser" { spawn "firefox"; }
+	Mod+Alt+L					hotkey-overlay-title="Lock Screen" { spawn "dms" "ipc" "lock" "lock"; }
+	Mod+Shift+Q					hotkey-overlay-title="Session Menu" { spawn "dms" "ipc" "powermenu" "toggle"; }
 
 	// ─── Window Movement and Focus ───
 	Mod+Q						repeat=false { close-window; }
@@ -147,16 +147,16 @@ binds {
 	Mod+O						repeat=false { toggle-overview; }
 
 	// ─── Media Controls ───
-	XF86AudioRaiseVolume		allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call volume increase"; }
-	XF86AudioLowerVolume		allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call volume decrease"; }
-	XF86AudioMute				allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call volume muteOutput"; }
-	XF86AudioMicMute			allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call volume muteInput"; }
-	XF86AudioNext				allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call media next"; }
-	XF86AudioPrev				allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call media previous"; }
-	XF86AudioPlay				allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call media playPause"; }
-	XF86AudioPause				allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call media playPause"; }
+	XF86AudioRaiseVolume		allow-when-locked=true { spawn "dms" "ipc" "audio" "increment" "5"; }
+	XF86AudioLowerVolume		allow-when-locked=true { spawn "dms" "ipc" "audio" "decrement" "5"; }
+	XF86AudioMute				allow-when-locked=true { spawn "dms" "ipc" "audio" "mute"; }
+	XF86AudioMicMute			allow-when-locked=true { spawn "dms" "ipc" "audio" "micmute"; }
+	XF86AudioNext				allow-when-locked=true { spawn "dms" "ipc" "mpris" "next"; }
+	XF86AudioPrev				allow-when-locked=true { spawn "dms" "ipc" "mpris" "previous"; }
+	XF86AudioPlay				allow-when-locked=true { spawn "dms" "ipc" "mpris" "playPause"; }
+	XF86AudioPause				allow-when-locked=true { spawn "dms" "ipc" "mpris" "playPause"; }
 
 	// ─── Brightness Controls ───
-	XF86MonBrightnessUp			allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call brightness increase"; }
-	XF86MonBrightnessDown		allow-when-locked=true { spawn-sh "qs -c noctalia-shell ipc call brightness decrease"; }
+	XF86MonBrightnessUp			allow-when-locked=true { spawn "dms" "ipc" "brightness" "increment" "5" ""; }
+	XF86MonBrightnessDown		allow-when-locked=true { spawn "dms" "ipc" "brightness" "decrement" "5" ""; }
 }
