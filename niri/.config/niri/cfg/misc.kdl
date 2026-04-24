@@ -1,21 +1,75 @@
 // ────────────── Misc Settings ──────────────
+
+/*
+Prefer no client-side decorations (CSD). Niri will ask clients to use
+server-side decorations (SSD) where possible. Some apps ignore this.
+*/
 prefer-no-csd
+
+/*
+Path where screenshots are saved. Supports strftime format specifiers.
+Default: null (screenshots are not saved to disk, only to clipboard).
+*/
 screenshot-path "~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
 
+/*
+Environment variables set for all processes spawned by niri (apps, autostart, etc.).
+These are applied on top of niri's own environment at startup.
+*/
 environment {
+	/*
+	Points libxkbcommon (used by Ghostty and other apps) to the compose/dead-key
+	table. Required because there is no en_GB.UTF-8 compose file on this system,
+	only en_US.UTF-8. Without this, dead keys (e.g. ' + e = é) do not work in
+	terminal emulators that process keys via libxkbcommon directly.
+	To see available locale tables: ls /usr/share/X11/locale/
+	*/
+	XCOMPOSEFILE "/usr/share/X11/locale/en_US.UTF-8/Compose"
+
+	/*
+	Force Electron apps (VS Code, Discord, etc.) to use the Wayland backend
+	when available, falling back to XWayland otherwise.
+	Values: "auto" | "wayland" | "x11"
+	*/
 	ELECTRON_OZONE_PLATFORM_HINT "auto"
+
+	/*
+	Force Qt apps to use the Wayland backend instead of XWayland.
+	*/
 	QT_QPA_PLATFORM "wayland"
+
+	/*
+	Disable Qt client-side window decorations on Wayland (title bars, borders).
+	*/
 	QT_WAYLAND_DISABLE_WINDOWDECORATION "1"
+
+	/*
+	Advertise the session type so XDG portals and other tools know we are on Wayland.
+	*/
 	XDG_SESSION_TYPE "wayland"
+
+	/*
+	Identifies the current desktop environment. Used by portals, MIME handlers,
+	and apps that conditionally enable features based on the DE.
+	*/
 	XDG_CURRENT_DESKTOP "niri"
+
+	/*
+	Qt platform theme — uses qt5ct for consistent theming of Qt5 apps.
+	For Qt6 apps the theme is set via QT_QPA_PLATFORMTHEME_QT6 (managed by DMS).
+	*/
 	QT_QPA_PLATFORMTHEME "qt5ct"
 }
 
-	debug {
+debug {
 	/* Allows notification actions and window activation from Noctalia. */
-		honor-xdg-activation-with-invalid-serial
-	}
+	honor-xdg-activation-with-invalid-serial
+}
 
-	hotkey-overlay {
-		skip-at-startup
-	}
+hotkey-overlay {
+	/*
+	Skip the hotkey overlay shown on first launch.
+	Remove this line to re-enable the startup hint screen.
+	*/
+	skip-at-startup
+}

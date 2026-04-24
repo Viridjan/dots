@@ -14,8 +14,36 @@ input {
 			localectl set-x11-keymap.
 			*/
 			layout "us" // Use the American keyboard layout
+
+			/*
+			Keyboard variant — selects a sub-variant of the layout.
+			Common variants for "us":
+			  (empty)    — standard US layout
+			  "intl"     — US International: dead keys for accented characters.
+			               ' + e = é, " + u = ü, ` + a = à, ~ + n = ñ, etc.
+			               Apostrophe becomes a dead key; type ' + Space for a plain '.
+			  "alt-intl" — like "intl" but dead keys are on AltGr combos,
+			               so the apostrophe always types immediately.
+			  "dvorak"   — Dvorak layout
+			  "colemak"  — Colemak layout
+			  "mac"      — macOS-style US layout
+			Run `localectl list-x11-keymap-variants us` to see all available variants.
+			*/
+			variant "intl"
+
+			/*
+			XKB options — comma-separated list of extra tweaks.
+			Common examples:
+			  compose:ralt        — Right Alt as Compose key (universal accent input)
+			  compose:menu        — Menu key as Compose key
+			  ctrl:nocaps         — CapsLock becomes Ctrl
+			  ctrl:swapcaps       — Swap CapsLock and Ctrl
+			  grp:win_space_toggle — Super+Space switches layout group
+			  grp:alt_shift_toggle — Alt+Shift switches layout group
+			*/
+			// options "compose:ralt"
 		}
-        
+
 		/* Enable numlock on startup, omitting this setting disables it. */
         numlock
     }

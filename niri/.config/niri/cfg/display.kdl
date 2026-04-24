@@ -6,6 +6,11 @@ The built-in laptop monitor is usually called "eDP-1".
 Find more information on the wiki:
 https://niri-wm.github.io/niri/Configuration:-Outputs
 Remember to uncomment the node by removing "/-"!
+
+NOTE: This file is included but effectively overridden by dms/outputs.kdl,
+which DMS auto-generates and sets the full 165Hz + VRR config.
+Edit dms/outputs.kdl via `dms config` instead, or disable the DMS include
+in config.kdl if you want to manage outputs manually here.
 */
 
 output "DP-1" {

@@ -1,0 +1,10 @@
+# Fish runtime state
+fish/.config/fish/fish_history
+
+# Micro runtime state
+micro/.config/micro/backups/
+micro/.config/micro/buffers/
+
+# Ghostty backups
+ghostty/.config/ghostty/config.backup.*
+

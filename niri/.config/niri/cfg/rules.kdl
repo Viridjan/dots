@@ -1,28 +1,38 @@
 // ────────────── Window Rules ──────────────
-
 /*
 Window rules let you adjust behavior for individual windows.
 Find more information on the wiki:
 https://niri-wm.github.io/niri/Configuration:-Window-Rules
-Work around WezTerm's initial configure bug
-by setting an empty default-column-width.
+
+Matching:
+  match app-id="regex"   — matches the window's app-id (Wayland) or WM_CLASS (XWayland).
+  match title="regex"    — matches the window title. Both support full regex syntax.
+  match is-active=true   — only match the currently active (focused) window.
+  match is-floating=true — only match floating windows.
+  match at-startup=true  — only apply when the window first opens at niri startup.
+  Multiple match lines in the same rule are OR'd (any one match is enough).
+
+Rules apply in order — later rules override earlier ones for the same property.
 */
 
+/*
+Global rule — applies to every window.
+geometry-corner-radius rounds the corners of all windows (in logical pixels).
+clip-to-geometry clips window content to the rounded shape (prevents sharp corners bleeding through).
+default-column-width {} lets each app decide its own initial width (overridden per-app below).
+open-floating false ensures windows open tiled by default unless a more specific rule says otherwise.
+*/
 window-rule {
-	/*
-	This regular expression is intentionally made as specific as possible,
-	since this is the default config, and we want no false positives.
-	You can get away with just app-id="wezterm" if you want.
-	*/
-	
-	/* Set every window radius to 15 */
 	geometry-corner-radius 15
 	clip-to-geometry true
 	default-column-width {}
 	open-floating false
 }
 
-/* social workspace window rules */
+/*
+Social workspace — Discord and Ferdium open on the "social" workspace automatically.
+open-focused false prevents them from stealing focus when they open at startup.
+*/
 window-rule {
 	match title="Ferdium"
 	match title="Discord"
@@ -31,7 +41,10 @@ window-rule {
 	default-column-width { proportion 0.5; }
 }
 
-/* music workspace window rules */
+/*
+Media workspace — Spotify, Steam, and Dota 2 open on the "media" workspace.
+open-focused false keeps the focus on whatever you were doing when they launch.
+*/
 window-rule {
 	match title="Spotify"
 	match title="Steam"
@@ -41,7 +54,11 @@ window-rule {
 	default-column-width { proportion 0.5; }
 }
 
-/* common app config */
+/*
+Common apps — default to half the monitor width.
+app-id is used where apps set it reliably (GTK/Qt apps on Wayland);
+title is used as fallback for XWayland apps that don't set app-id.
+*/
 window-rule {
 	match title="Brave"
 	match title="Kitty"
@@ -53,6 +70,11 @@ window-rule {
 	default-column-width { proportion 0.5; }
 }
 
+/*
+Layer rule for the noctalia wallpaper layer.
+place-within-backdrop renders it behind all windows but above the desktop background.
+The namespace regex matches the layer surface name set by noctalia-wallpaper.
+*/
 layer-rule {
 	match namespace="^noctalia-wallpaper*"
 	place-within-backdrop true
