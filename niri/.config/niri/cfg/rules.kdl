@@ -63,7 +63,6 @@ window-rule {
 	match title="Brave"
 	match title="Kitty"
 	match title="Alacritty"
-	match title="Ghostty"
 	match app-id="firefox"
 	match app-id="whatsie"
 	match app-id="TelegramDesktop"

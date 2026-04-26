@@ -307,7 +307,7 @@
   "matugenTemplateZenBrowser": true,
   "matugenTemplateVesktop": true,
   "matugenTemplateEquibop": true,
-  "matugenTemplateGhostty": true,
+  "matugenTemplateGhostty": false,
   "matugenTemplateKitty": true,
   "matugenTemplateFoot": true,
   "matugenTemplateAlacritty": true,

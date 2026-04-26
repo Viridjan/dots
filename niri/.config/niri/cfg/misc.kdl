@@ -18,7 +18,7 @@ These are applied on top of niri's own environment at startup.
 */
 environment {
 	/*
-	Points libxkbcommon (used by Ghostty and other apps) to the compose/dead-key
+	Points libxkbcommon (used by Alacritty and other apps) to the compose/dead-key
 	table. Required because there is no en_GB.UTF-8 compose file on this system,
 	only en_US.UTF-8. Without this, dead keys (e.g. ' + e = é) do not work in
 	terminal emulators that process keys via libxkbcommon directly.
