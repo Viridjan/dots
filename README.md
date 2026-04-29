@@ -81,8 +81,6 @@ cd ~/dots && stow */
 |---|---|
 | `niri` | `~/.config/niri/` (cfg/ and dms/ subdirs, individual file symlinks) |
 | `fish` | `~/.config/fish/` |
-| `ghostty` | `~/.config/ghostty/` |
-| `DankMaterialShell` | `~/.config/DankMaterialShell/` |
 | `cava` | `~/.config/cava/` |
 | `gtk-3.0` | `~/.config/gtk-3.0/` |
 | `gtk-4.0` | `~/.config/gtk-4.0/` |
