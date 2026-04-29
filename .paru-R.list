@@ -1,1 +1,2 @@
-ghostty
+paru -R ghostty
+paru -R cachyos-niri-noctalia noctalia-qs noctalia-shell
