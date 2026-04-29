@@ -1,6 +1,6 @@
 # dots
 
-GNU Stow dotfiles for CachyOS + niri + DankMaterialShell.
+GNU Stow dotfiles for CachyOS + niri.
 
 ## Initial setup on a new device
 
