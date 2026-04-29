@@ -1,7 +1,6 @@
-brave
+firefox
 paru
 thunderbird
-kitty
 micro
 bitwarden
 vlc
@@ -17,7 +16,4 @@ xdg-desktop-portal-gtk
 xdg-desktop-portal-gnome
 alacritty
 swaybg
-swayidle
-swaylock
-xwayland-satellite
 udiskie
