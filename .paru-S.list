@@ -1,3 +1,3 @@
 pacman -S paru
 paru -S kimageformats cava cups-pk-helper khal dsearch-bin fprintd i2c-tool
-paru -S firefox thunderbird micro bitwarden vlc dolphin stow qbittorrent tree discord mako waybar xdg-desktop-portal-gtk xdg-desktop-portal-gnome alacritty swaybg udiskie libreoffice thunderbird bambustudio-bin xclicker zathura claude-code cachyos-gaming-meta protonup-qt gamescope goverlay Wine-CachyOS Proton-CachyOS spotify
+paru -S  thunderbird micro bitwarden vlc dolphin stow qbittorrent tree discord udiskie libreoffice thunderbird bambustudio-bin xclicker zathura claude-code cachyos-gaming-meta protonup-qt gamescope goverlay Wine-CachyOS Proton-CachyOS spotify
