@@ -1,6 +1,7 @@
 sudo pacman -S cachyos-gaming-meta protonup-qt gamescope goverlay
 sudo pacman -S paru kimageformats cava cups-pk-helper khal fprintd micro tree bitwarden stow
-sudo pacman -S thunderbird vlc qbittorrent discord udiskie libreoffice thunderbird zathura claude-code 
+sudo pacman -S thunderbird vlc qbittorrent discord udiskie libreoffice thunderbird zathura claude-code
+sudo pacman -S whatsie telegram
 paru dsearch-bin 
 paru i2c-tool
 paru spotify
