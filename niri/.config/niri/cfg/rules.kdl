@@ -1,0 +1,163 @@
+// ────────────── Window Rules ──────────────
+/*
+Window rules let you adjust behavior for individual windows.
+Find more information on the wiki:
+https://niri-wm.github.io/niri/Configuration:-Window-Rules
+
+Matching:
+  match app-id="regex"   — matches the window's app-id (Wayland) or WM_CLASS (XWayland).
+  match title="regex"    — matches the window title. Both support full regex syntax.
+  match is-active=true   — only match the currently active (focused) window.
+  match is-floating=true — only match floating windows.
+  match at-startup=true  — only apply when the window first opens at niri startup.
+  Multiple match lines in the same rule are OR'd (any one match is enough).
+
+Rules apply in order — later rules override earlier ones for the same property.
+*/
+
+/*
+Global rule — applies to every window.
+geometry-corner-radius rounds the corners of all windows (in logical pixels).
+clip-to-geometry clips window content to the rounded shape (prevents sharp corners bleeding through).
+default-column-width {} lets each app decide its own initial width (overridden per-app below).
+open-floating false ensures windows open tiled by default unless a more specific rule says otherwise.
+*/
+window-rule {
+	geometry-corner-radius 15
+	clip-to-geometry true
+	default-column-width {}
+	open-floating false
+}
+
+/*
+Social workspace — Discord and Ferdium open on the "social" workspace automatically.
+open-focused false prevents them from stealing focus when they open at startup.
+*/
+window-rule {
+	match title="Ferdium"
+	match title="Discord"
+	open-on-workspace "social"
+	open-focused false
+	default-column-width { proportion 0.5; }
+}
+
+/*
+Media workspace — Spotify, Steam, and Dota 2 open on the "media" workspace.
+open-focused false keeps the focus on whatever you were doing when they launch.
+*/
+window-rule {
+	match title="Spotify"
+	match title="Steam"
+	match title="Dota 2"
+	open-on-workspace "media"
+	open-focused false
+	default-column-width { proportion 0.5; }
+}
+
+/*
+Common apps — default to half the monitor width.
+app-id is used where apps set it reliably (GTK/Qt apps on Wayland);
+title is used as fallback for XWayland apps that don't set app-id.
+*/
+window-rule {
+	match title="Brave"
+	match title="Kitty"
+	match title="Alacritty"
+	match app-id="firefox"
+	match app-id="whatsie"
+	match app-id="TelegramDesktop"
+	default-column-width { proportion 0.5; }
+}
+
+/*
+Layer rule for the noctalia wallpaper layer.
+place-within-backdrop renders it behind all windows but above the desktop background.
+The namespace regex matches the layer surface name set by noctalia-wallpaper.
+*/
+layer-rule {
+	match namespace="^noctalia-wallpaper*"
+	place-within-backdrop true
+}
+
+
+/* The following is a list of all option available for window rules. */
+/*
+window-rule {
+    match title="Firefox"
+    match app-id="Alacritty"
+    match is-active=true
+    match is-focused=false
+    match is-active-in-column=true
+    match is-floating=true
+    match is-window-cast-target=true
+    match is-urgent=true
+    match at-startup=true
+
+    // Properties that apply once upon window opening.
+    default-column-width { proportion 0.75; }
+    default-window-height { fixed 500; }
+    open-on-output "Some Company CoolMonitor 1234"
+    open-on-workspace "chat"
+    open-maximized true
+    open-maximized-to-edges true
+    open-fullscreen true
+    open-floating true
+    open-focused false
+
+    // Properties that apply continuously.
+    draw-border-with-background false
+    opacity 0.5
+    block-out-from "screencast"
+    // block-out-from "screen-capture"
+    variable-refresh-rate true
+    default-column-display "tabbed"
+    default-floating-position x=100 y=200 relative-to="bottom-left"
+    scroll-factor 0.75
+
+    focus-ring {
+        // off
+        on
+        width 4
+        active-color "#7fc8ff"
+        inactive-color "#505050"
+        urgent-color "#9b0000"
+        // active-gradient from="#80c8ff" to="#bbddff" angle=45
+        // inactive-gradient from="#505050" to="#808080" angle=45 relative-to="workspace-view"
+        // urgent-gradient from="#800" to="#a33" angle=45
+    }
+
+    border {
+        // Same as focus-ring.
+    }
+
+    shadow {
+        // on
+        off
+        softness 40
+        spread 5
+        offset x=0 y=5
+        draw-behind-window true
+        color "#00000064"
+        // inactive-color "#00000064"
+    }
+
+    tab-indicator {
+        active-color "red"
+        inactive-color "gray"
+        urgent-color "blue"
+        // active-gradient from="#80c8ff" to="#bbddff" angle=45
+        // inactive-gradient from="#505050" to="#808080" angle=45 relative-to="workspace-view"
+        // urgent-gradient from="#800" to="#a33" angle=45
+    }
+
+    geometry-corner-radius 12
+    clip-to-geometry true
+    tiled-state true
+    baba-is-float true
+
+    min-width 100
+    max-width 200
+    min-height 300
+    max-height 300
+}
+*/
