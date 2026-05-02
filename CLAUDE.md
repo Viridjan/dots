@@ -24,11 +24,6 @@ The `niri` package uses **file-level symlinks** — the `cfg/` and `dms/` direct
 are real, but individual `.kdl` files are symlinked. All other packages use
 directory-level symlinks.
 
-**Exception:** `~/.config/niri/dms/` is currently NOT stow-managed (real files,
-not symlinks). Edits must be made directly in `~/.config/niri/dms/` and then
-mirrored to `dots/niri/.config/niri/dms/` manually, or stow should be set up
-for it (see below).
-
 ## Niri config structure
 
 ```
