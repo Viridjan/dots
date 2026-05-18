@@ -54,6 +54,22 @@ cd ~/Projects/Open_notebook && docker compose up -d
 
 ---
 
+## Claude Code
+
+Always open Claude Code from `~/Projects`, not from `~/dots`:
+
+```bash
+cd ~/Projects && claude
+```
+
+Memory and project context are scoped to the working directory at launch.
+Opening from `~/dots` creates a separate scope — prior conversation context
+and memory won't load.
+
+When working on dots inside a Claude session, just `cd ~/dots` from within it.
+
+---
+
 ## Re-applying dotfiles (existing machine)
 
 After pulling new changes from this repo:
