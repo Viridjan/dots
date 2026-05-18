@@ -1,0 +1,8 @@
+# Desktop-specific packages — AMD RX 6700 XT + i5-13400F tower
+# Feed to paru: grep -v '^#' .paru-S-desktop.list | grep -v '^$' | xargs paru -S --needed
+
+# AMD GPU drivers (Wayland — xf86-video-amdgpu not needed)
+vulkan-radeon
+lib32-vulkan-radeon
+opencl-mesa
+lib32-opencl-mesa

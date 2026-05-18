@@ -1,0 +1,43 @@
+# Common packages — installed on both desktop and surface
+# Feed to paru: grep -v '^#' .paru-S-common.list | grep -v '^$' | xargs paru -S --needed
+
+# Gaming
+cachyos-gaming-meta
+protonup-qt
+gamescope
+goverlay
+wine-cachyos
+proton-cachyos
+
+# System tools
+kimageformats
+cava
+cups-pk-helper
+khal
+fprintd
+micro
+tree
+bitwarden
+stow
+i2c-tools
+
+# Applications
+thunderbird
+vlc
+qbittorrent
+discord
+udiskie
+libreoffice-fresh
+zathura
+
+# AUR
+dsearch-bin
+spotify
+bambustudio-appimage
+xclicker
+whatsie
+telegram-desktop
+claude-code
+
+# Optional — file manager
+dolphin

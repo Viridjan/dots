@@ -1,0 +1,12 @@
+# Flatpak apps — both machines
+# Feed to flatpak: while read -r app; do flatpak install -y flathub "$app"; done < .flatpak-S.list
+
+# Emulators
+app.xemu.xemu
+com.supermodel3.Supermodel
+io.github.shiiion.primehack
+net.kuribo64.melonDS
+org.DolphinEmu.dolphin-emu
+org.libretro.RetroArch
+org.ppsspp.PPSSPP
+org.scummvm.ScummVM

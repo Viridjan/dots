@@ -1,0 +1,34 @@
+# Surface Pro 9 packages — Intel 12th gen + Iris Xe
+# Feed to paru: grep -v '^#' .paru-S-surface.list | grep -v '^$' | xargs paru -S --needed
+#
+# NOTE: linux-surface requires the linux-surface repo or AUR build.
+# Secure Boot key enrollment needed for linux-surface kernel — see INSTALL.md.
+
+# Surface kernel (AUR — includes all surface patches: WiFi, touchscreen, pen, camera)
+linux-surface
+linux-surface-headers
+
+# Touchscreen daemon (requires linux-surface kernel)
+iptsd
+
+# Surface hardware control (Fn keys, performance mode, battery limit)
+surface-control
+
+# Accelerometer / auto-rotate support
+iio-sensor-proxy
+
+# Surface Pen (Wacom protocol)
+libwacom
+
+# Power management
+tlp
+tlp-rdw
+
+# Backlight control (niri keybinds)
+brightnessctl
+
+# Intel Iris Xe GPU drivers
+vulkan-intel
+lib32-vulkan-intel
+intel-media-driver
+intel-compute-runtime

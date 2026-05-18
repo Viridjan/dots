@@ -1,0 +1,11 @@
+// ────────────── Surface Pro 9 Display ──────────────
+// 2880x1920 internal panel at 60 Hz.
+// Scale 1.5 gives 1920x1280 logical resolution — comfortable at arm's length.
+// Adjust scale to 2.0 (1440x960) if text is too small, or 1.25 if too large.
+
+output "eDP-1" {
+    mode "2880x1920@60.000"
+    scale 1.5
+    transform "normal"
+    position x=0 y=0
+}

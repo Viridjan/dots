@@ -1,0 +1,35 @@
+// ────────────── Surface Pro 9 Input ──────────────
+// https://github.com/YaLTeR/niri/wiki/Configuration:-Input
+// Optimised for Surface Pro 9: Type Cover, touchscreen, and Surface Pen.
+
+input {
+    keyboard {
+        xkb {
+            layout "us"
+            variant "intl"
+        }
+        // numlock off — no numpad on Type Cover
+    }
+
+    touchpad {
+        tap
+        dwt                          // disable while typing
+        natural-scroll
+        scroll-method "two-finger"
+        accel-speed 0.1
+    }
+
+    // Map touchscreen events to the internal display
+    touch {
+        map-to-output "eDP-1"
+    }
+
+    // Surface Pen (Wacom protocol tablet)
+    tablet {
+        map-to-output "eDP-1"
+    }
+
+    mouse {
+        natural-scroll false
+    }
+}

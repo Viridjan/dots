@@ -1,3 +1,39 @@
+# Discord runtime state (app binaries, cache, cookies — not user config)
+discord/.config/discord/[0-9]*/
+discord/.config/discord/app-*/
+discord/.config/discord/Cache/
+discord/.config/discord/Code Cache/
+discord/.config/discord/Crashpad/
+discord/.config/discord/GPUCache/
+discord/.config/discord/Local Storage/
+discord/.config/discord/Service Worker/
+discord/.config/discord/Session Storage/
+discord/.config/discord/Shared Dictionary/
+discord/.config/discord/SharedStorage
+discord/.config/discord/SharedStorage-wal
+discord/.config/discord/DawnGraphiteCache/
+discord/.config/discord/DawnWebGPUCache/
+discord/.config/discord/VideoDecodeStats/
+discord/.config/discord/WebStorage/
+discord/.config/discord/Dictionaries/
+discord/.config/discord/Cookies
+discord/.config/discord/Cookies-journal
+discord/.config/discord/DIPS
+discord/.config/discord/DIPS-wal
+discord/.config/discord/Discord
+discord/.config/discord/Preferences
+discord/.config/discord/TransportSecurity
+discord/.config/discord/Trust Tokens
+discord/.config/discord/Trust Tokens-journal
+discord/.config/discord/Network Persistent State
+discord/.config/discord/SingletonCookie
+discord/.config/discord/SingletonLock
+discord/.config/discord/SingletonSocket
+discord/.config/discord/installer.db
+discord/.config/discord/logs/
+discord/.config/discord/discord_asset_cache/
+discord/.config/discord/.org.chromium.Chromium.*
+
 # Fish runtime state
 fish/.config/fish/fish_history
 
@@ -7,4 +43,19 @@ micro/.config/micro/buffers/
 
 # Ghostty backups
 ghostty/.config/ghostty/config.backup.*
+
+# Claude Code — credentials and runtime state (never commit)
+claude/.claude/.credentials.json
+claude/.claude/settings.local.json
+claude/.claude/history.jsonl
+claude/.claude/cache/
+claude/.claude/sessions/
+claude/.claude/backups/
+claude/.claude/file-history/
+claude/.claude/shell-snapshots/
+claude/.claude/tasks/
+claude/.claude/plans/
+claude/.claude/.caveman-active
+claude/.claude/.caveman-history.jsonl
+claude/.claude/.caveman-statusline-suffix
 
