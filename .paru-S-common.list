@@ -39,5 +39,9 @@ whatsie
 telegram-desktop
 claude-code
 
+# Containers (Open Notebook)
+docker
+docker-compose
+
 # Optional — file manager
 dolphin

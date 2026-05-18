@@ -80,7 +80,6 @@ install_packages() {
 # ─── Phase 4: Dotfiles ───────────────────────────────────
 COMMON_STOW_PKGS=(
     alacritty
-    cava
     discord
     DankMaterialShell
     fish
@@ -92,6 +91,7 @@ COMMON_STOW_PKGS=(
     paru
     qt5ct
     qt6ct
+    scripts
     VSCodium
 )
 
@@ -163,6 +163,7 @@ enable_services() {
     _enable "snapper-timeline.timer"
     _enable "snapper-cleanup.timer"
     _enable sddm
+    _enable docker
 
     if [[ "$MACHINE" == surface ]]; then
         info "Enabling Surface-specific services..."
@@ -200,30 +201,34 @@ print_manual_steps() {
     echo -e "${YEL}  Manual steps required after this script   ${NC}"
     echo -e "${YEL}════════════════════════════════════════════${NC}"
     echo ""
-    echo "  1. SSH key:"
+    echo "  1. Git identity:"
+    echo "       git config --global user.name 'Viridjan'"
+    echo "       git config --global user.email 'viridjan@users.noreply.github.com'"
+    echo ""
+    echo "  2. SSH key:"
     echo "       ssh-keygen -t ed25519 -C viridjan"
     echo "       # Add ~/.ssh/id_ed25519.pub to GitHub"
     echo ""
-    echo "  2. Fingerprint (if fprintd is installed):"
+    echo "  3. Fingerprint (if fprintd is installed):"
     echo "       fprintd-enroll"
     echo ""
-    echo "  3. DankMaterialShell init (required before starting niri):"
+    echo "  4. DankMaterialShell init (required before starting niri):"
     echo "       dms setup"
     echo "       # This generates ~/.config/niri/dms/*.kdl"
     echo "       # Without it niri will fail to start (missing dms includes)"
     echo ""
-    echo "  4. Bitwarden: log in via the app or browser extension"
+    echo "  5. Bitwarden: log in via the app or browser extension"
     echo ""
-    echo "  5. YubiKey: set PIN if not already configured"
+    echo "  6. YubiKey: set PIN if not already configured"
     echo "       ykman fido access change-pin"
     echo ""
     if [[ "${MACHINE:-}" == surface ]]; then
-        echo "  6. Surface Secure Boot:"
+        echo "  7. Surface Secure Boot:"
         echo "       # Enroll linux-surface MOK key to allow the kernel to boot"
         echo "       # Follow: https://github.com/linux-surface/linux-surface/wiki/Installation-and-Setup"
         echo ""
     fi
-    echo "  7. Open Notebook (if needed):"
+    echo "  8. Open Notebook (if needed):"
     echo "       cd ~/Projects/Open_notebook && docker compose up -d"
     echo ""
     echo -e "${GRN}  Bootstrap complete for: $MACHINE${NC}"
