@@ -33,6 +33,10 @@ discord/.config/discord/installer.db
 discord/.config/discord/logs/
 discord/.config/discord/discord_asset_cache/
 discord/.config/discord/.org.chromium.Chromium.*
+discord/.config/discord/module_data/
+discord/.config/discord/sentry/
+discord/.config/discord/shared_proto_db/
+discord/.config/discord/quotes.json
 
 # Fish runtime state
 fish/.config/fish/fish_history
