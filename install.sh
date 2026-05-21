@@ -194,7 +194,25 @@ setup_claude() {
         || warn "superpowers plugin install failed — run manually: claude plugin add superpowers@claude-plugins-official"
 }
 
-# ─── Phase 8: Summary ────────────────────────────────────
+# ─── Phase 8: Projects ───────────────────────────────────
+clone_projects() {
+    local list="$DOTS_DIR/projects.list"
+    [[ -f "$list" ]] || { warn "projects.list not found — skipping"; return; }
+
+    info "Cloning projects into ~/Projects/..."
+    mkdir -p "$HOME/Projects"
+    while IFS= read -r repo; do
+        [[ -z "$repo" || "$repo" == \#* ]] && continue
+        local name; name=$(basename "$repo" .git)
+        if [[ -d "$HOME/Projects/$name" ]]; then
+            ok "already exists: $name"
+        else
+            git clone "$repo" "$HOME/Projects/$name" && ok "cloned: $name" || warn "failed: $repo"
+        fi
+    done < "$list"
+}
+
+# ─── Phase 9: Summary ────────────────────────────────────
 print_manual_steps() {
     echo ""
     echo -e "${YEL}════════════════════════════════════════════${NC}"
@@ -250,6 +268,7 @@ main() {
     install_flatpaks
     enable_services
     setup_claude
+    clone_projects
     print_manual_steps
 }
 
