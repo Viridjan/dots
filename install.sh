@@ -55,6 +55,17 @@ install_paru() {
     ok "paru installed"
 }
 
+# ─── Phase 2b: Keyrings ──────────────────────────────────
+reset_keyrings() {
+    info "Resetting pacman keyrings..."
+    sudo rm -rf /etc/pacman.d/gnupg/
+    sudo pacman-key --init
+    sudo pacman-key --populate
+    sudo pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com
+    sudo pacman-key --lsign-key F3B607488DB35A47
+    ok "Keyrings reset"
+}
+
 # ─── Phase 3: Packages ───────────────────────────────────
 _pkg_list() {
     # Read a package list file, stripping comments and blanks
@@ -159,6 +170,7 @@ enable_services() {
     _enable bpftune
     _enable ananicy-cpp
     _enable "dmemcg-booster-system"
+    _enable systemd-oomd
     _enable power-profiles-daemon
     _enable "snapper-timeline.timer"
     _enable "snapper-cleanup.timer"
@@ -171,6 +183,9 @@ enable_services() {
         _enable tlp
         _enable iio-sensor-proxy
     fi
+
+    # psd is a user service
+    systemctl --user enable --now psd 2>/dev/null && ok "enabled: psd (user)" || warn "skipped (not found): psd"
 
     ok "Services done"
 }
@@ -249,6 +264,9 @@ print_manual_steps() {
     echo "  8. Open Notebook (if needed):"
     echo "       cd ~/Projects/Open_notebook && docker compose up -d"
     echo ""
+    echo "  9. Maintenance (db lock, cache, orphans):"
+    echo "       maint"
+    echo ""
     echo -e "${GRN}  Bootstrap complete for: $MACHINE${NC}"
     echo ""
 }
@@ -263,6 +281,7 @@ main() {
 
     detect_machine
     install_paru
+    reset_keyrings
     install_packages
     deploy_dotfiles
     install_flatpaks

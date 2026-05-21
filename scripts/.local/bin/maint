@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Quick maintenance: db lock, package cache, orphans
+set -euo pipefail
+
+RED='\033[0;31m'; YEL='\033[0;33m'; GRN='\033[0;32m'; BLU='\033[0;34m'; NC='\033[0m'
+info() { echo -e "${BLU}==> $*${NC}"; }
+ok()   { echo -e "${GRN} ✓  $*${NC}"; }
+warn() { echo -e "${YEL}[!] $*${NC}"; }
+
+remove_db_lock() {
+    local lock=/var/lib/pacman/db.lck
+    if [[ -f "$lock" ]]; then
+        info "Removing pacman db lock..."
+        sudo rm -f "$lock"
+        ok "Lock removed"
+    else
+        ok "No db lock found"
+    fi
+}
+
+clear_cache() {
+    info "Clearing package cache..."
+    paru -Sc --noconfirm
+    ok "Cache cleared"
+}
+
+remove_orphans() {
+    info "Checking for orphaned packages..."
+    local orphans
+    orphans=$(pacman -Qtdq 2>/dev/null || true)
+    if [[ -z "$orphans" ]]; then
+        ok "No orphans found"
+        return
+    fi
+    echo "$orphans"
+    read -rp "Remove the above orphans? [y/N]: " confirm
+    [[ "$confirm" =~ ^[Yy]$ ]] || { warn "Skipped"; return; }
+    echo "$orphans" | sudo pacman -Rns -
+    ok "Orphans removed"
+}
+
+remove_db_lock
+clear_cache
+remove_orphans

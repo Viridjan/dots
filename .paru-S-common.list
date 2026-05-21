@@ -3,6 +3,7 @@
 
 # Gaming
 cachyos-gaming-meta
+cachyos-gaming-applications
 protonup-qt
 gamescope
 goverlay
@@ -20,6 +21,9 @@ tree
 bitwarden
 stow
 i2c-tools
+profile-sync-daemon
+dmemcg-booster
+plasma-foreground-booster
 
 # Applications
 thunderbird
