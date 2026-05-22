@@ -123,8 +123,22 @@ check_foreign_orphans() {
     fi
 }
 
+_swap_pkg() {
+    local old="$1" new="$2"
+    if pacman -Qi "$old" &>/dev/null; then
+        echo "Swapping $old → $new..."
+        sudo -u "$SUDO_USER" paru -Rdd --noconfirm "$old" 2>/dev/null || true
+        sudo -u "$SUDO_USER" paru -S --needed --noconfirm "$new"
+        echo "Swapped: $old → $new"
+    fi
+}
+
 perform_update() {
     print_section "Performing update..."
+
+    # Swap known broken/replaced packages before update
+    _swap_pkg spotify            spotify-launcher
+    _swap_pkg libreoffice-fresh  libreoffice-still
 
     # Refresh mirrors (rate-mirrors bundled with CachyOS)
     if command -v rate-mirrors &>/dev/null; then
