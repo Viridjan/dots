@@ -1,12 +1,23 @@
 #!/bin/bash
 set -euo pipefail
 
-# Re-execute as root if not already
+# Re-execute as root if not already, preserving the calling user
 if [[ $EUID -ne 0 ]]; then
-    exec sudo "$0" "$@"
+    exec sudo VJUPD_USER="$USER" "$0" "$@"
 fi
 
-USER_HOME="/home/$SUDO_USER"
+REAL_USER="${VJUPD_USER:-${SUDO_USER:-root}}"
+USER_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
+STAMP_DIR="/var/lib/vjupd"
+mkdir -p "$STAMP_DIR"
+
+_needs_run() {
+    local stamp="$STAMP_DIR/$1"
+    [[ ! -f "$stamp" ]] && return 0
+    local age=$(( $(date +%s) - $(date -r "$stamp" +%s) ))
+    (( age > 172800 ))
+}
+_mark_done() { touch "$STAMP_DIR/$1"; }
 
 # Action flags
 DO_CLEAN=false
@@ -140,14 +151,19 @@ perform_update() {
     _swap_pkg spotify            spotify-launcher
     _swap_pkg libreoffice-fresh  libreoffice-still
 
-    # Refresh mirrors (rate-mirrors bundled with CachyOS)
+    # Refresh mirrors (rate-mirrors bundled with CachyOS) — gated to 48h
     if command -v rate-mirrors &>/dev/null; then
-        echo "Refreshing mirrors..."
-        rate-mirrors --allow-root --protocol https cachyos \
-            | tee /etc/pacman.d/cachyos-mirrorlist > /dev/null
-        rate-mirrors --allow-root --protocol https arch \
-            | tee /etc/pacman.d/mirrorlist > /dev/null
-        echo "Mirrors refreshed."
+        if _needs_run mirrors; then
+            echo "Refreshing mirrors..."
+            rate-mirrors --allow-root --protocol https cachyos \
+                | tee /etc/pacman.d/cachyos-mirrorlist > /dev/null || true
+            rate-mirrors --allow-root --protocol https arch \
+                | tee /etc/pacman.d/mirrorlist > /dev/null || true
+            _mark_done mirrors
+            echo "Mirrors refreshed."
+        else
+            echo "Mirror refresh skipped (< 48h ago)."
+        fi
     fi
 
     if $USE_PACMAN; then

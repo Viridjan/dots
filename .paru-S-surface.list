@@ -31,6 +31,9 @@ brightnessctl
 # NVMe management
 nvme-cli
 
+# Firmware updates (Microsoft ships Surface firmware via LVFS)
+fwupd
+
 # Intel Iris Xe GPU drivers
 vulkan-intel
 lib32-vulkan-intel

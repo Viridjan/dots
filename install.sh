@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────
-# dots/install.sh — fresh-install bootstrap for CachyOS
+# dots/install.sh — bootstrap + maintenance for CachyOS
 # Supports: desktop (tower) and surface (Surface Pro 9)
 #
 # Usage:
-#   git clone git@github.com:Viridjan/dots.git ~/dots
-#   cd ~/dots && bash install.sh
-#
-# Safe to re-run on an already-configured machine.
+#   bash install.sh              # full bootstrap
+#   bash install.sh --update     # system update + maintenance
+#   bash install.sh --help
 # ─────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -304,6 +303,93 @@ clone_projects() {
     done < "$list"
 }
 
+# ─── Maintenance: swap broken packages ───────────────────
+_swap_pkg() {
+    local old="$1" new="$2"
+    if pacman -Qi "$old" &>/dev/null; then
+        info "Swapping $old → $new..."
+        sudo pacman -Rdd --noconfirm "$old" 2>/dev/null || true
+        paru -S --needed --noconfirm "$new"
+        ok "swapped: $old → $new"
+    fi
+}
+
+# ─── Maintenance: system update ──────────────────────────
+system_update() {
+    info "Swapping known broken/replaced packages..."
+    _swap_pkg spotify            spotify-launcher
+    _swap_pkg libreoffice-fresh  libreoffice-still
+
+    refresh_mirrors
+
+    info "Updating all packages..."
+    paru -Syuu --noconfirm
+    ok "System up to date"
+}
+
+# ─── Maintenance: cache cleanup ──────────────────────────
+clean_caches() {
+    info "Cleaning package caches..."
+    sudo paccache -rk2
+    sudo paccache -ruk0
+    rm -rf "$HOME/.cache/paru/clone"
+    ok "Caches cleaned"
+}
+
+# ─── Maintenance: orphan removal ─────────────────────────
+remove_orphans() {
+    info "Checking for orphaned packages..."
+    local orphans
+    orphans=$(paru -Qdtq 2>/dev/null || true)
+    if [[ -z "$orphans" ]]; then
+        ok "No orphans found"
+        return
+    fi
+    echo "$orphans"
+    read -rp "Remove the above orphans? [y/N]: " confirm
+    [[ "$confirm" =~ ^[Yy]$ ]] || { warn "Skipped"; return; }
+    echo "$orphans" | sudo pacman -Rns -
+    ok "Orphans removed"
+}
+
+# ─── Maintenance: rebuild check ──────────────────────────
+check_rebuilds() {
+    if ! command -v checkrebuild &>/dev/null; then
+        warn "checkrebuild not found — install rebuild-detector"
+        return
+    fi
+    info "Checking for packages needing rebuild..."
+    local out
+    out=$(checkrebuild 2>/dev/null || true)
+    if [[ -z "$out" ]]; then
+        ok "No rebuilds needed"
+    else
+        warn "Packages needing rebuild:"
+        echo "$out"
+    fi
+}
+
+# ─── Maintenance: pacnew files ───────────────────────────
+check_pacnew() {
+    info "Checking for pacnew files..."
+    if command -v pacdiff &>/dev/null; then
+        pacdiff -o || true
+    else
+        warn "pacdiff not found — install pacman-contrib"
+    fi
+}
+
+# ─── Maintenance: firmware updates ───────────────────────
+check_firmware() {
+    if ! command -v fwupdmgr &>/dev/null; then
+        warn "fwupdmgr not found — install fwupd"
+        return
+    fi
+    info "Checking firmware updates..."
+    fwupdmgr refresh --force 2>/dev/null || true
+    fwupdmgr get-updates 2>/dev/null || ok "No firmware updates available"
+}
+
 # ─── Phase 9: Summary ────────────────────────────────────
 print_manual_steps() {
     echo ""
@@ -341,15 +427,15 @@ print_manual_steps() {
     echo "  8. Open Notebook (if needed):"
     echo "       cd ~/Projects/Open_notebook && docker compose up -d"
     echo ""
-    echo "  9. Maintenance (db lock, cache, orphans):"
-    echo "       maint"
+    echo "  9. Maintenance (update, cache, orphans):"
+    echo "       bash ~/Projects/dots/install.sh --update"
     echo ""
     echo -e "${GRN}  Bootstrap complete for: $MACHINE${NC}"
     echo ""
 }
 
 # ─── Main ────────────────────────────────────────────────
-main() {
+bootstrap() {
     echo ""
     echo -e "${BLU}╔═════════════════════════════════════╗${NC}"
     echo -e "${BLU}║   dots/install.sh — CachyOS setup   ║${NC}"
@@ -370,4 +456,32 @@ main() {
     print_manual_steps
 }
 
-main "$@"
+maintenance() {
+    echo ""
+    echo -e "${BLU}╔═════════════════════════════════════╗${NC}"
+    echo -e "${BLU}║   dots/install.sh — maintenance     ║${NC}"
+    echo -e "${BLU}╚═════════════════════════════════════╝${NC}"
+    echo ""
+
+    system_update
+    clean_caches
+    remove_orphans
+    check_rebuilds
+    check_pacnew
+    check_firmware
+}
+
+usage() {
+    echo "Usage: bash install.sh [--update | --help]"
+    echo ""
+    echo "  (no args)   Full bootstrap: packages, dotfiles, services"
+    echo "  --update    Maintenance: update, clean caches, orphans, rebuilds"
+    echo "  --help      Show this message"
+}
+
+case "${1:-}" in
+    --update|-u) maintenance ;;
+    --help|-h)   usage ;;
+    "")          bootstrap ;;
+    *)           die "Unknown option: $1. Use --help." ;;
+esac

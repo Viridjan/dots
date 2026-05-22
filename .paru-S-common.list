@@ -53,6 +53,8 @@ discord
 udiskie
 libreoffice-still
 zathura
+zathura-pdf-poppler
+poppler-glib
 
 # AUR
 dsearch-bin
