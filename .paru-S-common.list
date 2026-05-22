@@ -25,6 +25,11 @@ profile-sync-daemon
 dmemcg-booster
 plasma-foreground-booster
 
+# Btrfs snapshots
+snapper
+snap-pac
+btrfs-assistant
+
 # Applications
 thunderbird
 vlc

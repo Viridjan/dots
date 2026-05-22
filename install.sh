@@ -190,7 +190,17 @@ enable_services() {
     ok "Services done"
 }
 
-# ─── Phase 7: Claude Code ────────────────────────────────
+# ─── Phase 7: Snapper ────────────────────────────────────
+setup_snapper() {
+    info "Configuring snapper..."
+    if [[ ! -f /etc/snapper/configs/root ]]; then
+        sudo snapper -c root create-config / && ok "snapper: root config created"
+    else
+        ok "snapper: root config already exists"
+    fi
+}
+
+# ─── Phase 8: Claude Code ────────────────────────────────
 setup_claude() {
     if ! command -v claude &>/dev/null; then
         warn "claude-code not in PATH — skipping plugin setup"
@@ -286,6 +296,7 @@ main() {
     deploy_dotfiles
     install_flatpaks
     enable_services
+    setup_snapper
     setup_claude
     clone_projects
     print_manual_steps
