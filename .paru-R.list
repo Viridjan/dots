@@ -1,2 +1,7 @@
-paru -R ghostty
-paru -R cachyos-niri-noctalia noctalia-qs noctalia-shell
+libreoffice-fresh
+bambustudio-appimage
+ghostty
+cachyos-niri-noctalia
+noctalia-qs
+noctalia-shell
+wine

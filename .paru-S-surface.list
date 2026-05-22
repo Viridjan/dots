@@ -23,9 +23,13 @@ libwacom
 # Power management
 tlp
 tlp-rdw
+thermald
 
 # Backlight control (niri keybinds)
 brightnessctl
+
+# NVMe management
+nvme-cli
 
 # Intel Iris Xe GPU drivers
 vulkan-intel

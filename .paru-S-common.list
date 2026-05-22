@@ -10,6 +10,21 @@ goverlay
 wine-cachyos
 proton-cachyos
 
+# Graphics (CachyOS repo mesa is already optimized)
+mesa
+lib32-mesa
+
+# Wayland / niri desktop stack
+xwayland-satellite
+xdg-desktop-portal-gtk
+xdg-desktop-portal-gnome
+gnome-keyring
+polkit-kde-agent
+cliphist
+wl-clipboard
+matugen
+qt6-multimedia-ffmpeg
+
 # System tools
 kimageformats
 cava
@@ -36,13 +51,13 @@ vlc
 qbittorrent
 discord
 udiskie
-libreoffice-fresh
+libreoffice-still
 zathura
 
 # AUR
 dsearch-bin
-spotify
-bambustudio-appimage
+spotify-launcher
+orca-bambustudio-appimage
 xclicker
 whatsie
 telegram-desktop

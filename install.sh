@@ -18,25 +18,36 @@ warn()  { echo -e "${YEL}[!] $*${NC}"; }
 die()   { echo -e "${RED}[✗] $*${NC}" >&2; exit 1; }
 
 DOTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+STAMP_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/dots"
+mkdir -p "$STAMP_DIR"
+
+# Returns 0 (run it) if stamp is absent or older than 48h, else 1 (skip).
+_needs_run() {
+    local stamp="$STAMP_DIR/$1"
+    [[ ! -f "$stamp" ]] && return 0
+    local age=$(( $(date +%s) - $(date -r "$stamp" +%s) ))
+    (( age > 172800 ))
+}
+_mark_done() { touch "$STAMP_DIR/$1"; }
 
 # ─── Phase 1: Machine detection ──────────────────────────
 detect_machine() {
     local h; h=$(hostname)
-    case "$h" in
-        desktop) MACHINE="desktop" ;;
-        surface) MACHINE="surface" ;;
-        *)
-            warn "Hostname '$h' is not 'desktop' or 'surface'."
-            echo "Set hostname first:  sudo hostnamectl set-hostname desktop"
-            echo "                 or: sudo hostnamectl set-hostname surface"
-            echo ""
-            read -rp "Continue anyway with which profile? [desktop/surface/abort]: " choice
-            case "$choice" in
-                desktop|surface) MACHINE="$choice" ;;
-                *) die "Aborted." ;;
-            esac
-            ;;
-    esac
+    if [[ "$h" == *desktop* ]]; then
+        MACHINE="desktop"
+    elif [[ "$h" == *surface* ]]; then
+        MACHINE="surface"
+    else
+        warn "Hostname '$h' contains neither 'desktop' nor 'surface'."
+        echo "Set hostname first:  sudo hostnamectl set-hostname desktop"
+        echo "                 or: sudo hostnamectl set-hostname surface"
+        echo ""
+        read -rp "Continue anyway with which profile? [desktop/surface/abort]: " choice
+        case "$choice" in
+            desktop|surface) MACHINE="$choice" ;;
+            *) die "Aborted." ;;
+        esac
+    fi
     ok "Machine profile: $MACHINE"
 }
 
@@ -57,32 +68,88 @@ install_paru() {
 
 # ─── Phase 2b: Keyrings ──────────────────────────────────
 reset_keyrings() {
+    if ! _needs_run keyrings; then
+        ok "Keyrings reset skipped (< 48h ago)"
+        return
+    fi
     info "Resetting pacman keyrings..."
     sudo rm -rf /etc/pacman.d/gnupg/
     sudo pacman-key --init
     sudo pacman-key --populate
     sudo pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com
     sudo pacman-key --lsign-key F3B607488DB35A47
+    if [[ "${MACHINE:-}" == surface ]]; then
+        sudo pacman-key --recv-keys 87DEFA4AB94A99A4C8C3112556C464BAAC421453 --keyserver keyserver.ubuntu.com
+        sudo pacman-key --lsign-key 87DEFA4AB94A99A4C8C3112556C464BAAC421453
+        ok "linux-surface key imported"
+    fi
+    _mark_done keyrings
     ok "Keyrings reset"
 }
 
 # ─── Phase 3: Packages ───────────────────────────────────
 _pkg_list() {
-    # Read a package list file, stripping comments and blanks
     grep -v '^#' "$1" | grep -v '^$'
 }
 
+_install_list() {
+    local list="$1" to_install=()
+    while IFS= read -r pkg; do
+        if pacman -Qi "$pkg" &>/dev/null; then
+            ok "up to date: $pkg"
+        else
+            to_install+=("$pkg")
+        fi
+    done < <(_pkg_list "$list")
+    if [[ ${#to_install[@]} -gt 0 ]]; then
+        paru -S --needed --noconfirm "${to_install[@]}"
+    fi
+}
+
+refresh_mirrors() {
+    if ! _needs_run mirrors; then
+        ok "Mirror refresh skipped (< 48h ago)"
+        return
+    fi
+    info "Refreshing mirrors..."
+    sudo cachyos-rate-mirrors 2>/dev/null \
+        || sudo rate-mirrors --save /etc/pacman.d/cachyos-mirrorlist cachyos 2>/dev/null \
+        || warn "Mirror refresh failed — continuing with existing mirrors"
+    sudo pacman -Syy
+    _mark_done mirrors
+    ok "Mirrors refreshed"
+}
+
 install_packages() {
-    info "Installing common packages..."
-    _pkg_list "$DOTS_DIR/.paru-S-common.list" | xargs paru -S --needed --noconfirm
-
-    info "Installing $MACHINE-specific packages..."
-    _pkg_list "$DOTS_DIR/.paru-S-${MACHINE}.list" | xargs paru -S --needed --noconfirm
-
-    # Remove unwanted packages (ignore errors — may not be installed)
+    # Force-remove known conflicting packages before installing.
+    # -Rdd skips dep checks so replacements (e.g. wine→wine-cachyos) don't block.
     if [[ -f "$DOTS_DIR/.paru-R.list" ]]; then
         info "Removing flagged packages..."
-        _pkg_list "$DOTS_DIR/.paru-R.list" | xargs paru -R --noconfirm 2>/dev/null || true
+        while IFS= read -r pkg; do
+            local out
+            out=$(sudo pacman -Rdd --noconfirm "$pkg" 2>&1)
+            if [[ $? -eq 0 ]]; then
+                ok "removed: $pkg"
+            elif echo "$out" | grep -q "target not found"; then
+                ok "not installed, skipping: $pkg"
+            else
+                warn "failed to remove: $pkg — $out"
+            fi
+        done < <(_pkg_list "$DOTS_DIR/.paru-R.list")
+    fi
+
+    _do_install() {
+        info "Installing common packages..."
+        _install_list "$DOTS_DIR/.paru-S-common.list" || return 1
+        info "Installing $MACHINE-specific packages..."
+        _install_list "$DOTS_DIR/.paru-S-${MACHINE}.list" || return 1
+    }
+
+    if ! _do_install; then
+        warn "Install failed — forcing mirror refresh and retrying..."
+        rm -f "$STAMP_DIR/mirrors"
+        refresh_mirrors
+        _do_install || die "Package install failed after mirror refresh."
     fi
 
     ok "Packages done"
@@ -182,6 +249,7 @@ enable_services() {
         _enable iptsd
         _enable tlp
         _enable iio-sensor-proxy
+        _enable thermald
     fi
 
     # psd is a user service
@@ -292,6 +360,7 @@ main() {
     detect_machine
     install_paru
     reset_keyrings
+    refresh_mirrors
     install_packages
     deploy_dotfiles
     install_flatpaks
