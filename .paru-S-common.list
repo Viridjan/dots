@@ -37,8 +37,12 @@ bitwarden
 stow
 i2c-tools
 profile-sync-daemon
+bpftune
 dmemcg-booster
 plasma-foreground-booster
+
+# Display manager
+greetd-dms-greeter-git
 
 # Btrfs snapshots
 snapper
@@ -57,6 +61,8 @@ zathura-pdf-poppler
 poppler-glib
 
 # AUR
+quickshell
+dgop
 dsearch-bin
 spotify-launcher
 orca-bambustudio-appimage

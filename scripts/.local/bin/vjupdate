@@ -239,7 +239,7 @@ enable_services() {
     _enable power-profiles-daemon
     _enable "snapper-timeline.timer"
     _enable "snapper-cleanup.timer"
-    _enable sddm
+    _enable greetd
     _enable docker
 
     if [[ "$MACHINE" == surface ]]; then
@@ -266,6 +266,47 @@ setup_snapper() {
     fi
 }
 
+# ─── Phase 7a: Greeter ───────────────────────────────────
+setup_greeter() {
+    if ! command -v dms &>/dev/null; then
+        warn "dms not found — skipping greeter setup"
+        return
+    fi
+    info "Configuring DMS greeter (greetd)..."
+    dms greeter install --yes && ok "DMS greeter configured" || warn "DMS greeter setup failed — run manually: dms greeter install"
+}
+
+# ─── Phase 7b: DMS Plugins ───────────────────────────────
+install_dms_plugins() {
+    if ! command -v dms &>/dev/null; then
+        warn "dms not found — skipping plugin install"
+        return
+    fi
+
+    local list="$DOTS_DIR/.dms-plugins.list"
+    if [[ ! -f "$list" ]]; then
+        warn ".dms-plugins.list not found — skipping"
+        return
+    fi
+
+    info "Installing DMS plugins..."
+    local installed
+    installed=$(dms plugins list 2>/dev/null)
+
+    while IFS= read -r plugin; do
+        [[ -z "$plugin" || "$plugin" == \#* ]] && continue
+        if echo "$installed" | grep -q "ID: $plugin"; then
+            ok "already installed: $plugin"
+        else
+            dms plugins install "$plugin" 2>/dev/null \
+                && ok "installed: $plugin" \
+                || warn "failed to install: $plugin"
+        fi
+    done < "$list"
+
+    ok "DMS plugins done"
+}
+
 # ─── Phase 8: Claude Code ────────────────────────────────
 setup_claude() {
     if ! command -v claude &>/dev/null; then
@@ -276,13 +317,14 @@ setup_claude() {
     info "Setting up Claude Code plugins..."
     # settings.json is already stowed and sets enabledPlugins.
     # These commands install the plugin assets (skills, hook scripts).
-    claude plugin add github:JuliusBrussee/caveman --scope user --yes 2>/dev/null \
+    claude plugin marketplace add JuliusBrussee/caveman 2>/dev/null || true
+    claude plugin install caveman --scope user 2>/dev/null \
         && ok "plugin: caveman" \
-        || warn "caveman plugin install failed — run manually: claude plugin add github:JuliusBrussee/caveman"
+        || warn "caveman plugin install failed — run manually: claude plugin marketplace add JuliusBrussee/caveman && claude plugin install caveman --scope user"
 
-    claude plugin add superpowers@claude-plugins-official --scope user --yes 2>/dev/null \
+    claude plugin install superpowers@claude-plugins-official --scope user 2>/dev/null \
         && ok "plugin: superpowers" \
-        || warn "superpowers plugin install failed — run manually: claude plugin add superpowers@claude-plugins-official"
+        || warn "superpowers plugin install failed — run manually: claude plugin install superpowers@claude-plugins-official --scope user"
 }
 
 # ─── Phase 8: Projects ───────────────────────────────────
@@ -535,6 +577,8 @@ bootstrap() {
     install_flatpaks
     enable_services
     setup_snapper
+    setup_greeter
+    install_dms_plugins
     setup_claude
     clone_projects
     print_manual_steps
