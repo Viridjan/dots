@@ -37,12 +37,24 @@ cd ~/dots && bash install.sh
 ### 4. Manual steps (after the script)
 
 ```bash
+# Git identity
+git config --global user.name 'Viridjan'
+git config --global user.email 'viridjan@users.noreply.github.com'
+
 # Fingerprint enrollment
 fprintd-enroll
 
 # DankMaterialShell — required before starting niri
 # generates ~/.config/niri/dms/*.kdl (niri won't start without them)
 dms setup
+
+# YubiKey FIDO2 PIN — set/change the PIN on the hardware key
+# ykman is the YubiKey Manager CLI (package: yubikey-manager)
+# The FIDO2 PIN protects resident keys and passkeys stored on the YubiKey
+ykman fido access change-pin
+
+# Bitwarden — log in to unlock vault and browser extension
+# Launch from app menu or: flatpak run com.bitwarden.desktop
 
 # Open Notebook (if needed)
 cd ~/Projects/Open_notebook && docker compose up -d
