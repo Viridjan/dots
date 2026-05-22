@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────
-# dots/install.sh — bootstrap + maintenance for CachyOS
+# vjupdate — bootstrap + maintenance for CachyOS
 # Supports: desktop (tower) and surface (Surface Pro 9)
 #
 # Usage:
-#   bash install.sh              # full bootstrap
-#   bash install.sh --update     # system update + maintenance
-#   bash install.sh --help
+#   vjupdate            # full bootstrap
+#   vjupdate --update   # system update + maintenance
+#   vjupdate --help
 # ─────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -16,7 +16,7 @@ ok()    { echo -e "${GRN} ✓  $*${NC}"; }
 warn()  { echo -e "${YEL}[!] $*${NC}"; }
 die()   { echo -e "${RED}[✗] $*${NC}" >&2; exit 1; }
 
-DOTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DOTS_DIR="$HOME/Projects/dots"
 STAMP_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/dots"
 mkdir -p "$STAMP_DIR"
 
@@ -332,12 +332,23 @@ clean_caches() {
     info "Cleaning package caches..."
     sudo paccache -rk2
     sudo paccache -ruk0
-    rm -rf "$HOME/.cache/paru/clone"
+    rm -rf "$HOME/.cache/paru/clone" "$HOME/.cache/paru" "$HOME/.cache/yay"
     ok "Caches cleaned"
 }
 
-# ─── Maintenance: orphan removal ─────────────────────────
-remove_orphans() {
+# ─── Maintenance: foreign packages + orphan removal ──────
+check_foreign_orphans() {
+    info "Checking foreign (AUR) packages..."
+    local foreign
+    foreign=$(pacman -Qm 2>/dev/null || true)
+    if [[ -n "$foreign" ]]; then
+        echo "$foreign"
+        echo "$foreign" > "$HOME/foreign-pkgs.txt"
+        ok "Saved to ~/foreign-pkgs.txt"
+    else
+        ok "No foreign packages"
+    fi
+
     info "Checking for orphaned packages..."
     local orphans
     orphans=$(paru -Qdtq 2>/dev/null || true)
@@ -350,6 +361,45 @@ remove_orphans() {
     [[ "$confirm" =~ ^[Yy]$ ]] || { warn "Skipped"; return; }
     echo "$orphans" | sudo pacman -Rns -
     ok "Orphans removed"
+}
+
+# ─── Maintenance: python rebuild check ───────────────────
+check_python_rebuilds() {
+    info "Checking Python packages needing rebuild..."
+    local current_version
+    current_version=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+    ok "Current Python: $current_version"
+
+    local old_dirs
+    old_dirs=$(ls -d /usr/lib/python3.* 2>/dev/null | grep -v "python${current_version}" || true)
+    if [[ -z "$old_dirs" ]]; then
+        ok "No old Python directories found"
+        return
+    fi
+
+    local all_packages=""
+    for dir in $old_dirs; do
+        local dir_packages
+        dir_packages=$(pacman -Qoq "$dir" 2>/dev/null || true)
+        if [[ -n "$dir_packages" ]]; then
+            warn "Packages with files in $dir:"
+            echo "$dir_packages"
+            all_packages="$all_packages $dir_packages"
+        fi
+    done
+
+    local unique_packages
+    unique_packages=$(echo "$all_packages" | tr ' ' '\n' | sort -u | tr '\n' ' ' | xargs 2>/dev/null || true)
+    if [[ -z "$unique_packages" ]]; then
+        ok "No packages need rebuilding"
+        return
+    fi
+
+    warn "Packages needing Python rebuild: $unique_packages"
+    read -rp "Rebuild? [y/N]: " confirm
+    [[ "$confirm" =~ ^[Yy]$ ]] || { warn "Skipped"; return; }
+    paru -S --noconfirm $unique_packages
+    ok "Python rebuild done"
 }
 
 # ─── Maintenance: rebuild check ──────────────────────────
@@ -367,6 +417,40 @@ check_rebuilds() {
         warn "Packages needing rebuild:"
         echo "$out"
     fi
+}
+
+# ─── Maintenance: kernel management ─────────────────────
+manage_kernels() {
+    info "Installed kernels:"
+    pacman -Q | grep "^linux-cachyos" || echo "  (none)"
+    echo ""
+    info "Available CachyOS kernels:"
+    pacman -Ss "^linux-cachyos" 2>/dev/null \
+        | grep "^cachyos" \
+        | grep -v "headers\|docs\|nvidia\|zfs\|virtualbox" \
+        || echo "  (run 'pacman -Ss linux-cachyos' to see all)"
+    echo ""
+
+    read -rp "Install a kernel? [y/N]: " ic
+    if [[ "$ic" =~ ^[Yy]$ ]]; then
+        read -rp "Package name (e.g. linux-cachyos-lts): " kernel_pkg
+        [[ -n "$kernel_pkg" ]] && sudo paru -S "$kernel_pkg" "${kernel_pkg}-headers"
+    fi
+
+    read -rp "Remove a kernel? [y/N]: " rc
+    if [[ "$rc" =~ ^[Yy]$ ]]; then
+        read -rp "Package name to remove: " remove_pkg
+        if [[ -n "$remove_pkg" ]]; then
+            local running_kernel; running_kernel=$(uname -r)
+            if pacman -Q "$remove_pkg" 2>/dev/null | grep -q "$running_kernel"; then
+                warn "Cannot remove running kernel ($running_kernel) — reboot first"
+            else
+                sudo pacman -R "$remove_pkg" "${remove_pkg}-headers" 2>/dev/null \
+                    || sudo pacman -R "$remove_pkg"
+            fi
+        fi
+    fi
+    ok "Kernel management done"
 }
 
 # ─── Maintenance: pacnew files ───────────────────────────
@@ -465,14 +549,16 @@ maintenance() {
 
     system_update
     clean_caches
-    remove_orphans
+    check_foreign_orphans
     check_rebuilds
+    check_python_rebuilds
     check_pacnew
     check_firmware
+    manage_kernels
 }
 
 usage() {
-    echo "Usage: bash install.sh [--update | --help]"
+    echo "Usage: vjupdate [--update | --help]"
     echo ""
     echo "  (no args)   Full bootstrap: packages, dotfiles, services"
     echo "  --update    Maintenance: update, clean caches, orphans, rebuilds"
