@@ -307,6 +307,19 @@ install_dms_plugins() {
     ok "DMS plugins done"
 }
 
+# ─── Phase 7c: Install scripts ───────────────────────────
+run_install_scripts() {
+    local list="$DOTS_DIR/.install-scripts.list"
+    [[ -f "$list" ]] || { warn ".install-scripts.list not found — skipping"; return; }
+
+    info "Running install scripts..."
+    while IFS= read -r cmd; do
+        [[ -z "$cmd" || "$cmd" == \#* ]] && continue
+        info "Running: $cmd"
+        bash -c "$cmd" && ok "done: $cmd" || warn "failed: $cmd"
+    done < "$list"
+}
+
 # ─── Phase 8: Claude Code ────────────────────────────────
 setup_claude() {
     if ! command -v claude &>/dev/null; then
@@ -579,6 +592,7 @@ bootstrap() {
     setup_snapper
     setup_greeter
     install_dms_plugins
+    run_install_scripts
     setup_claude
     clone_projects
     print_manual_steps

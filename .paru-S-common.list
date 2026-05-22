@@ -71,6 +71,10 @@ whatsie
 telegram-desktop
 claude-code
 
+# Development
+nodejs
+npm
+
 # Containers (Open Notebook)
 docker
 docker-compose

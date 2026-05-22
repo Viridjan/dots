@@ -1,0 +1,4 @@
+# Shell-based installers — each line is executed verbatim via bash -c
+# Feed to vjupdate: run_install_scripts()
+
+curl -fsSL https://raw.githubusercontent.com/JuliusBrussee/caveman/main/install.sh | bash
