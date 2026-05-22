@@ -11,5 +11,6 @@
     "y": 0,
     "width": 1692,
     "height": 1432
-  }
+  },
+  "DESKTOP_TTI_UPDATE_BACKOFF_MAX_MS": 3000
 }

@@ -361,7 +361,7 @@
   "osdPosition": 5,
   "osdVolumeEnabled": true,
   "osdMediaVolumeEnabled": true,
-  "osdMediaPlaybackEnabled": false,
+  "osdMediaPlaybackEnabled": true,
   "osdBrightnessEnabled": true,
   "osdIdleInhibitorEnabled": true,
   "osdMicMuteEnabled": true,
