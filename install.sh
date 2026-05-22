@@ -127,8 +127,7 @@ install_packages() {
         info "Removing flagged packages..."
         while IFS= read -r pkg; do
             local out
-            out=$(sudo pacman -Rdd --noconfirm "$pkg" 2>&1)
-            if [[ $? -eq 0 ]]; then
+            if out=$(sudo pacman -Rdd --noconfirm "$pkg" 2>&1); then
                 ok "removed: $pkg"
             elif echo "$out" | grep -q "target not found"; then
                 ok "not installed, skipping: $pkg"
