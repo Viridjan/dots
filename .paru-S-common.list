@@ -85,6 +85,7 @@ protonmail-bridge-free-core
 # Development
 nodejs
 npm
+git-filter-repo
 
 # Containers (Open Notebook)
 docker
