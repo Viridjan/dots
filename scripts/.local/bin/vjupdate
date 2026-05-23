@@ -445,6 +445,32 @@ run_install_scripts() {
     done < "$list"
 }
 
+# ─── Phase 7e: Fish plugins (tide prompt) ────────────────
+# fish_variables is NOT tracked (tide writes a per-session prompt cache that
+# would churn git endlessly), so the prompt is reproduced here instead.
+setup_fish() {
+    command -v fish &>/dev/null || { warn "fish not installed — skipping fish setup"; return; }
+    if ! fish -c 'functions -q fisher' 2>/dev/null; then
+        warn "fisher not found — add 'fisher' to .paru-S-common.list; skipping"
+        return
+    fi
+
+    info "Installing fish plugins (tide)..."
+    fish -c 'fisher install IlanCosman/tide@v6' >/dev/null 2>&1 \
+        && ok "fish plugin: tide" \
+        || warn "tide install failed — run manually: fisher install IlanCosman/tide@v6"
+
+    # Configure only on first setup so later manual tweaks aren't overwritten.
+    if fish -c 'set -q _tide_left_items' 2>/dev/null; then
+        ok "tide already configured"
+    else
+        info "Applying tide rainbow preset..."
+        fish -c "tide configure --auto --style=Rainbow --prompt_colors='True color' --show_time='24-hour format' --rainbow_prompt_separators=Angled --powerline_prompt_heads=Sharp --powerline_prompt_tails=Flat --powerline_prompt_style='One line' --prompt_connection=Disconnected --powerline_right_prompt_frame=No --prompt_connection_andor_frame_color=Lightest --prompt_spacing=Sparse --icons='Many icons' --transient=No" \
+            && ok "tide configured (rainbow)" \
+            || warn "tide configure failed — run manually: tide configure"
+    fi
+}
+
 # ─── Phase 8: Claude Code ────────────────────────────────
 setup_claude() {
     if ! command -v claude &>/dev/null; then
@@ -723,6 +749,7 @@ bootstrap() {
     setup_greeter
     install_dms_plugins
     run_install_scripts
+    setup_fish
     setup_claude
     clone_projects
     print_manual_steps

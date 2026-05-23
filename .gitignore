@@ -40,6 +40,9 @@ discord/.config/discord/quotes.json
 
 # Fish runtime state
 fish/.config/fish/fish_history
+# Universal vars — tide writes a per-session prompt cache here; the prompt is
+# reproduced by vjupdate's setup_fish instead. Don't track.
+fish/.config/fish/fish_variables
 
 # Micro runtime state
 micro/.config/micro/backups/
