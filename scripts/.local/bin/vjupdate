@@ -18,7 +18,29 @@ die()   { echo -e "${RED}[✗] $*${NC}" >&2; exit 1; }
 
 DOTS_DIR="$HOME/Projects/dots"
 STAMP_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/dots"
+INTERACTIVE=false
 mkdir -p "$STAMP_DIR"
+
+_run_phase() {
+    local name="$1"; shift
+    if $INTERACTIVE; then
+        read -rp "==> Run phase: $name? [Y/n]: " _ans
+        [[ "$_ans" =~ ^[Nn]$ ]] && { warn "Skipped: $name"; return; }
+    fi
+    "$@"
+}
+
+_ensure_dots_repo() {
+    if [[ -d "$DOTS_DIR" ]]; then
+        ok "dots repo: $DOTS_DIR"
+        return
+    fi
+    info "dots repo not found — cloning from GitHub..."
+    mkdir -p "$(dirname "$DOTS_DIR")"
+    git clone https://github.com/Viridjan/dots.git "$DOTS_DIR" \
+        || die "Failed to clone dots repo — check network/git access"
+    ok "dots repo cloned to $DOTS_DIR"
+}
 
 # Returns 0 (run it) if stamp is absent or older than 48h, else 1 (skip).
 _needs_run() {
@@ -78,8 +100,10 @@ reset_keyrings() {
     sudo pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com
     sudo pacman-key --lsign-key F3B607488DB35A47
     if [[ "${MACHINE:-}" == surface ]]; then
-        sudo pacman-key --recv-keys 87DEFA4AB94A99A4C8C3112556C464BAAC421453 --keyserver keyserver.ubuntu.com
-        sudo pacman-key --lsign-key 87DEFA4AB94A99A4C8C3112556C464BAAC421453
+        curl -s https://raw.githubusercontent.com/linux-surface/linux-surface/master/pkg/keys/surface.asc \
+            | sudo pacman-key --add -
+        sudo pacman-key --finger 56C464BAAC421453
+        sudo pacman-key --lsign-key 56C464BAAC421453
         ok "linux-surface key imported"
     fi
     _mark_done keyrings
@@ -99,8 +123,9 @@ setup_linux_surface_repo() {
     sudo tee -a /etc/pacman.conf > /dev/null <<'EOF'
 
 [linux-surface]
-Server = https://pkg.linux.surface.dev/arch/$repo/$arch
+Server = https://pkg.surfacelinux.com/arch/
 EOF
+    sudo pacman -Sy
     ok "linux-surface repo added to pacman.conf"
 }
 
@@ -734,23 +759,24 @@ bootstrap() {
     echo ""
 
     detect_machine
-    install_paru
-    reset_keyrings
-    setup_linux_surface_repo
-    refresh_mirrors
-    install_packages
-    deploy_dotfiles
-    dms_import
-    install_flatpaks
-    enable_services
-    setup_snapper
-    setup_extra_disks
-    setup_greeter
-    install_dms_plugins
-    run_install_scripts
-    setup_fish
-    setup_claude
-    clone_projects
+    _ensure_dots_repo
+    _run_phase "paru"            install_paru
+    _run_phase "keyrings"        reset_keyrings
+    _run_phase "surface repo"    setup_linux_surface_repo
+    _run_phase "mirrors"         refresh_mirrors
+    _run_phase "packages"        install_packages
+    _run_phase "dotfiles"        deploy_dotfiles
+    _run_phase "DMS import"      dms_import
+    _run_phase "flatpaks"        install_flatpaks
+    _run_phase "services"        enable_services
+    _run_phase "snapper"         setup_snapper
+    _run_phase "extra disks"     setup_extra_disks
+    _run_phase "greeter"         setup_greeter
+    _run_phase "DMS plugins"     install_dms_plugins
+    _run_phase "install scripts" run_install_scripts
+    _run_phase "fish"            setup_fish
+    _run_phase "claude"          setup_claude
+    _run_phase "projects"        clone_projects
     print_manual_steps
 }
 
@@ -772,20 +798,22 @@ maintenance() {
 }
 
 usage() {
-    echo "Usage: vjupdate [--update | --dms-export | --dms-import | --help]"
+    echo "Usage: vjupdate [--update | --interactive | --dms-export | --dms-import | --help]"
     echo ""
-    echo "  (no args)      Full bootstrap: packages, dotfiles, services"
-    echo "  --update       Maintenance: update, clean caches, orphans, rebuilds"
-    echo "  --dms-export   Copy live ~/.config/niri/dms/*.kdl → repo (then commit)"
-    echo "  --dms-import   Copy repo dms overrides → live (skips auto-generated files)"
-    echo "  --help         Show this message"
+    echo "  (no args)           Full bootstrap: packages, dotfiles, services"
+    echo "  --interactive, -i   Full bootstrap with y/N prompt before each phase"
+    echo "  --update            Maintenance: update, clean caches, orphans, rebuilds"
+    echo "  --dms-export        Copy live ~/.config/niri/dms/*.kdl → repo (then commit)"
+    echo "  --dms-import        Copy repo dms overrides → live (skips auto-generated files)"
+    echo "  --help              Show this message"
 }
 
 case "${1:-}" in
-    --update|-u)     maintenance ;;
-    --dms-export)    dms_export ;;
-    --dms-import)    dms_import ;;
-    --help|-h)       usage ;;
-    "")              bootstrap ;;
-    *)               die "Unknown option: $1. Use --help." ;;
+    --interactive|-i) INTERACTIVE=true; bootstrap ;;
+    --update|-u)      maintenance ;;
+    --dms-export)     dms_export ;;
+    --dms-import)     dms_import ;;
+    --help|-h)        usage ;;
+    "")               bootstrap ;;
+    *)                die "Unknown option: $1. Use --help." ;;
 esac
