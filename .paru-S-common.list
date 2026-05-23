@@ -39,7 +39,7 @@ bitwarden
 stow
 i2c-tools
 profile-sync-daemon
-bpftune
+bpftune-git
 dmemcg-booster
 plasma-foreground-booster
 
@@ -53,8 +53,10 @@ snap-pac
 btrfs-assistant
 
 # Applications
+firefox
 thunderbird
 vlc
+vlc-plugins-all
 qbittorrent
 discord
 udiskie
@@ -62,6 +64,8 @@ libreoffice-still
 zathura
 zathura-pdf-poppler
 poppler-glib
+meld
+pavucontrol
 
 # AUR
 quickshell
@@ -73,6 +77,9 @@ xclicker
 whatsie
 telegram-desktop
 claude-code
+proton-mail-bin
+protonmail-bridge-free
+protonmail-bridge-free-core
 
 # Development
 nodejs
@@ -84,3 +91,20 @@ docker-compose
 
 # Optional — file manager
 dolphin
+
+# Terminal & fonts
+alacritty
+ttf-meslo-nerd
+awesome-terminal-fonts
+
+# CLI tools
+ripgrep
+btop
+duf
+glances
+fastfetch
+
+# Network / firewall
+ufw
+ufw-extras
+networkmanager-openvpn
