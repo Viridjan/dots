@@ -16,7 +16,7 @@ sudo hostnamectl set-hostname desktop   # or: surface
 ### 2. SSH key → GitHub
 
 ```bash
-ssh-keygen -t ed25519 -C "viridjan@users.noreply.github.com"
+ssh-keygen -t ed25519 -C "viridjan"
 cat ~/.ssh/id_ed25519.pub   # add this to github.com/settings/keys
 ```
 
