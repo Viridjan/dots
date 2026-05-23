@@ -20,6 +20,9 @@ iio-sensor-proxy
 # Surface Pen (Wacom protocol)
 libwacom
 
+# Fingerprint reader
+fprintd
+
 # Power management
 tlp
 tlp-rdw
