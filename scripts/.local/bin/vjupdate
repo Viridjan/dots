@@ -288,6 +288,7 @@ enable_services() {
     _enable power-profiles-daemon
     _enable "snapper-timeline.timer"
     _enable "snapper-cleanup.timer"
+    _enable "limine-snapper-sync.service"
     _enable greetd
     _enable docker
 

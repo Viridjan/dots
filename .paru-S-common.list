@@ -51,6 +51,8 @@ greetd-dms-greeter-git
 snapper
 snap-pac
 btrfs-assistant
+# inotify-tools: required by limine-snapper-watcher (limine-snapper-sync.service)
+inotify-tools
 
 # Applications
 firefox
