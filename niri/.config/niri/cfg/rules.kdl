@@ -62,10 +62,28 @@ title is used as fallback for XWayland apps that don't set app-id.
 window-rule {
 	match title="Brave"
 	match title="Kitty"
-	match title="Alacritty"
 	match app-id="firefox"
-	match app-id="whatsie"
-	match app-id="TelegramDesktop"
+	default-column-width { proportion 0.5; }
+}
+
+// Narrow apps — terminal and chat clients open at 30% width.
+window-rule {
+	match app-id="Alacritty"
+	match app-id="com.ktechpit.whatsie"
+	match app-id="org.telegram.desktop"
+	default-column-width { proportion 0.3; }
+}
+
+// Discord — 40% width. Workspace placement still comes from the social rule above.
+window-rule {
+	match app-id="discord"
+	match title="Discord"
+	default-column-width { proportion 0.4; }
+}
+
+// LibreOffice — every component (writer/calc/impress/...) opens at 50% width.
+window-rule {
+	match app-id="libreoffice"
 	default-column-width { proportion 0.5; }
 }
 
