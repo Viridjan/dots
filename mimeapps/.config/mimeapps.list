@@ -93,6 +93,7 @@ application/vnd.openxmlformats-officedocument.spreadsheetml.sheet=libreoffice-ca
 application/vnd.ms-powerpoint=libreoffice-impress.desktop
 application/vnd.openxmlformats-officedocument.presentationml.presentation=libreoffice-impress.desktop
 x-scheme-handler/kdeconnect=org.kde.dolphin.desktop
+x-scheme-handler/claude-cli=claude-code-url-handler.desktop
 
 [Added Associations]
 video/mp4=vlc.desktop;
