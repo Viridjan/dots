@@ -30,8 +30,7 @@
     "command": "bash \"/home/viridjan/.claude/hooks/caveman-statusline.sh\""
   },
   "enabledPlugins": {
-    "caveman@caveman": true,
-    "superpowers@claude-plugins-official": true
+    "caveman@caveman": true
   },
   "extraKnownMarketplaces": {
     "caveman": {
@@ -41,5 +40,6 @@
       }
     }
   },
-  "theme": "auto"
+  "theme": "auto",
+  "skipAutoPermissionPrompt": true
 }
