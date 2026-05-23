@@ -3,10 +3,17 @@ import = [
   "~/.config/alacritty/dank-theme.toml"
 ]
 
+[font]
+size = 11.0
+normal = { family = "MesloLGS Nerd Font Mono", style = "Regular" }
+bold   = { family = "MesloLGS Nerd Font Mono", style = "Bold" }
+italic = { family = "MesloLGS Nerd Font Mono", style = "Italic" }
+
 [window]
 decorations = "None"
-padding = { x = 12, y = 12 }
-opacity = 1.0
+padding = { x = 16, y = 16 }
+dynamic_padding = true
+opacity = 0.9
 
 [scrolling]
 history = 3023
@@ -28,7 +35,6 @@ duration = 0
 [keyboard]
 bindings = [
   { key = "C",       mods = "Control",       action = "Copy"   },
-  { key = "V",       mods = "Control",       action = "Paste"  },
   { key = "C",       mods = "Control|Shift", chars  = "\x03"   },
   { key = "N",       mods = "Control", action = "SpawnNewInstance" },
   { key = "Equals",  mods = "Control|Shift", action = "IncreaseFontSize" },
