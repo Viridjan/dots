@@ -225,7 +225,6 @@ deploy_dotfiles() {
     for pkg in "${COMMON_STOW_PKGS[@]}"; do
         [[ -d "$pkg" ]] && stow -D -t "$HOME" "$pkg" 2>/dev/null || true
     done
-    stow -D -t "$HOME" "$MACHINE" 2>/dev/null || true
     stow -D -t "$HOME" claude 2>/dev/null || true
 
     # Stow common packages with --adopt:
@@ -239,11 +238,10 @@ deploy_dotfiles() {
         fi
     done
 
-    # Machine-specific package (display.kdl + input.kdl)
-    stow --adopt -t "$HOME" "$MACHINE"
-    ok "stowed: $MACHINE (machine-specific)"
-
-    # Niri: file-level symlinks into real ~/.config/niri/ (DMS must own that dir)
+    # Niri (incl. machine-specific display.kdl + input.kdl from $MACHINE pkg):
+    # file-level symlinks into real ~/.config/niri/ (DMS must own that dir).
+    # The $MACHINE package is intentionally NOT stowed — _stow_niri_cfg owns
+    # display.kdl/input.kdl. Stowing it too caused "not owned by stow" conflicts.
     _stow_niri_cfg
 
     # Claude Code config
