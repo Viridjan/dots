@@ -181,7 +181,7 @@ COMMON_STOW_PKGS=(
     gtk-4.0
     micro
     mimeapps
-    niri
+    # niri excluded — handled by _stow_niri_cfg (dir must stay real for DMS)
     paru
     qt5ct
     qt6ct
@@ -189,36 +189,69 @@ COMMON_STOW_PKGS=(
     VSCodium
 )
 
+_stow_niri_cfg() {
+    # ~/.config/niri/ must stay a real directory — DMS writes dms/ inside it and
+    # stow would fold the whole dir into a symlink, breaking DMS on regeneration.
+    # So we skip stow for niri and create file-level symlinks directly.
+    local src="$DOTS_DIR/niri/.config/niri"
+    local dst="$HOME/.config/niri"
+    local mach_src="$DOTS_DIR/$MACHINE/.config/niri"
+
+    mkdir -p "$dst/cfg"
+
+    ln -sf "$src/config.kdl" "$dst/config.kdl"
+
+    for f in animation autostart keybinds layout misc rules; do
+        [[ -f "$src/cfg/${f}.kdl" ]] && ln -sf "$src/cfg/${f}.kdl" "$dst/cfg/${f}.kdl"
+    done
+
+    for f in display input; do
+        [[ -f "$mach_src/cfg/${f}.kdl" ]] && ln -sf "$mach_src/cfg/${f}.kdl" "$dst/cfg/${f}.kdl"
+    done
+
+    ok "stowed: niri (file-level symlinks)"
+}
+
 deploy_dotfiles() {
     info "Deploying dotfiles via stow..."
     cd "$DOTS_DIR"
 
-    # Unstow first to handle moved files (display.kdl, input.kdl)
-    for pkg in "${COMMON_STOW_PKGS[@]}"; do
-        [[ -d "$pkg" ]] && stow -D "$pkg" 2>/dev/null || true
-    done
-    stow -D "$MACHINE" 2>/dev/null || true
-    stow -D claude 2>/dev/null || true
+    # -t "$HOME" is required: stow's default target is the PARENT of the stow dir,
+    # which here is $HOME/Projects (DOTS_DIR=$HOME/Projects/dots), not $HOME.
+    # Without it, symlinks land in ~/Projects/.config instead of ~/.config.
 
-    # Re-stow common packages
+    # Unstow first to handle moved files between packages (e.g. display.kdl, input.kdl).
+    # Only removes symlinks stow owns — real dirs/files are left untouched.
+    for pkg in "${COMMON_STOW_PKGS[@]}"; do
+        [[ -d "$pkg" ]] && stow -D -t "$HOME" "$pkg" 2>/dev/null || true
+    done
+    stow -D -t "$HOME" "$MACHINE" 2>/dev/null || true
+    stow -D -t "$HOME" claude 2>/dev/null || true
+
+    # Stow common packages with --adopt:
+    # - Fresh install: target doesn't exist → stow creates directory-level symlink.
+    # - Re-run / broken symlink replaced by real dir: --adopt moves the real file
+    #   into the repo package dir and creates a symlink. Run git diff after to review.
     for pkg in "${COMMON_STOW_PKGS[@]}"; do
         if [[ -d "$pkg" ]]; then
-            stow --restow "$pkg"
+            stow --adopt -t "$HOME" "$pkg"
             ok "stowed: $pkg"
         fi
     done
 
     # Machine-specific package (display.kdl + input.kdl)
-    stow --restow "$MACHINE"
+    stow --adopt -t "$HOME" "$MACHINE"
     ok "stowed: $MACHINE (machine-specific)"
 
-    # Claude Code config — use --adopt so existing real files get absorbed into
-    # the repo (idempotent on fresh installs, safe on re-runs)
-    stow --adopt --restow claude
+    # Niri: file-level symlinks into real ~/.config/niri/ (DMS must own that dir)
+    _stow_niri_cfg
+
+    # Claude Code config
+    stow --adopt --restow -t "$HOME" claude
     ok "stowed: claude"
 
     # bkg (wallpapers) if it exists
-    [[ -d bkg ]] && stow --restow bkg && ok "stowed: bkg"
+    [[ -d bkg ]] && stow --adopt -t "$HOME" bkg && ok "stowed: bkg"
 }
 
 # ─── Phase 5: Flatpaks ───────────────────────────────────

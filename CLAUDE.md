@@ -72,15 +72,19 @@ loaded last so DMS keybinds take precedence where there are conflicts.
 
 ## Stow operations
 
+The repo lives at `~/Projects/dots`, so stow's default target (the parent dir)
+is `~/Projects`, not `~`. Always pass `-t ~`. `niri` is not stowed — it uses
+file-level symlinks (DMS owns `~/.config/niri/`); re-run `vjupdate` to refresh.
+
 ```bash
-# Apply all packages
-cd ~/dots && stow */
+# Apply all packages (idempotent)
+bash scripts/.local/bin/vjupdate
 
 # Re-apply one package after adding files
-cd ~/dots && stow --restow niri
+cd ~/Projects/dots && stow --restow -t ~ <pkg>
 
 # Remove a package
-cd ~/dots && stow -D <pkg>
+cd ~/Projects/dots && stow -D -t ~ <pkg>
 ```
 
 ## Current key values (as of last sync)

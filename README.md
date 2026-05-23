@@ -23,11 +23,11 @@ cat ~/.ssh/id_ed25519.pub   # add this to github.com/settings/keys
 ### 3. Clone and run the bootstrap script
 
 ```bash
-git clone git@github.com:Viridjan/dots.git ~/dots
-cd ~/dots && bash install.sh
+git clone git@github.com:Viridjan/dots.git ~/Projects/dots
+cd ~/Projects/dots && bash scripts/.local/bin/vjupdate
 ```
 
-`install.sh` does everything:
+`vjupdate` does everything:
 - installs common + machine-specific packages via paru
 - deploys all dotfiles via stow (machine profile auto-detected from hostname)
 - installs flatpak emulators
@@ -68,17 +68,17 @@ cd ~/Projects/Open_notebook && docker compose up -d
 
 ## Claude Code
 
-Always open Claude Code from `~/Projects`, not from `~/dots`:
+Always open Claude Code from `~/Projects`, not from `~/Projects/dots`:
 
 ```bash
 cd ~/Projects && claude
 ```
 
 Memory and project context are scoped to the working directory at launch.
-Opening from `~/dots` creates a separate scope — prior conversation context
+Opening from `~/Projects/dots` creates a separate scope — prior conversation context
 and memory won't load.
 
-When working on dots inside a Claude session, just `cd ~/dots` from within it.
+When working on dots inside a Claude session, just `cd ~/Projects/dots` from within it.
 
 ---
 
@@ -87,14 +87,19 @@ When working on dots inside a Claude session, just `cd ~/dots` from within it.
 After pulling new changes from this repo:
 
 ```bash
-cd ~/dots
-stow --restow alacritty DankMaterialShell discord fish gtk-3.0 gtk-4.0 \
-     micro mimeapps niri paru qt5ct qt6ct VSCodium scripts
-stow --adopt --restow claude   # --adopt absorbs existing real files
-stow --restow desktop          # or: surface
+cd ~/Projects/dots
+stow --restow -t ~ alacritty DankMaterialShell discord fish gtk-3.0 gtk-4.0 \
+     micro mimeapps paru qt5ct qt6ct VSCodium scripts
+stow --adopt --restow -t ~ claude   # --adopt absorbs existing real files
+stow --restow -t ~ desktop          # or: surface
+# niri is NOT stowed — it uses file-level symlinks (DMS owns ~/.config/niri/).
+# Re-run vjupdate to refresh them.
 ```
 
-Or just re-run `bash install.sh` — it's idempotent.
+`-t ~` is required: the repo lives at `~/Projects/dots`, so stow's default target
+(the parent dir) would be `~/Projects`, not `~`. Always pass `-t ~`.
+
+Or just re-run `bash scripts/.local/bin/vjupdate` — it's idempotent.
 
 ---
 
@@ -104,44 +109,46 @@ Or just re-run `bash install.sh` — it's idempotent.
 
 ```bash
 # 1. Create the package structure
-mkdir -p ~/dots/<pkg>/.config/<pkg>
+mkdir -p ~/Projects/dots/<pkg>/.config/<pkg>
 
 # 2. Copy the live config into the package
-cp -r ~/.config/<pkg>/. ~/dots/<pkg>/.config/<pkg>/
+cp -r ~/.config/<pkg>/. ~/Projects/dots/<pkg>/.config/<pkg>/
 
 # 3. Remove the real directory so stow can create a clean symlink
 rm -rf ~/.config/<pkg>
 
 # 4. Stow it
-cd ~/dots && stow <pkg>
+cd ~/Projects/dots && stow -t ~ <pkg>
 ```
 
-Result: `~/.config/<pkg>` becomes a directory-level symlink to `~/dots/<pkg>/.config/<pkg>`.
+Result: `~/.config/<pkg>` becomes a directory-level symlink to `~/Projects/dots/<pkg>/.config/<pkg>`.
 Any file the app writes inside it will land directly in the repo.
 
 ### Add files to an existing package (e.g. a new subdir)
 
 ```bash
 # 1. Copy the new files/dir into the existing package
-cp -r ~/.config/niri/dms ~/dots/niri/.config/niri/dms
+cp -r ~/.config/<pkg>/<subdir> ~/Projects/dots/<pkg>/.config/<pkg>/<subdir>
 
 # 2. Remove the real copy
-rm -rf ~/.config/niri/dms
+rm -rf ~/.config/<pkg>/<subdir>
 
 # 3. Restow the package to pick up the new entries
-cd ~/dots && stow --restow niri
+cd ~/Projects/dots && stow --restow -t ~ <pkg>
 ```
+
+(`niri` is the exception — its `dms/` dir is owned by DMS and is not stowed.)
 
 ### Sync changes back to the repo (after an app auto-updates its config)
 
-Nothing to do — because the configs are symlinks into `~/dots`, any write
+Nothing to do — because the configs are symlinks into `~/Projects/dots`, any write
 by an app goes directly into the repo. Just `git add` and commit.
 
 ### Remove a package from stow (stop tracking it)
 
 ```bash
-cd ~/dots && stow -D <pkg>   # removes symlinks, leaves real files in ~/dots
-rm -rf ~/dots/<pkg>          # optionally delete from repo too
+cd ~/Projects/dots && stow -D -t ~ <pkg>   # removes symlinks, leaves real files in ~/Projects/dots
+rm -rf ~/Projects/dots/<pkg>          # optionally delete from repo too
 ```
 
 ### Verify symlinks are healthy
@@ -150,8 +157,10 @@ rm -rf ~/dots/<pkg>          # optionally delete from repo too
 # Check that all managed dirs are symlinks, not real directories
 ls -la ~/.config/ | grep '^l'
 
-# Re-apply all packages (safe to run repeatedly; won't overwrite existing symlinks)
-cd ~/dots && stow */
+# Re-apply all packages (safe to run repeatedly; won't overwrite existing symlinks).
+# Use vjupdate, not `stow */` — the latter would fold ~/.config/niri into a
+# symlink and break DMS, and would target ~/Projects instead of ~.
+bash scripts/.local/bin/vjupdate
 ```
 
 ---
@@ -176,7 +185,7 @@ cd ~/dots && stow */
 | `mimeapps` | `~/.config/mimeapps.list` |
 | `paru` | `~/.config/paru/paru.conf` |
 | `claude` | `~/.claude/settings.json` + `hooks/` (Claude Code + caveman plugin) |
-| `scripts` | `~/.local/bin/update` — system maintenance script |
+| `scripts` | `~/.local/bin/vjupdate` — bootstrap + maintenance script |
 
 **niri note:** `cfg/display.kdl` and `cfg/input.kdl` are NOT in the `niri` package —
 they come from `desktop/` or `surface/` depending on the machine.
@@ -186,7 +195,7 @@ The `dms/` directory is auto-generated by `dms setup` and not tracked.
 
 ## Btrfs snapshots
 
-Handled automatically by `install.sh`:
+Handled automatically by `vjupdate`:
 
 | Component | Role |
 |---|---|
@@ -196,7 +205,7 @@ Handled automatically by `install.sh`:
 | `snapper-timeline.timer` | Systemd timer — takes periodic timeline snapshots |
 | `snapper-cleanup.timer` | Systemd timer — prunes old snapshots per retention config |
 
-`install.sh` creates the snapper root config (`snapper -c root create-config /`) on first run and enables both timers.
+`vjupdate` creates the snapper root config (`snapper -c root create-config /`) on first run and enables both timers.
 
 To browse and restore snapshots:
 
