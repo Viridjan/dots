@@ -334,14 +334,21 @@ setup_extra_disks() {
         ok "fstab: added $mnt"
     }
 
+    # nofail + device-timeout: a missing/dead secondary disk must never block boot.
     # nvme0n1p1 — 3.4T ext4, label 'data'
-    _add_fstab "150b328c-7d61-4efd-9740-0ad395b4ab27" /mnt/data ext4 "defaults,noatime" 2
+    _add_fstab "150b328c-7d61-4efd-9740-0ad395b4ab27" /mnt/data ext4 "defaults,noatime,nofail,x-systemd.device-timeout=10" 2
 
     # sda2 — 461.8G btrfs
-    _add_fstab "694d092d-8f7c-4bfb-9d60-34742ab760a3" /mnt/sda btrfs "defaults,noatime,compress=zstd:1" 0
+    _add_fstab "694d092d-8f7c-4bfb-9d60-34742ab760a3" /mnt/sda btrfs "defaults,noatime,compress=zstd:1,nofail,x-systemd.device-timeout=10" 0
 
     sudo systemctl daemon-reload
-    sudo mount -a 2>/dev/null && ok "Extra disks mounted" || warn "mount -a had errors — check fstab"
+    local mnt_err
+    if mnt_err=$(sudo mount -a 2>&1); then
+        ok "Extra disks mounted"
+    else
+        warn "mount -a had errors — check fstab:"
+        echo "$mnt_err"
+    fi
 }
 
 # ─── Phase 7a: Greeter ───────────────────────────────────
