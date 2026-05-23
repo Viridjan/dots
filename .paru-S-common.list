@@ -28,6 +28,7 @@ qt6-multimedia-ffmpeg
 # System tools
 kimageformats
 cava
+fish
 cups-pk-helper
 khal
 fprintd
@@ -42,6 +43,7 @@ dmemcg-booster
 plasma-foreground-booster
 
 # Display manager
+dms-shell
 greetd-dms-greeter-git
 
 # Btrfs snapshots

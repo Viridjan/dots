@@ -1,10 +1,10 @@
 # Surface Pro 9 packages — Intel 12th gen + Iris Xe
 # Feed to paru: grep -v '^#' .paru-S-surface.list | grep -v '^$' | xargs paru -S --needed
 #
-# NOTE: linux-surface requires the linux-surface repo or AUR build.
+# NOTE: vjupdate adds the linux-surface pacman repo to pacman.conf automatically.
 # Secure Boot key enrollment needed for linux-surface kernel — see INSTALL.md.
 
-# Surface kernel (AUR — includes all surface patches: WiFi, touchscreen, pen, camera)
+# Surface kernel (linux-surface repo — includes all surface patches: WiFi, touchscreen, pen, camera)
 linux-surface
 linux-surface-headers
 
