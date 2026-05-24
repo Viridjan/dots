@@ -166,7 +166,16 @@ spawn-sh-at-startup "wl-paste --watch cliphist store"
 spawn-at-startup "udiskie"
 
 environment {
-  XDG_CURRENT_DESKTOP "niri"
+    XDG_CURRENT_DESKTOP "niri"
+    XDG_SESSION_TYPE "wayland"
+    // Dead keys in terminal emulators that use libxkbcommon directly (Alacritty, etc.)
+    XCOMPOSEFILE "/usr/share/X11/locale/en_US.UTF-8/Compose"
+    // Force Electron apps to use Wayland backend
+    ELECTRON_OZONE_PLATFORM_HINT "auto"
+    // Force Qt apps to Wayland
+    QT_QPA_PLATFORM "wayland"
+    QT_WAYLAND_DISABLE_WINDOWDECORATION "1"
+    QT_QPA_PLATFORMTHEME "qt5ct"
 }
 hotkey-overlay {
     skip-at-startup
@@ -273,6 +282,21 @@ window-rule {
     match app-id="brave-browser"
     match app-id="kitty"
     default-column-width { proportion 0.5; }
+}
+
+// Workspace assignments
+window-rule {
+    match app-id="discord"
+    match title="Ferdium"
+    open-on-workspace "social"
+    open-focused false
+}
+window-rule {
+    match title="Spotify"
+    match app-id=r#"^steam$"#
+    match title="Dota 2"
+    open-on-workspace "media"
+    open-focused false
 }
 
 // Open dms windows as floating by default
