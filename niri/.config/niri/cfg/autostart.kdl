@@ -27,6 +27,9 @@ spawn-at-startup "spotify-launcher"
 spawn-at-startup "whatsie"
 spawn-at-startup "Telegram"
 
-// spawn-sh-at-startup "/usr/lib/polkit-kde-authentication-agent-1 &" // Polkit
+// Background daemons
+spawn-at-startup "/usr/lib/polkit-kde-authentication-agent-1"
+spawn-sh-at-startup "wl-paste --watch cliphist store"
+spawn-at-startup "udiskie"
 
 // hotkey-overlay and screenshot-path are set in misc.kdl
