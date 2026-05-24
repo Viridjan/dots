@@ -38,11 +38,8 @@ layout {
  	/* You can also customize the heights that "switch-preset-window-height" (Mod+Shift+R) toggles between. */
 	// preset-window-heights { }
 
-	/* You can change the default width of the new windows. */
-	default-column-width { proportion 0.5; }
-
-	/* If you leave the brackets empty, the windows themselves will decide their initial width. */
-	// default-column-width {}
+	/* Window rules in rules.kdl control per-app widths. Everything else uses app-preferred width. */
+	default-column-width {}
 
 	/*
 	By default focus ring and border are rendered as a solid background rectangle
