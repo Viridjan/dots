@@ -114,10 +114,8 @@ layout {
     }
     // You can also customize the heights that "switch-preset-window-height" (Mod+Shift+R) toggles between.
     // preset-window-heights { }
-    // You can change the default width of the new windows.
-    default-column-width { proportion 0.5; }
-    // If you leave the brackets empty, the windows themselves will decide their initial width.
-    // default-column-width {}
+    // Per-app widths set via window rules below; everything else uses app-preferred width.
+    default-column-width {}
     // By default focus ring and border are rendered as a solid background rectangle
     // behind windows. That is, they will show up through semitransparent windows.
     // This is because windows using client-side decorations can have an arbitrary shape.
@@ -153,11 +151,20 @@ overview {
         off
     }
 }
-// Add lines like this to spawn processes at startup.
-// Note that running niri as a session supports xdg-desktop-autostart,
-// which may be more convenient to use.
-// See the binds section below for more spawn examples.
-// This line starts waybar, a commonly used bar for Wayland compositors.
+// Social workspace
+spawn-sh-at-startup "discord"
+spawn-sh-at-startup "steam"
+
+// Media workspace
+spawn-at-startup "spotify-launcher"
+spawn-at-startup "whatsie"
+spawn-at-startup "Telegram"
+
+// Background daemons
+spawn-at-startup "/usr/lib/polkit-kde-authentication-agent-1"
+spawn-sh-at-startup "wl-paste --watch cliphist store"
+spawn-at-startup "udiskie"
+
 environment {
   XDG_CURRENT_DESKTOP "niri"
 }
@@ -250,6 +257,24 @@ window-rule {
     match app-id="zoom"
     open-floating true
 }
+// Per-app column widths
+window-rule {
+    match app-id="Alacritty"
+    match app-id="com.ktechpit.whatsie"
+    match app-id="org.telegram.desktop"
+    default-column-width { proportion 0.3; }
+}
+window-rule {
+    match app-id="discord"
+    default-column-width { proportion 0.4; }
+}
+window-rule {
+    match app-id=r#"firefox$"#
+    match app-id="brave-browser"
+    match app-id="kitty"
+    default-column-width { proportion 0.5; }
+}
+
 // Open dms windows as floating by default
 window-rule {
     match app-id=r#"org.quickshell$"#
