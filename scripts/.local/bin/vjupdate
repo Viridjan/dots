@@ -18,14 +18,14 @@ die()   { echo -e "${RED}[✗] $*${NC}" >&2; exit 1; }
 
 DOTS_DIR="$HOME/Projects/dots"
 STAMP_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/dots"
-INTERACTIVE=false
+INTERACTIVE=true
 mkdir -p "$STAMP_DIR"
 
 _run_phase() {
     local name="$1"; shift
-    if $INTERACTIVE; then
-        read -rp "==> Run phase: $name? [Y/n]: " _ans
-        [[ "$_ans" =~ ^[Nn]$ ]] && { warn "Skipped: $name"; return; }
+    if [[ -n "${SKIP_PHASES:-}" ]] && echo " $SKIP_PHASES " | grep -qi " $name "; then
+        warn "Skipped: $name"
+        return
     fi
     "$@"
 }
@@ -629,6 +629,7 @@ check_foreign_orphans() {
         return
     fi
     echo "$orphans"
+    if ! $INTERACTIVE; then warn "Skipped orphan removal (non-interactive)"; return; fi
     read -rp "Remove the above orphans? [y/N]: " confirm
     [[ "$confirm" =~ ^[Yy]$ ]] || { warn "Skipped"; return; }
     echo "$orphans" | sudo pacman -Rns -
@@ -668,6 +669,7 @@ check_python_rebuilds() {
     fi
 
     warn "Packages needing Python rebuild: $unique_packages"
+    if ! $INTERACTIVE; then warn "Skipped Python rebuild (non-interactive)"; return; fi
     read -rp "Rebuild? [y/N]: " confirm
     [[ "$confirm" =~ ^[Yy]$ ]] || { warn "Skipped"; return; }
     paru -S --noconfirm $unique_packages
@@ -802,23 +804,53 @@ bootstrap() {
 
     detect_machine
     _ensure_dots_repo
+    if $INTERACTIVE; then
+        local _phases=(
+            paru keyrings surface-repo mirrors packages dotfiles dms-import
+            flatpaks services snapper extra-disks greeter dms-plugins
+            install-scripts fish claude projects
+            system-update clean-caches orphans rebuilds python-rebuilds pacnew firmware
+        )
+        echo -e "${BLU}  #   Phase${NC}"
+        echo    "  ──────────────────────"
+        local _i=1
+        for _p in "${_phases[@]}"; do
+            printf "  %2d) %s\n" "$_i" "$_p"
+            (( _i++ ))
+        done
+        echo ""
+        read -rp "Skip phases (numbers, space-separated, Enter to run all): " _skip_nums
+        SKIP_PHASES=""
+        for _n in $_skip_nums; do
+            local _idx=$(( _n - 1 ))
+            [[ $_idx -ge 0 && $_idx -lt ${#_phases[@]} ]] && SKIP_PHASES+="${_phases[$_idx]} "
+        done
+        echo ""
+    fi
     _run_phase "paru"            install_paru
     _run_phase "keyrings"        reset_keyrings
-    _run_phase "surface repo"    setup_linux_surface_repo
+    _run_phase "surface-repo"    setup_linux_surface_repo
     _run_phase "mirrors"         refresh_mirrors
     _run_phase "packages"        install_packages
     _run_phase "dotfiles"        deploy_dotfiles
-    _run_phase "DMS import"      dms_import
+    _run_phase "dms-import"      dms_import
     _run_phase "flatpaks"        install_flatpaks
     _run_phase "services"        enable_services
     _run_phase "snapper"         setup_snapper
-    _run_phase "extra disks"     setup_extra_disks
+    _run_phase "extra-disks"     setup_extra_disks
     _run_phase "greeter"         setup_greeter
-    _run_phase "DMS plugins"     install_dms_plugins
-    _run_phase "install scripts" run_install_scripts
+    _run_phase "dms-plugins"     install_dms_plugins
+    _run_phase "install-scripts" run_install_scripts
     _run_phase "fish"            setup_fish
     _run_phase "claude"          setup_claude
     _run_phase "projects"        clone_projects
+    _run_phase "system-update"   system_update
+    _run_phase "clean-caches"    clean_caches
+    _run_phase "orphans"         check_foreign_orphans
+    _run_phase "rebuilds"        check_rebuilds
+    _run_phase "python-rebuilds" check_python_rebuilds
+    _run_phase "pacnew"          check_pacnew
+    _run_phase "firmware"        check_firmware
     print_manual_steps
 }
 
@@ -836,23 +868,26 @@ maintenance() {
     check_python_rebuilds
     check_pacnew
     check_firmware
-    manage_kernels
 }
 
 usage() {
-    echo "Usage: vjupdate [--update | --interactive | --dms-export | --dms-import | --help]"
+    echo "Usage: vjupdate [--yes | --update | --kernels | --dms-export | --dms-import | --help]"
     echo ""
-    echo "  (no args)           Full bootstrap: packages, dotfiles, services"
-    echo "  --interactive, -i   Full bootstrap with y/N prompt before each phase"
-    echo "  --update            Maintenance: update, clean caches, orphans, rebuilds"
+    echo "  (no args)           Full run (bootstrap + maintenance), interactive"
+    echo "  --interactive, -i   Same as no args (explicit)"
+    echo "  --yes, -y           Full run, non-interactive (skip all prompts)"
+    echo "  --update, -u        Maintenance only: update, caches, orphans, rebuilds, firmware"
+    echo "  --kernels           Interactively install or remove CachyOS kernels"
     echo "  --dms-export        Copy live ~/.config/niri/dms/*.kdl → repo (then commit)"
     echo "  --dms-import        Copy repo dms overrides → live (skips auto-generated files)"
     echo "  --help              Show this message"
 }
 
 case "${1:-}" in
-    --interactive|-i) INTERACTIVE=true; bootstrap ;;
+    --interactive|-i) INTERACTIVE=true;  bootstrap ;;
+    --yes|-y)         INTERACTIVE=false; bootstrap ;;
     --update|-u)      maintenance ;;
+    --kernels)        manage_kernels ;;
     --dms-export)     dms_export ;;
     --dms-import)     dms_import ;;
     --help|-h)        usage ;;

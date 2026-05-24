@@ -1,28 +1,52 @@
-# CLAUDE.md — dots
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 GNU Stow dotfiles for CachyOS + niri. All config files live here and are
 symlinked into `$HOME` via stow.
+
+## Claude Code launch
+
+Always open Claude Code from `~/Projects`, not `~/Projects/dots`:
+
+```bash
+cd ~/Projects && claude
+```
+
+Memory and project context are scoped to the working directory at launch. Opening from `~/Projects/dots` creates a separate scope — prior conversation context and memory won't load. When working on dots inside a Claude session, just `cd ~/Projects/dots` from within it.
 
 ## Repo layout
 
 ```
 dots/
-  niri/       → ~/.config/niri/
-  fish/       → ~/.config/fish/
-  cava/       → ~/.config/cava/
-  gtk-3.0/    → ~/.config/gtk-3.0/
-  gtk-4.0/    → ~/.config/gtk-4.0/
-  Kvantum/    → ~/.config/Kvantum/
-  qt5ct/      → ~/.config/qt5ct/
-  qt6ct/      → ~/.config/qt6ct/
-  micro/      → ~/.config/micro/
-  discord/    → ~/.config/discord/settings.json  (file-level symlink)
-  mimeapps/   → ~/.config/mimeapps.list
+  alacritty/      → ~/.config/alacritty/
+  cava/           → ~/.config/cava/
+  claude/         → ~/.claude/  (settings.json, hooks/, keybindings.json)
+  DankMaterialShell/ → ~/.config/DankMaterialShell/
+  desktop/        → ~/.config/niri/cfg/display.kdl + input.kdl  (tower only)
+  discord/        → ~/.config/discord/settings.json  (file-level symlink)
+  fish/           → ~/.config/fish/
+  gtk-3.0/        → ~/.config/gtk-3.0/
+  gtk-4.0/        → ~/.config/gtk-4.0/
+  micro/          → ~/.config/micro/
+  mimeapps/       → ~/.config/mimeapps.list
+  niri/           → ~/.config/niri/  (common kdl files, cfg/ minus display+input)
+  paru/           → ~/.config/paru/
+  qt5ct/          → ~/.config/qt5ct/
+  qt6ct/          → ~/.config/qt6ct/
+  scripts/        → ~/.local/bin/  (vjupdate, graphify, claude-auto-retry)
+  surface/        → ~/.config/niri/cfg/display.kdl + input.kdl  (Surface Pro 9 only)
+  VSCodium/       → ~/.config/VSCodium/
 ```
 
-The `niri` package uses **file-level symlinks** — the `cfg/` and `dms/` directories
-are real, but individual `.kdl` files are symlinked. All other packages use
-directory-level symlinks.
+`niri` uses **file-level symlinks** — the `cfg/` and `dms/` directories are real, but individual `.kdl` files are symlinked. All other packages use directory-level symlinks.
+
+`claude` requires `stow --adopt` (absorbs existing real files):
+```bash
+stow --adopt --restow -t ~ claude
+```
+
+`desktop` and `surface` are mutually exclusive — stow only the one matching the machine hostname. Machine profile is detected from `hostname`: must contain `desktop` or `surface`.
 
 ## Niri config structure
 
@@ -32,8 +56,8 @@ niri/.config/niri/
   cfg/                ← user-managed, stow-symlinked, safe to edit here
     animation.kdl
     autostart.kdl
-    display.kdl       (commented out in config.kdl; dms/outputs.kdl takes over)
-    input.kdl
+    display.kdl       (NOT in niri pkg — comes from desktop/ or surface/)
+    input.kdl         (NOT in niri pkg — comes from desktop/ or surface/)
     keybinds.kdl
     layout.kdl
     misc.kdl
@@ -57,28 +81,24 @@ cfg/autostart → cfg/keybinds → cfg/input → cfg/layout → cfg/rules → cf
 → dms/windowrules → dms/binds
 ```
 
-Later includes override earlier ones for the same property. `dms/binds.kdl` is
-loaded last so DMS keybinds take precedence where there are conflicts.
+Later includes override earlier ones for the same property. `dms/binds.kdl` is loaded last so DMS keybinds take precedence.
 
 ### What to edit
 
-- **User settings** (layout, keybinds, rules, animations): edit files under `cfg/`.
-  Changes go directly into the repo via symlinks.
-- **DMS overrides** (colors, layout values, binds): edit files under
-  `~/.config/niri/dms/`, then copy changes to `dots/niri/.config/niri/dms/`
-  and commit.
-- **Do not** rely on `dms/colors.kdl` or `dms/outputs.kdl` being hand-editable —
-  DMS regenerates them on theme/display changes.
+- **User settings** (layout, keybinds, rules, animations): edit files under `cfg/`. Changes go directly into the repo via symlinks.
+- **DMS overrides** (colors, layout values, binds): edit files under `~/.config/niri/dms/`, then copy changes to `dots/niri/.config/niri/dms/` and commit.
+- **Do not** rely on `dms/colors.kdl` or `dms/outputs.kdl` being hand-editable — DMS regenerates them on theme/display changes.
 
 ## Stow operations
 
-The repo lives at `~/Projects/dots`, so stow's default target (the parent dir)
-is `~/Projects`, not `~`. Always pass `-t ~`. `niri` is not stowed — it uses
-file-level symlinks (DMS owns `~/.config/niri/`); re-run `vjupdate` to refresh.
+The repo lives at `~/Projects/dots`, so stow's default target (the parent dir) is `~/Projects`, not `~`. Always pass `-t ~`.
 
 ```bash
-# Apply all packages (idempotent)
+# Full bootstrap or re-apply everything (idempotent)
 bash scripts/.local/bin/vjupdate
+
+# Day-to-day maintenance (update packages, clean caches, orphans, firmware)
+vjupdate --update
 
 # Re-apply one package after adding files
 cd ~/Projects/dots && stow --restow -t ~ <pkg>
@@ -86,6 +106,37 @@ cd ~/Projects/dots && stow --restow -t ~ <pkg>
 # Remove a package
 cd ~/Projects/dots && stow -D -t ~ <pkg>
 ```
+
+`niri` is not stowed — DMS owns `~/.config/niri/`. Re-run `vjupdate` to refresh symlinks.
+
+## Package lists
+
+Package management uses flat text files (one package per line, `#` comments):
+
+| File | Purpose |
+|---|---|
+| `.paru-S-common.list` | Installed on both machines |
+| `.paru-S-desktop.list` | Desktop-only packages |
+| `.paru-S-surface.list` | Surface Pro 9-only packages |
+| `.paru-S.list` | Misc/gaming packages (manual reference) |
+| `.paru-R.list` | Packages force-removed before install (conflict resolution) |
+| `.flatpak-S.list` | Flatpak apps |
+| `.dms-plugins.list` | DankMaterialShell plugins |
+| `.install-scripts.list` | Scripts run during bootstrap |
+
+## vjupdate bootstrap phases
+
+Phases use stamps in `~/.local/state/dots/` — heavy phases (mirrors, keyrings) skip automatically if run within 48h.
+
+```
+detect_machine → install_paru → reset_keyrings → setup_linux_surface_repo
+→ refresh_mirrors → install_packages → deploy_dotfiles → dms_import
+→ install_flatpaks → enable_services → setup_snapper → setup_extra_disks
+→ setup_greeter → install_dms_plugins → run_install_scripts → setup_fish
+→ setup_claude → clone_projects
+```
+
+`--interactive` / `-i` prompts before each phase.
 
 ## Current key values (as of last sync)
 
