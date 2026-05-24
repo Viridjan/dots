@@ -380,6 +380,13 @@ setup_extra_disks() {
 }
 
 # ─── Phase 7a: Greeter ───────────────────────────────────
+setup_keyboard() {
+    info "Setting X11/XWayland keyboard layout (us intl)..."
+    sudo localectl set-x11-keymap us pc105 intl \
+        && ok "X11 keymap set: us intl (dead keys enabled)" \
+        || warn "localectl failed — XWayland apps may lack dead key support"
+}
+
 setup_greeter() {
     if ! command -v dms &>/dev/null; then
         warn "dms not found — skipping greeter setup"
@@ -807,7 +814,7 @@ bootstrap() {
     if $INTERACTIVE; then
         local _phases=(
             paru keyrings surface-repo mirrors packages dotfiles dms-import
-            flatpaks services snapper extra-disks greeter dms-plugins
+            flatpaks services snapper extra-disks keyboard greeter dms-plugins
             install-scripts fish claude projects
             system-update clean-caches orphans rebuilds python-rebuilds pacnew firmware
         )
@@ -839,6 +846,7 @@ bootstrap() {
     _run_phase "services"        enable_services
     _run_phase "snapper"         setup_snapper
     _run_phase "extra-disks"     setup_extra_disks
+    _run_phase "keyboard"        setup_keyboard
     _run_phase "greeter"         setup_greeter
     _run_phase "dms-plugins"     install_dms_plugins
     _run_phase "install-scripts" run_install_scripts
