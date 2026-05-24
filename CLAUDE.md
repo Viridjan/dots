@@ -86,7 +86,7 @@ Later includes override earlier ones for the same property. `dms/binds.kdl` is l
 ### What to edit
 
 - **User settings** (layout, keybinds, rules, animations): edit files under `cfg/`. Changes go directly into the repo via symlinks.
-- **DMS overrides** (colors, layout values, binds): edit files under `~/.config/niri/dms/`, then copy changes to `dots/niri/.config/niri/dms/` and commit.
+- **DMS overrides** (colors, layout values, binds): edit files under `~/.config/niri/dms/`, then copy changes to `dots/niri/.config/niri/dms/` and commit. Reload: `niri msg action load-config-file`
 - **Do not** rely on `dms/colors.kdl` or `dms/outputs.kdl` being hand-editable — DMS regenerates them on theme/display changes.
 
 ## Stow operations
