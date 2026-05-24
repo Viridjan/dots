@@ -25,7 +25,6 @@ open-floating false ensures windows open tiled by default unless a more specific
 window-rule {
 	geometry-corner-radius 15
 	clip-to-geometry true
-	default-column-width {}
 	open-floating false
 }
 
