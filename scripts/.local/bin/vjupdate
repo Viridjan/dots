@@ -516,6 +516,11 @@ setup_claude() {
     claude plugin install superpowers@claude-plugins-official --scope user 2>/dev/null \
         && ok "plugin: superpowers" \
         || warn "superpowers plugin install failed — run manually: claude plugin install superpowers@claude-plugins-official --scope user"
+
+    claude plugin marketplace add safishamsi/graphify 2>/dev/null || true
+    claude plugin install graphify --scope user 2>/dev/null \
+        && ok "plugin: graphify" \
+        || warn "graphify plugin install failed — run manually: claude plugin marketplace add safishamsi/graphify && claude plugin install graphify --scope user"
 }
 
 # ─── Phase 8: Projects ───────────────────────────────────
