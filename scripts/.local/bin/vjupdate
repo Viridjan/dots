@@ -179,6 +179,10 @@ install_packages() {
         done < <(_pkg_list "$DOTS_DIR/.paru-R.list")
     fi
 
+    info "Upgrading existing packages..."
+    paru -Syuu --noconfirm || warn "Full upgrade had warnings — continuing"
+    ok "System upgraded"
+
     _do_install() {
         info "Installing common packages..."
         _install_list "$DOTS_DIR/.paru-S-common.list" || return 1
@@ -496,6 +500,36 @@ setup_fish() {
             && ok "tide configured (rainbow)" \
             || warn "tide configure failed — run manually: tide configure"
     fi
+
+    # Apply Material You colors — idempotent, runs every bootstrap so colors
+    # survive tide reconfigures. Source: dank-theme.toml purple palette.
+    info "Applying Material You tide colors..."
+    fish -c "
+        set -U tide_os_bg_color                  2d2640
+        set -U tide_os_color                     d0bcff
+        set -U tide_context_bg_color             1e1a2e
+        set -U tide_context_color_default        bca5f2
+        set -U tide_pwd_bg_color                 4f378b
+        set -U tide_pwd_color_anchors            f4efff
+        set -U tide_pwd_color_dirs               e6e0e9
+        set -U tide_pwd_color_truncated_dirs     9d99a5
+        set -U tide_git_bg_color                 2d4a3e
+        set -U tide_git_color_branch             e6e0e9
+        set -U tide_git_color_dirty              e6e0e9
+        set -U tide_git_color_staged             e6e0e9
+        set -U tide_git_color_untracked          e6e0e9
+        set -U tide_git_color_upstream           e6e0e9
+        set -U tide_git_bg_color_unstable        4a3800
+        set -U tide_git_bg_color_urgent          4a1020
+        set -U tide_character_color              d0bcff
+        set -U tide_character_color_failure      ff728f
+        set -U tide_status_bg_color              1e1a2e
+        set -U tide_status_color                 7fff9a
+        set -U tide_status_color_failure         ff728f
+        set -U tide_prompt_color_frame_and_connection 4e3d76
+        set -U tide_prompt_color_separator_same_color 4f378b
+    " && ok "tide colors: Material You" \
+      || warn "tide color set failed — run manually: set -U tide_pwd_bg_color 4f378b"
 }
 
 # ─── Phase 8: Claude Code ────────────────────────────────
