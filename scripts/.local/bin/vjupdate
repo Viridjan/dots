@@ -819,7 +819,8 @@ bootstrap() {
             (( _i++ ))
         done
         echo ""
-        read -rp "Skip phases (numbers, space-separated, Enter to run all): " _skip_nums
+        read -rp "Skip phases (numbers, space-separated, q to quit, Enter to run all): " _skip_nums
+        [[ "$_skip_nums" =~ ^[qQ] ]] && { warn "Aborted."; exit 0; }
         SKIP_PHASES=""
         for _n in $_skip_nums; do
             local _idx=$(( _n - 1 ))
