@@ -48,6 +48,30 @@ fish/.config/fish/fish_variables
 micro/.config/micro/backups/
 micro/.config/micro/buffers/
 
+# VSCodium runtime state (cache, session, Chromium internals — not user config)
+VSCodium/.config/VSCodium/Cache/
+VSCodium/.config/VSCodium/CachedData/
+VSCodium/.config/VSCodium/CachedProfilesData/
+VSCodium/.config/VSCodium/Code Cache/
+VSCodium/.config/VSCodium/Crashpad/
+VSCodium/.config/VSCodium/DawnGraphiteCache/
+VSCodium/.config/VSCodium/DawnWebGPUCache/
+VSCodium/.config/VSCodium/Dictionaries/
+VSCodium/.config/VSCodium/GPUCache/
+VSCodium/.config/VSCodium/Local Storage/
+VSCodium/.config/VSCodium/Session Storage/
+VSCodium/.config/VSCodium/Shared Dictionary/
+VSCodium/.config/VSCodium/DIPS
+VSCodium/.config/VSCodium/DIPS-wal
+VSCodium/.config/VSCodium/Network Persistent State
+VSCodium/.config/VSCodium/Preferences
+VSCodium/.config/VSCodium/Trust Tokens
+VSCodium/.config/VSCodium/Trust Tokens-journal
+VSCodium/.config/VSCodium/machineid
+VSCodium/.config/VSCodium/User/chatLanguageModels.json
+VSCodium/.config/VSCodium/User/globalStorage/
+VSCodium/.config/VSCodium/User/workspaceStorage/
+
 # Ghostty backups
 ghostty/.config/ghostty/config.backup.*
 
@@ -66,3 +90,5 @@ claude/.claude/.caveman-active
 claude/.claude/.caveman-history.jsonl
 claude/.claude/.caveman-statusline-suffix
 
+# graphify — generated knowledge graph output
+graphify-out/
