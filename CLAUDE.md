@@ -100,6 +100,12 @@ bash scripts/.local/bin/vjupdate
 # Day-to-day maintenance (update packages, clean caches, orphans, firmware)
 vjupdate --update
 
+# Re-apply all packages at once
+cd ~/Projects/dots && stow --restow -t ~ alacritty cava DankMaterialShell discord fish \
+    gtk-3.0 gtk-4.0 micro mimeapps paru qt5ct qt6ct VSCodium scripts
+stow --adopt --restow -t ~ claude
+stow --restow -t ~ desktop   # or: surface
+
 # Re-apply one package after adding files
 cd ~/Projects/dots && stow --restow -t ~ <pkg>
 
@@ -109,7 +115,27 @@ cd ~/Projects/dots && stow -D -t ~ <pkg>
 
 `niri` is not stowed — DMS owns `~/.config/niri/`. Re-run `vjupdate` to refresh symlinks.
 
-## Package lists
+### Adding a new config package
+
+```bash
+# 1. Create package structure mirroring the target path
+mkdir -p ~/Projects/dots/<pkg>/.config/<pkg>
+
+# 2. Copy live config into the package
+cp -r ~/.config/<pkg>/. ~/Projects/dots/<pkg>/.config/<pkg>/
+
+# 3. Remove the real directory so stow can create the symlink
+rm -rf ~/.config/<pkg>
+
+# 4. Stow it
+cd ~/Projects/dots && stow -t ~ <pkg>
+```
+
+Result: `~/.config/<pkg>` becomes a directory symlink into the repo. App writes go directly into the repo from then on.
+
+## Package lists and project cloning
+
+`projects.list` — list of git repos (SSH URLs) cloned into `~/Projects/` during the `clone_projects` bootstrap phase. Add new repos here to have them auto-cloned on fresh installs.
 
 Package management uses flat text files (one package per line, `#` comments):
 
