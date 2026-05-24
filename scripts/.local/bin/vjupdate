@@ -501,35 +501,35 @@ setup_fish() {
             || warn "tide configure failed — run manually: tide configure"
     fi
 
-    # Apply Material You colors — idempotent, runs every bootstrap so colors
-    # survive tide reconfigures. Source: dank-theme.toml purple palette.
-    info "Applying Material You tide colors..."
+    # Apply theme colors — idempotent, runs every bootstrap so colors
+    # survive tide reconfigures. Source: dank-theme.toml blue/steel palette.
+    info "Applying blue/steel tide colors..."
     fish -c "
-        set -U tide_os_bg_color                  2d2640
-        set -U tide_os_color                     d0bcff
-        set -U tide_context_bg_color             1e1a2e
-        set -U tide_context_color_default        bca5f2
-        set -U tide_pwd_bg_color                 4f378b
-        set -U tide_pwd_color_anchors            f4efff
-        set -U tide_pwd_color_dirs               e6e0e9
-        set -U tide_pwd_color_truncated_dirs     9d99a5
-        set -U tide_git_bg_color                 2d4a3e
-        set -U tide_git_color_branch             e6e0e9
-        set -U tide_git_color_dirty              e6e0e9
-        set -U tide_git_color_staged             e6e0e9
-        set -U tide_git_color_untracked          e6e0e9
-        set -U tide_git_color_upstream           e6e0e9
-        set -U tide_git_bg_color_unstable        4a3800
-        set -U tide_git_bg_color_urgent          4a1020
-        set -U tide_character_color              d0bcff
-        set -U tide_character_color_failure      ff728f
-        set -U tide_status_bg_color              1e1a2e
-        set -U tide_status_color                 7fff9a
-        set -U tide_status_color_failure         ff728f
-        set -U tide_prompt_color_frame_and_connection 4e3d76
-        set -U tide_prompt_color_separator_same_color 4f378b
-    " && ok "tide colors: Material You" \
-      || warn "tide color set failed — run manually: set -U tide_pwd_bg_color 4f378b"
+        set -U tide_os_bg_color                  1c2430
+        set -U tide_os_color                     9dcbfb
+        set -U tide_context_bg_color             101e2c
+        set -U tide_context_color_default        839fbc
+        set -U tide_pwd_bg_color                 124a73
+        set -U tide_pwd_color_anchors            e0e2e8
+        set -U tide_pwd_color_dirs               e0e2e8
+        set -U tide_pwd_color_truncated_dirs     5c6370
+        set -U tide_git_bg_color                 1a3a28
+        set -U tide_git_color_branch             e0e2e8
+        set -U tide_git_color_dirty              e0e2e8
+        set -U tide_git_color_staged             e0e2e8
+        set -U tide_git_color_untracked          e0e2e8
+        set -U tide_git_color_upstream           e0e2e8
+        set -U tide_git_bg_color_unstable        3a3010
+        set -U tide_git_bg_color_urgent          3a1010
+        set -U tide_character_color              9dcbfb
+        set -U tide_character_color_failure      d75a59
+        set -U tide_status_bg_color              101e2c
+        set -U tide_status_color                 8ed88c
+        set -U tide_status_color_failure         d75a59
+        set -U tide_prompt_color_frame_and_connection 124a73
+        set -U tide_prompt_color_separator_same_color 4087bc
+    " && ok "tide colors: blue/steel" \
+      || warn "tide color set failed — run manually: set -U tide_pwd_bg_color 124a73"
 }
 
 # ─── Phase 8: Claude Code ────────────────────────────────
