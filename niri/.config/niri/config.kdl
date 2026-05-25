@@ -319,6 +319,9 @@ recent-windows {
     }
 }
 
+// Machine-specific overrides (surface vs desktop)
+include "cfg/surface-layout.kdl"
+
 // Include dms files
 include "dms/colors.kdl"
 include "dms/layout.kdl"
