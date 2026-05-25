@@ -1,0 +1,13 @@
+// Social workspace
+spawn-sh-at-startup "discord"
+spawn-sh-at-startup "steam"
+
+// Media workspace
+spawn-at-startup "spotify-launcher"
+spawn-at-startup "whatsie"
+spawn-at-startup "Telegram"
+
+// Background daemons
+spawn-at-startup "/usr/lib/polkit-kde-authentication-agent-1"
+spawn-sh-at-startup "wl-paste --watch cliphist store"
+spawn-at-startup "udiskie"

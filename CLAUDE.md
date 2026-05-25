@@ -23,19 +23,19 @@ dots/
   cava/           → ~/.config/cava/
   claude/         → ~/.claude/  (settings.json, hooks/, keybindings.json)
   DankMaterialShell/ → ~/.config/DankMaterialShell/
-  desktop/        → ~/.config/niri/cfg/display.kdl + input.kdl  (tower only)
+  desktop/        → ~/.config/niri/cfg/display.kdl + input.kdl + surface-layout.kdl  (tower only)
   discord/        → ~/.config/discord/settings.json  (file-level symlink)
   fish/           → ~/.config/fish/
   gtk-3.0/        → ~/.config/gtk-3.0/
   gtk-4.0/        → ~/.config/gtk-4.0/
   micro/          → ~/.config/micro/
   mimeapps/       → ~/.config/mimeapps.list
-  niri/           → ~/.config/niri/  (common kdl files, cfg/ minus display+input)
+  niri/           → ~/.config/niri/  (common kdl files, cfg/ minus display+input+surface-layout)
   paru/           → ~/.config/paru/
   qt5ct/          → ~/.config/qt5ct/
   qt6ct/          → ~/.config/qt6ct/
   scripts/        → ~/.local/bin/  (vjupdate, graphify, claude-auto-retry)
-  surface/        → ~/.config/niri/cfg/display.kdl + input.kdl  (Surface Pro 9 only)
+  surface/        → ~/.config/niri/cfg/display.kdl + input.kdl + surface-layout.kdl  (Surface Pro 9 only)
   VSCodium/       → ~/.config/VSCodium/
 ```
 
@@ -56,12 +56,13 @@ niri/.config/niri/
   cfg/                ← user-managed, stow-symlinked, safe to edit here
     animation.kdl
     autostart.kdl
-    display.kdl       (NOT in niri pkg — comes from desktop/ or surface/)
-    input.kdl         (NOT in niri pkg — comes from desktop/ or surface/)
+    display.kdl         (NOT in niri pkg — comes from desktop/ or surface/)
+    input.kdl           (NOT in niri pkg — comes from desktop/ or surface/)
     keybinds.kdl
     layout.kdl
     misc.kdl
     rules.kdl
+    surface-layout.kdl  (NOT in niri pkg — comes from desktop/ or surface/; machine-specific overrides)
   dms/                ← DankMaterialShell overrides; NOT stow-symlinked
     alttab.kdl        (recent-windows corner-radius)
     binds.kdl         (DMS keybinds — included last, takes precedence over cfg/)
@@ -77,6 +78,7 @@ niri/.config/niri/
 
 ```
 cfg/autostart → cfg/keybinds → cfg/input → cfg/layout → cfg/rules → cfg/misc
+→ cfg/surface-layout  (machine-specific; comes from desktop/ or surface/ pkg)
 → dms/colors → dms/layout → dms/alttab → dms/outputs → dms/cursor
 → dms/windowrules → dms/binds
 ```
@@ -86,6 +88,11 @@ Later includes override earlier ones for the same property. `dms/binds.kdl` is l
 ### What to edit
 
 - **User settings** (layout, keybinds, rules, animations): edit files under `cfg/`. Changes go directly into the repo via symlinks.
+- **Machine-specific niri overrides**: both `desktop/` and `surface/` packages provide identically-named `.kdl` files under `cfg/`. `vjupdate` symlinks the active machine's version into `~/.config/niri/cfg/`. `config.kdl` includes them unconditionally — the machine-specific content differs, or one side is empty. Current files:
+  - `autostart-machine.kdl` — desktop has all `spawn-at-startup` entries; surface is empty (no autorun)
+  - `surface-layout.kdl` — surface has `window-rule { default-column-width { proportion 0.5; } }`; desktop is empty
+  - To add a new machine-specific override: create the `.kdl` in both `desktop/` and `surface/` packages, add `include "cfg/<name>.kdl"` to `config.kdl`, and add `<name>` to the `for f in ...` loop in `vjupdate`'s `_stow_niri_cfg`.
+  - Content common to both machines but that needs to differ slightly: put shared parts in `config.kdl` or `cfg/` (niri pkg), machine-specific delta in the per-machine file.
 - **DMS overrides** (colors, layout values, binds): edit files under `~/.config/niri/dms/`, then copy changes to `dots/niri/.config/niri/dms/` and commit. Reload: `niri msg action load-config-file`
 - **Do not** rely on `dms/colors.kdl` or `dms/outputs.kdl` being hand-editable — DMS regenerates them on theme/display changes.
 
