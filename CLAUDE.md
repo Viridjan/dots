@@ -54,7 +54,7 @@ stow --adopt --restow -t ~ claude
 niri/.config/niri/
   config.kdl          ← entry point; uses `include` to load modules
   cfg/                ← user-managed, stow-symlinked, safe to edit here
-    animation.kdl
+    animation.kdl       (easing curves, durations)
     autostart.kdl
     display.kdl         (NOT in niri pkg — comes from desktop/ or surface/)
     input.kdl           (NOT in niri pkg — comes from desktop/ or surface/)
@@ -93,7 +93,7 @@ Later includes override earlier ones for the same property. `dms/binds.kdl` is l
   - `surface-layout.kdl` — surface has `window-rule { default-column-width { proportion 0.5; } }`; desktop is empty
   - To add a new machine-specific override: create the `.kdl` in both `desktop/` and `surface/` packages, add `include "cfg/<name>.kdl"` to `config.kdl`, and add `<name>` to the `for f in ...` loop in `vjupdate`'s `_stow_niri_cfg`.
   - Content common to both machines but that needs to differ slightly: put shared parts in `config.kdl` or `cfg/` (niri pkg), machine-specific delta in the per-machine file.
-- **DMS overrides** (colors, layout values, binds): edit files under `~/.config/niri/dms/`, then copy changes to `dots/niri/.config/niri/dms/` and commit. Reload: `niri msg action load-config-file`
+- **DMS overrides** (colors, layout values, binds): edit files under `~/.config/niri/dms/`, then run `vjupdate --dms-export` to copy to `dots/niri/.config/niri/dms/` and commit. Reload: `niri msg action load-config-file`
 - **Do not** rely on `dms/colors.kdl` or `dms/outputs.kdl` being hand-editable — DMS regenerates them on theme/display changes.
 
 ## Stow operations
@@ -104,11 +104,26 @@ The repo lives at `~/Projects/dots`, so stow's default target (the parent dir) i
 # Full bootstrap or re-apply everything (idempotent)
 bash scripts/.local/bin/vjupdate
 
+# Same, non-interactive (no prompts)
+vjupdate --yes
+
 # Day-to-day maintenance (update packages, clean caches, orphans, firmware)
 vjupdate --update
 
+# Interactively install/remove CachyOS kernels
+vjupdate --kernels
+
+# Sync DMS overrides: live ~/.config/niri/dms/*.kdl → repo (then commit)
+vjupdate --dms-export
+
+# Sync DMS overrides: repo → live (skips auto-generated files)
+vjupdate --dms-import
+
+# Skip specific bootstrap phases (space-separated phase names)
+SKIP_PHASES="mirrors keyrings" vjupdate
+
 # Re-apply all packages at once
-cd ~/Projects/dots && stow --restow -t ~ alacritty cava DankMaterialShell discord fish \
+cd ~/Projects/dots && stow --restow -t ~ alacritty cava DankMaterialShell fish \
     gtk-3.0 gtk-4.0 micro mimeapps paru qt5ct qt6ct VSCodium scripts
 stow --adopt --restow -t ~ claude
 stow --restow -t ~ desktop   # or: surface

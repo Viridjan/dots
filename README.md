@@ -88,7 +88,7 @@ After pulling new changes from this repo:
 
 ```bash
 cd ~/Projects/dots
-stow --restow -t ~ alacritty DankMaterialShell discord fish gtk-3.0 gtk-4.0 \
+stow --restow -t ~ alacritty DankMaterialShell fish gtk-3.0 gtk-4.0 \
      micro mimeapps paru qt5ct qt6ct VSCodium scripts
 stow --adopt --restow -t ~ claude   # --adopt absorbs existing real files
 stow --restow -t ~ desktop          # or: surface
@@ -181,7 +181,6 @@ bash scripts/.local/bin/vjupdate
 | `gtk-4.0` | `~/.config/gtk-4.0/` |
 | `qt5ct` | `~/.config/qt5ct/` |
 | `qt6ct` | `~/.config/qt6ct/` |
-| `discord` | `~/.config/discord/settings.json` |
 | `mimeapps` | `~/.config/mimeapps.list` |
 | `paru` | `~/.config/paru/paru.conf` |
 | `claude` | `~/.claude/settings.json` + `hooks/` (Claude Code + caveman plugin) |

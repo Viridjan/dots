@@ -73,10 +73,10 @@ window-rule {
 	default-column-width { proportion 0.3; }
 }
 
-// Discord — 40% width. Workspace placement still comes from the social rule above.
+// Vesktop — 40% width. Workspace placement still comes from the social rule above.
 window-rule {
-	match app-id="discord"
-	match title="Discord"
+	match app-id="vesktop"
+	match title="Vesktop"
 	default-column-width { proportion 0.4; }
 }
 
