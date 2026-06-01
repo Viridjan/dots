@@ -203,7 +203,6 @@ install_packages() {
 # ─── Phase 4: Dotfiles ───────────────────────────────────
 COMMON_STOW_PKGS=(
     alacritty
-    discord
     DankMaterialShell
     fish
     gtk-3.0
