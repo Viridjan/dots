@@ -9,3 +9,10 @@ lib32-opencl-mesa
 
 # Desktop peripherals
 vial-appimage
+
+# Virtualisation
+virt-manager
+qemu-full
+libvirt
+edk2-ovmf
+swtpm

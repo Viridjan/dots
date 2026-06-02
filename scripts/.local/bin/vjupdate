@@ -312,6 +312,11 @@ enable_services() {
     _enable greetd
     _enable docker
 
+    if [[ "$MACHINE" == desktop ]]; then
+        _enable libvirtd
+        sudo usermod -aG libvirt "$USER" 2>/dev/null || true
+    fi
+
     if [[ "$MACHINE" == surface ]]; then
         info "Enabling Surface-specific services..."
         _enable iptsd
