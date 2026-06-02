@@ -182,7 +182,7 @@ Phases use stamps in `~/.local/state/dots/` — heavy phases (mirrors, keyrings)
 paru → keyrings → surface-repo → mirrors → packages → dotfiles → dms-import
 → flatpaks → services → snapper → extra-disks → keyboard → greeter
 → dms-plugins → install-scripts → fish → claude → projects
-→ system-update → clean-caches → orphans → rebuilds → python-rebuilds → pacnew → firmware
+→ system-update → flatpak-update → clean-caches → orphans → rebuilds → python-rebuilds → pacnew → firmware
 ```
 
 `--interactive` / `-i` prompts before each phase. Maintenance-only phases (last row) also run via `vjupdate --update` and `vjupdate --check`.

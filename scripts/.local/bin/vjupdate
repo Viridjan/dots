@@ -604,12 +604,17 @@ system_update() {
     info "Updating all packages..."
     paru -Syuu --noconfirm
     ok "System up to date"
+}
 
-    if command -v flatpak &>/dev/null; then
-        info "Updating flatpak apps..."
-        flatpak update -y
-        ok "Flatpaks up to date"
+# ─── Maintenance: flatpak update ─────────────────────────
+flatpak_update() {
+    if ! command -v flatpak &>/dev/null; then
+        warn "flatpak not installed — skipping"
+        return
     fi
+    info "Updating flatpak apps..."
+    flatpak update -y
+    ok "Flatpaks up to date"
 }
 
 # ─── Maintenance: cache cleanup ──────────────────────────
@@ -822,7 +827,7 @@ bootstrap() {
             paru keyrings surface-repo mirrors packages dotfiles dms-import
             flatpaks services snapper extra-disks keyboard greeter dms-plugins
             install-scripts fish claude projects
-            system-update clean-caches orphans rebuilds python-rebuilds pacnew firmware
+            system-update flatpak-update clean-caches orphans rebuilds python-rebuilds pacnew firmware
         )
         echo -e "${BLU}  #   Phase${NC}"
         echo    "  ──────────────────────"
@@ -860,6 +865,7 @@ bootstrap() {
     _run_phase "claude"          setup_claude
     _run_phase "projects"        clone_projects
     _run_phase "system-update"   system_update
+    _run_phase "flatpak-update"  flatpak_update
     _run_phase "clean-caches"    clean_caches
     _run_phase "orphans"         check_foreign_orphans
     _run_phase "rebuilds"        check_rebuilds
@@ -879,6 +885,7 @@ update() {
     detect_machine
     setup_extra_disks
     system_update
+    flatpak_update
     clean_caches
 }
 
