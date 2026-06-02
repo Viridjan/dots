@@ -179,13 +179,21 @@ Package management uses flat text files (one package per line, `#` comments):
 Phases use stamps in `~/.local/state/dots/` — heavy phases (mirrors, keyrings) skip automatically if run within 48h.
 
 ```
-paru → keyrings → surface-repo → mirrors → packages → dotfiles → dms-import
-→ flatpaks → services → snapper → extra-disks → keyboard → greeter
-→ dms-plugins → install-scripts → fish → claude → projects
-→ system-update → flatpak-update → clean-caches → orphans → rebuilds → python-rebuilds → pacnew → firmware
+repos → packages → flatpaks → dotfiles → system → apps → update → audit
 ```
 
-`--interactive` / `-i` prompts before each phase. Maintenance-only phases (last row) also run via `vjupdate --update` and `vjupdate --check`.
+| Phase | Contains |
+|---|---|
+| `repos` | install paru, reset keyrings, surface repo, refresh mirrors |
+| `packages` | install pacman/AUR packages |
+| `flatpaks` | install flatpak apps |
+| `dotfiles` | stow dotfiles, dms-import |
+| `system` | enable services, snapper, extra-disks, keyboard, greeter |
+| `apps` | dms-plugins, install-scripts, fish, claude, clone projects |
+| `update` | paru upgrade, flatpak update, clean caches |
+| `audit` | orphans, rebuilds, python-rebuilds, pacnew, firmware |
+
+`--interactive` / `-i` prompts before each phase. `update` and `audit` also run via `vjupdate --update` and `vjupdate --check`.
 
 ## Current key values (as of last sync)
 

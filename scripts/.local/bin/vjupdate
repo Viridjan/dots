@@ -812,6 +812,16 @@ print_manual_steps() {
     echo ""
 }
 
+# ─── Phase groups ────────────────────────────────────────
+phase_repos()    { install_paru; reset_keyrings; setup_linux_surface_repo; refresh_mirrors; }
+phase_packages() { install_packages; }
+phase_flatpaks() { install_flatpaks; }
+phase_dotfiles() { deploy_dotfiles; dms_import; }
+phase_system()   { enable_services; setup_snapper; setup_extra_disks; setup_keyboard; setup_greeter; }
+phase_apps()     { install_dms_plugins; run_install_scripts; setup_fish; setup_claude; clone_projects; }
+phase_update()   { system_update; flatpak_update; clean_caches; }
+phase_audit()    { check_foreign_orphans; check_rebuilds; check_python_rebuilds; check_pacnew; check_firmware; }
+
 # ─── Main ────────────────────────────────────────────────
 bootstrap() {
     echo ""
@@ -823,12 +833,7 @@ bootstrap() {
     detect_machine
     _ensure_dots_repo
     if $INTERACTIVE; then
-        local _phases=(
-            paru keyrings surface-repo mirrors packages dotfiles dms-import
-            flatpaks services snapper extra-disks keyboard greeter dms-plugins
-            install-scripts fish claude projects
-            system-update flatpak-update clean-caches orphans rebuilds python-rebuilds pacnew firmware
-        )
+        local _phases=(repos packages flatpaks dotfiles system apps update audit)
         echo -e "${BLU}  #   Phase${NC}"
         echo    "  ──────────────────────"
         local _i=1
@@ -846,32 +851,14 @@ bootstrap() {
         done
         echo ""
     fi
-    _run_phase "paru"            install_paru
-    _run_phase "keyrings"        reset_keyrings
-    _run_phase "surface-repo"    setup_linux_surface_repo
-    _run_phase "mirrors"         refresh_mirrors
-    _run_phase "packages"        install_packages
-    _run_phase "dotfiles"        deploy_dotfiles
-    _run_phase "dms-import"      dms_import
-    _run_phase "flatpaks"        install_flatpaks
-    _run_phase "services"        enable_services
-    _run_phase "snapper"         setup_snapper
-    _run_phase "extra-disks"     setup_extra_disks
-    _run_phase "keyboard"        setup_keyboard
-    _run_phase "greeter"         setup_greeter
-    _run_phase "dms-plugins"     install_dms_plugins
-    _run_phase "install-scripts" run_install_scripts
-    _run_phase "fish"            setup_fish
-    _run_phase "claude"          setup_claude
-    _run_phase "projects"        clone_projects
-    _run_phase "system-update"   system_update
-    _run_phase "flatpak-update"  flatpak_update
-    _run_phase "clean-caches"    clean_caches
-    _run_phase "orphans"         check_foreign_orphans
-    _run_phase "rebuilds"        check_rebuilds
-    _run_phase "python-rebuilds" check_python_rebuilds
-    _run_phase "pacnew"          check_pacnew
-    _run_phase "firmware"        check_firmware
+    _run_phase "repos"    phase_repos
+    _run_phase "packages" phase_packages
+    _run_phase "flatpaks" phase_flatpaks
+    _run_phase "dotfiles" phase_dotfiles
+    _run_phase "system"   phase_system
+    _run_phase "apps"     phase_apps
+    _run_phase "update"   phase_update
+    _run_phase "audit"    phase_audit
     print_manual_steps
 }
 
