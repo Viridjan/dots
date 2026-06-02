@@ -604,6 +604,12 @@ system_update() {
     info "Updating all packages..."
     paru -Syuu --noconfirm
     ok "System up to date"
+
+    if command -v flatpak &>/dev/null; then
+        info "Updating flatpak apps..."
+        flatpak update -y
+        ok "Flatpaks up to date"
+    fi
 }
 
 # ─── Maintenance: cache cleanup ──────────────────────────
