@@ -4,6 +4,9 @@
 # Applications
 org.kde.gwenview
 ch.protonmail.protonmail-bridge
+com.bambulab.BambuStudio
+xyz.xclicker.xclicker
+com.ktechpit.whatsie
 
 # Emulators
 app.xemu.xemu
