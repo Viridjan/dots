@@ -24,7 +24,6 @@ dots/
   claude/         → ~/.claude/  (settings.json, hooks/, keybindings.json)
   DankMaterialShell/ → ~/.config/DankMaterialShell/
   desktop/        → ~/.config/niri/cfg/display.kdl + input.kdl + surface-layout.kdl  (tower only)
-  discord/        → ~/.config/discord/settings.json  (file-level symlink)
   fish/           → ~/.config/fish/
   gtk-3.0/        → ~/.config/gtk-3.0/
   gtk-4.0/        → ~/.config/gtk-4.0/
@@ -36,6 +35,7 @@ dots/
   qt6ct/          → ~/.config/qt6ct/
   scripts/        → ~/.local/bin/  (vjupdate, graphify, claude-auto-retry)
   surface/        → ~/.config/niri/cfg/display.kdl + input.kdl + surface-layout.kdl  (Surface Pro 9 only)
+  vesktop/        → ~/.config/vesktop/  (settings.json + settings/)
   VSCodium/       → ~/.config/VSCodium/
 ```
 
@@ -180,14 +180,13 @@ Package management uses flat text files (one package per line, `#` comments):
 Phases use stamps in `~/.local/state/dots/` — heavy phases (mirrors, keyrings) skip automatically if run within 48h.
 
 ```
-detect_machine → install_paru → reset_keyrings → setup_linux_surface_repo
-→ refresh_mirrors → install_packages → deploy_dotfiles → dms_import
-→ install_flatpaks → enable_services → setup_snapper → setup_extra_disks
-→ setup_greeter → install_dms_plugins → run_install_scripts → setup_fish
-→ setup_claude → clone_projects
+paru → keyrings → surface-repo → mirrors → packages → dotfiles → dms-import
+→ flatpaks → services → snapper → extra-disks → keyboard → greeter
+→ dms-plugins → install-scripts → fish → claude → projects
+→ system-update → clean-caches → orphans → rebuilds → python-rebuilds → pacnew → firmware
 ```
 
-`--interactive` / `-i` prompts before each phase.
+`--interactive` / `-i` prompts before each phase. Maintenance-only phases (last row) also run via `vjupdate --update` and `vjupdate --check`.
 
 ## Current key values (as of last sync)
 
