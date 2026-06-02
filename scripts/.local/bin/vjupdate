@@ -870,6 +870,7 @@ maintenance() {
     echo -e "${BLU}╚═════════════════════════════════════╝${NC}"
     echo ""
 
+    setup_extra_disks
     system_update
     clean_caches
     check_foreign_orphans

@@ -80,6 +80,12 @@ window-rule {
 	default-column-width { proportion 0.4; }
 }
 
+// Steam games — XWayland app-id is steam_app_<number>; open fullscreen.
+window-rule {
+	match app-id="^steam_app_"
+	open-fullscreen true
+}
+
 // LibreOffice — every component (writer/calc/impress/...) opens at 50% width.
 window-rule {
 	match app-id="libreoffice"
