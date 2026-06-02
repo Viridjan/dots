@@ -90,7 +90,7 @@ install_paru() {
 # ─── Phase 2b: Keyrings ──────────────────────────────────
 reset_keyrings() {
     if ! _needs_run keyrings; then
-        ok "Keyrings reset skipped (< 48h ago)"
+        ok "keyrings: skipped (< 48h)"
         return
     fi
     info "Resetting pacman keyrings..."
@@ -137,11 +137,7 @@ _pkg_list() {
 _install_list() {
     local list="$1" to_install=()
     while IFS= read -r pkg; do
-        if pacman -Qi "$pkg" &>/dev/null; then
-            ok "up to date: $pkg"
-        else
-            to_install+=("$pkg")
-        fi
+        pacman -Qi "$pkg" &>/dev/null || to_install+=("$pkg")
     done < <(_pkg_list "$list")
     if [[ ${#to_install[@]} -gt 0 ]]; then
         paru -S --needed --noconfirm "${to_install[@]}"
@@ -150,7 +146,7 @@ _install_list() {
 
 refresh_mirrors() {
     if ! _needs_run mirrors; then
-        ok "Mirror refresh skipped (< 48h ago)"
+        ok "mirrors: skipped (< 48h)"
         return
     fi
     info "Refreshing mirrors..."
@@ -197,7 +193,6 @@ install_packages() {
         _do_install || die "Package install failed after mirror refresh."
     fi
 
-    ok "Packages done"
 }
 
 # ─── Phase 4: Dotfiles ───────────────────────────────────
@@ -296,7 +291,6 @@ install_flatpaks() {
         flatpak install -y flathub "$app" || warn "Failed to install flatpak: $app"
     done < <(_pkg_list "$DOTS_DIR/.flatpak-S.list")
 
-    ok "Flatpaks done"
 }
 
 # ─── Phase 6: Services ───────────────────────────────────
@@ -332,7 +326,6 @@ enable_services() {
     # psd is a user service
     systemctl --user enable --now psd 2>/dev/null && ok "enabled: psd (user)" || warn "skipped (not found): psd"
 
-    ok "Services done"
 }
 
 # ─── Phase 7: Snapper ────────────────────────────────────
@@ -383,8 +376,8 @@ setup_extra_disks() {
 setup_keyboard() {
     info "Setting X11/XWayland keyboard layout (us intl)..."
     sudo localectl set-x11-keymap us pc105 intl \
-        && ok "X11 keymap set: us intl (dead keys enabled)" \
-        || warn "localectl failed — XWayland apps may lack dead key support"
+        && ok "keyboard: us intl" \
+        || warn "keyboard: localectl failed"
 }
 
 setup_greeter() {
@@ -393,15 +386,9 @@ setup_greeter() {
         return
     fi
     info "Configuring DMS greeter (greetd)..."
-    dms greeter install --yes && ok "DMS greeter configured" || warn "DMS greeter setup failed — run manually: dms greeter install"
-
-    info "Ensuring DMS greeter cache dir..."
-    sudo mkdir -p /var/cache/dms-greeter
-    sudo chown greeter:greeter /var/cache/dms-greeter
-    ok "greeter cache dir ready"
-
-    info "Syncing DMS theme/settings with greeter..."
-    dms greeter sync && ok "DMS greeter synced" || warn "DMS greeter sync failed — run manually: dms greeter sync"
+    dms greeter install --yes && ok "greeter: configured" || warn "greeter: install failed — run: dms greeter install"
+    sudo mkdir -p /var/cache/dms-greeter && sudo chown greeter:greeter /var/cache/dms-greeter
+    dms greeter sync && ok "greeter: synced" || warn "greeter: sync failed — run: dms greeter sync"
 }
 
 # ─── DMS config import/export ───────────────────────────
@@ -419,7 +406,7 @@ dms_export() {
     fi
     info "Exporting DMS config: live → repo..."
     cp "$DMS_LIVE"/*.kdl "$DMS_REPO/"
-    ok "DMS export done — commit dots/niri/.config/niri/dms/ to save"
+    ok "DMS exported — commit niri/dms/"
 }
 
 dms_import() {
@@ -436,7 +423,6 @@ dms_import() {
             warn "not in repo: $f"
         fi
     done
-    ok "DMS import done"
 }
 
 # ─── Phase 7b: DMS Plugins ───────────────────────────────
@@ -467,7 +453,6 @@ install_dms_plugins() {
         fi
     done < "$list"
 
-    ok "DMS plugins done"
 }
 
 # ─── Phase 7c: Install scripts ───────────────────────────
@@ -634,7 +619,7 @@ check_foreign_orphans() {
     if [[ -n "$foreign" ]]; then
         echo "$foreign"
         echo "$foreign" > "$HOME/foreign-pkgs.txt"
-        ok "Saved to ~/foreign-pkgs.txt"
+        ok "foreign pkgs → ~/foreign-pkgs.txt"
     else
         ok "No foreign packages"
     fi
@@ -659,7 +644,6 @@ check_python_rebuilds() {
     info "Checking Python packages needing rebuild..."
     local current_version
     current_version=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-    ok "Current Python: $current_version"
 
     local old_dirs
     old_dirs=$(ls -d /usr/lib/python3.* 2>/dev/null | grep -v "python${current_version}" || true)
