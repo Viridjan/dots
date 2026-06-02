@@ -107,8 +107,11 @@ bash scripts/.local/bin/vjupdate
 # Same, non-interactive (no prompts)
 vjupdate --yes
 
-# Day-to-day maintenance (update packages, clean caches, orphans, firmware)
+# Update packages + clean caches
 vjupdate --update
+
+# Audit installed software: orphans, rebuilds, pacnew, firmware
+vjupdate --check
 
 # Interactively install/remove CachyOS kernels
 vjupdate --kernels

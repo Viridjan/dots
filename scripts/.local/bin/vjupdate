@@ -863,16 +863,26 @@ bootstrap() {
     print_manual_steps
 }
 
-maintenance() {
+update() {
     echo ""
     echo -e "${BLU}╔═════════════════════════════════════╗${NC}"
-    echo -e "${BLU}║      vjupdate — maintenance         ║${NC}"
+    echo -e "${BLU}║      vjupdate — update              ║${NC}"
     echo -e "${BLU}╚═════════════════════════════════════╝${NC}"
     echo ""
 
+    detect_machine
     setup_extra_disks
     system_update
     clean_caches
+}
+
+check() {
+    echo ""
+    echo -e "${BLU}╔═════════════════════════════════════╗${NC}"
+    echo -e "${BLU}║      vjupdate — check               ║${NC}"
+    echo -e "${BLU}╚═════════════════════════════════════╝${NC}"
+    echo ""
+
     check_foreign_orphans
     check_rebuilds
     check_python_rebuilds
@@ -881,12 +891,13 @@ maintenance() {
 }
 
 usage() {
-    echo "Usage: vjupdate [--yes | --update | --kernels | --dms-export | --dms-import | --help]"
+    echo "Usage: vjupdate [OPTION]"
     echo ""
-    echo "  (no args)           Full run (bootstrap + maintenance), interactive"
+    echo "  (no args)           Full bootstrap, interactive"
     echo "  --interactive, -i   Same as no args (explicit)"
-    echo "  --yes, -y           Full run, non-interactive (skip all prompts)"
-    echo "  --update, -u        Maintenance only: update, caches, orphans, rebuilds, firmware"
+    echo "  --yes, -y           Full bootstrap, non-interactive"
+    echo "  --update, -u        Update packages + clean caches"
+    echo "  --check, -c         Audit: orphans, rebuilds, pacnew, firmware"
     echo "  --kernels           Interactively install or remove CachyOS kernels"
     echo "  --dms-export        Copy live ~/.config/niri/dms/*.kdl → repo (then commit)"
     echo "  --dms-import        Copy repo dms overrides → live (skips auto-generated files)"
@@ -896,7 +907,8 @@ usage() {
 case "${1:-}" in
     --interactive|-i) INTERACTIVE=true;  bootstrap ;;
     --yes|-y)         INTERACTIVE=false; bootstrap ;;
-    --update|-u)      maintenance ;;
+    --update|-u)      update ;;
+    --check|-c)       check ;;
     --kernels)        manage_kernels ;;
     --dms-export)     dms_export ;;
     --dms-import)     dms_import ;;
