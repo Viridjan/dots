@@ -82,6 +82,7 @@ proton-mail-bin
 rofi-ykman-git
 
 # Development
+jdk21-openjdk
 nodejs
 npm
 git-filter-repo
