@@ -204,6 +204,7 @@ install_packages() {
 COMMON_STOW_PKGS=(
     alacritty
     DankMaterialShell
+    vesktop
     fish
     gtk-3.0
     gtk-4.0

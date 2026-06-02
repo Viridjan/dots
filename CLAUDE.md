@@ -124,7 +124,7 @@ SKIP_PHASES="mirrors keyrings" vjupdate
 
 # Re-apply all packages at once
 cd ~/Projects/dots && stow --restow -t ~ alacritty cava DankMaterialShell fish \
-    gtk-3.0 gtk-4.0 micro mimeapps paru qt5ct qt6ct VSCodium scripts
+    gtk-3.0 gtk-4.0 micro mimeapps paru qt5ct qt6ct vesktop VSCodium scripts
 stow --adopt --restow -t ~ claude
 stow --restow -t ~ desktop   # or: surface
 

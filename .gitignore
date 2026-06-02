@@ -73,6 +73,13 @@ VSCodium/.config/VSCodium/User/chatLanguageModels.json
 VSCodium/.config/VSCodium/User/globalStorage/
 VSCodium/.config/VSCodium/User/workspaceStorage/
 
+# Vesktop runtime state
+vesktop/.config/vesktop/Crashpad/
+vesktop/.config/vesktop/sessionData/
+vesktop/.config/vesktop/Singleton*
+vesktop/.config/vesktop/state.json
+vesktop/.config/vesktop/themes/
+
 # Ghostty backups
 ghostty/.config/ghostty/config.backup.*
 
