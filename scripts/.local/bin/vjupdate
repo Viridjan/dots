@@ -168,7 +168,7 @@ install_packages() {
             if out=$(sudo pacman -Rdd --noconfirm "$pkg" 2>&1); then
                 ok "removed: $pkg"
             elif echo "$out" | grep -q "target not found"; then
-                ok "not installed, skipping: $pkg"
+                true
             else
                 warn "failed to remove: $pkg — $out"
             fi
@@ -233,7 +233,6 @@ _stow_niri_cfg() {
         [[ -f "$mach_src/cfg/${f}.kdl" ]] && ln -sf "$mach_src/cfg/${f}.kdl" "$dst/cfg/${f}.kdl"
     done
 
-    ok "stowed: niri (file-level symlinks)"
 }
 
 deploy_dotfiles() {
@@ -255,25 +254,23 @@ deploy_dotfiles() {
     # - Fresh install: target doesn't exist → stow creates directory-level symlink.
     # - Re-run / broken symlink replaced by real dir: --adopt moves the real file
     #   into the repo package dir and creates a symlink. Run git diff after to review.
+    local _stowed=()
     for pkg in "${COMMON_STOW_PKGS[@]}"; do
         if [[ -d "$pkg" ]]; then
             stow --adopt -t "$HOME" "$pkg"
-            ok "stowed: $pkg"
+            _stowed+=("$pkg")
         fi
     done
 
-    # Niri (incl. machine-specific display.kdl + input.kdl from $MACHINE pkg):
-    # file-level symlinks into real ~/.config/niri/ (DMS must own that dir).
-    # The $MACHINE package is intentionally NOT stowed — _stow_niri_cfg owns
-    # display.kdl/input.kdl. Stowing it too caused "not owned by stow" conflicts.
     _stow_niri_cfg
+    _stowed+=("niri")
 
-    # Claude Code config
     stow --adopt --restow -t "$HOME" claude
-    ok "stowed: claude"
+    _stowed+=("claude")
 
-    # bkg (wallpapers) if it exists
-    [[ -d bkg ]] && stow --adopt -t "$HOME" bkg && ok "stowed: bkg"
+    [[ -d bkg ]] && stow --adopt -t "$HOME" bkg && _stowed+=("bkg")
+
+    ok "stowed: ${_stowed[*]}"
 }
 
 # ─── Phase 5: Flatpaks ───────────────────────────────────
