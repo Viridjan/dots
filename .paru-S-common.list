@@ -67,7 +67,6 @@ zathura-pdf-poppler
 poppler-glib
 meld
 pavucontrol
-qimgv-git
 vscodium
 shelly
 fprintd
@@ -83,8 +82,6 @@ whatsie
 telegram-desktop
 claude-code
 proton-mail-bin
-protonmail-bridge-free
-protonmail-bridge-free-core
 rofi-ykman-git
 
 # Development

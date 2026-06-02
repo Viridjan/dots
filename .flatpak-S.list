@@ -1,6 +1,10 @@
 # Flatpak apps — both machines
 # Feed to flatpak: while read -r app; do flatpak install -y flathub "$app"; done < .flatpak-S.list
 
+# Applications
+org.kde.gwenview
+ch.protonmail.protonmail-bridge
+
 # Emulators
 app.xemu.xemu
 com.supermodel3.Supermodel
