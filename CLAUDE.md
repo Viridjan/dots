@@ -20,7 +20,6 @@ Memory and project context are scoped to the working directory at launch. Openin
 ```
 dots/
   alacritty/      → ~/.config/alacritty/
-  cava/           → ~/.config/cava/
   claude/         → ~/.claude/  (settings.json, hooks/, keybindings.json)
   DankMaterialShell/ → ~/.config/DankMaterialShell/
   desktop/        → ~/.config/niri/cfg/display.kdl + input.kdl + surface-layout.kdl  (tower only)
@@ -126,7 +125,7 @@ vjupdate --dms-import
 SKIP_PHASES="mirrors keyrings" vjupdate
 
 # Re-apply all packages at once
-cd ~/Projects/dots && stow --restow -t ~ alacritty cava DankMaterialShell fish \
+cd ~/Projects/dots && stow --restow -t ~ alacritty DankMaterialShell fish \
     gtk-3.0 gtk-4.0 micro mimeapps paru qt5ct qt6ct vesktop VSCodium scripts
 stow --adopt --restow -t ~ claude
 stow --restow -t ~ desktop   # or: surface
