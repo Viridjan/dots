@@ -67,6 +67,10 @@ zathura-pdf-poppler
 poppler-glib
 meld
 pavucontrol
+qimgv-git
+vscodium
+shelly
+fprintd
 
 # AUR
 quickshell
@@ -81,6 +85,7 @@ claude-code
 proton-mail-bin
 protonmail-bridge-free
 protonmail-bridge-free-core
+rofi-ykman-git
 
 # Development
 nodejs

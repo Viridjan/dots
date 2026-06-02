@@ -6,3 +6,6 @@ vulkan-radeon
 lib32-vulkan-radeon
 opencl-mesa
 lib32-opencl-mesa
+
+# Desktop peripherals
+vial-appimage
