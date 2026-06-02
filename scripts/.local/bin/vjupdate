@@ -650,7 +650,7 @@ check_foreign_orphans() {
     if ! $INTERACTIVE; then warn "Skipped orphan removal (non-interactive)"; return; fi
     read -rp "Remove the above orphans? [y/N]: " confirm
     [[ "$confirm" =~ ^[Yy]$ ]] || { warn "Skipped"; return; }
-    echo "$orphans" | sudo pacman -Rns -
+    echo "$orphans" | xargs sudo pacman -Rns --noconfirm
     ok "Orphans removed"
 }
 
@@ -834,11 +834,21 @@ bootstrap() {
     _ensure_dots_repo
     if $INTERACTIVE; then
         local _phases=(repos packages flatpaks dotfiles system apps update audit)
-        echo -e "${BLU}  #   Phase${NC}"
-        echo    "  ──────────────────────"
+        local -A _desc=(
+            [repos]="paru · keyrings · surface repo · mirrors"
+            [packages]="install pacman/AUR packages"
+            [flatpaks]="install flatpak apps"
+            [dotfiles]="stow dotfiles · dms-import"
+            [system]="services · snapper · disks · keyboard · greeter"
+            [apps]="dms-plugins · fish · claude · clone projects"
+            [update]="paru upgrade · flatpak update · clean caches"
+            [audit]="orphans · rebuilds · pacnew · firmware"
+        )
+        echo -e "${BLU}  #   Phase       Description${NC}"
+        echo    "  ──────────────────────────────────────────────────────"
         local _i=1
         for _p in "${_phases[@]}"; do
-            printf "  %2d) %s\n" "$_i" "$_p"
+            printf "  %2d) %-12s %s\n" "$_i" "$_p" "${_desc[$_p]}"
             (( _i++ ))
         done
         echo ""
