@@ -161,6 +161,8 @@ Result: `~/.config/<pkg>` becomes a directory symlink into the repo. App writes 
 
 `projects.list` — list of git repos (SSH URLs) cloned into `~/Projects/` during the `clone_projects` bootstrap phase. Add new repos here to have them auto-cloned on fresh installs.
 
+`TODO.md` — pending work tracked in the repo; currently lists pacman packages with available Flatpak equivalents to migrate.
+
 Package management uses flat text files (one package per line, `#` comments):
 
 | File | Purpose |
