@@ -84,6 +84,9 @@ claude-code
 proton-mail-bin
 rofi-ykman-git
 
+# Chromium (webapp launcher — used by .desktop app shortcuts)
+chromium
+
 # Development
 jdk21-openjdk
 nodejs
