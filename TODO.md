@@ -22,8 +22,4 @@ For each: remove from `.paru-S-common.list`, add to `.flatpak-S.list`, check mim
 
 No Flatpak: `alacritty` (terminal sandboxing issues), `btop`, `shelly`, `proton-mail-bin`.
 
-## Desktop shortcuts + webapps
-
-- Windows VM: done (http://localhost:8006) — pending script + .desktop file
-- Open Notebook: find URL once cloned, then create script + .desktop file (same pattern as Windows)
 

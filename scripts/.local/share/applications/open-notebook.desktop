@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Open Notebook
+Comment=Launch Open Notebook via Docker
+Exec=start-open-notebook
+Icon=accessories-text-editor
+Terminal=false
+Type=Application
+Categories=Office;
+Keywords=notebook;notes;ai;

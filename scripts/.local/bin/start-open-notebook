@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Launch Open Notebook and open webapp
+set -euo pipefail
+
+COMPOSE_DIR="$HOME/Projects/Open_notebook"
+
+cd "$COMPOSE_DIR"
+docker compose up -d
+
+# Wait for web UI to be ready (max 30s)
+echo "Waiting for Open Notebook..."
+timeout 30 bash -c 'until curl -sf http://localhost:8502 > /dev/null 2>&1; do sleep 1; done' \
+    || echo "Web UI not ready yet — opening anyway"
+
+chromium --app=http://localhost:8502 --start-fullscreen
