@@ -16,3 +16,4 @@ qemu-full
 libvirt
 edk2-ovmf
 swtpm
+spice-vdagent
