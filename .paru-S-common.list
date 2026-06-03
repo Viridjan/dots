@@ -14,6 +14,9 @@ proton-cachyos
 mesa
 lib32-mesa
 
+# Flatpak runtime
+flatpak
+
 # Wayland / niri desktop stack
 xwayland-satellite
 xdg-desktop-portal-gtk
