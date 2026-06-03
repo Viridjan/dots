@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Launch Windows VM (dockur/windows) and open web UI
+set -euo pipefail
+
+COMPOSE_DIR="$HOME/Projects/dots/windows"
+
+cd "$COMPOSE_DIR"
+docker compose up -d
+
+# Wait for web UI to be ready (max 30s)
+echo "Waiting for Windows VM web UI..."
+timeout 30 bash -c 'until curl -sf http://localhost:8006 > /dev/null 2>&1; do sleep 1; done' \
+    || echo "Web UI not ready yet — opening anyway"
+
+xdg-open http://localhost:8006

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Windows VM
+Comment=Launch Windows 11 via Docker
+Exec=start-windows
+Icon=computer
+Terminal=false
+Type=Application
+Categories=System;Emulator;
+Keywords=windows;vm;docker;
