@@ -791,6 +791,12 @@ print_manual_steps() {
     echo "  8. Open Notebook (if needed):"
     echo "       cd ~/Projects/Open_notebook && docker compose up -d"
     echo ""
+    if [[ "${MACHINE:-}" == desktop ]]; then
+    echo "  8b. Windows VM (if needed):"
+    echo "       cd ~/Projects/dots/windows && docker compose up -d"
+    echo "       # Web UI: http://localhost:8006  RDP: localhost:3389"
+    fi
+    echo ""
     if [[ "${MACHINE:-}" == surface ]]; then
     echo "  9. Steam games — per-game launch option for forced fullscreen (2880x1920 @ 60Hz):"
     echo "       gamescope -f -W 2880 -H 1920 -r 60 -- %command%"

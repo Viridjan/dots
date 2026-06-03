@@ -58,6 +58,9 @@ ykman fido access change-pin
 
 # Open Notebook (if needed)
 cd ~/Projects/Open_notebook && docker compose up -d
+
+# Windows VM — desktop only (web UI: http://localhost:8006, RDP: localhost:3389)
+cd ~/Projects/dots/windows && docker compose up -d
 ```
 
 **Surface only:**

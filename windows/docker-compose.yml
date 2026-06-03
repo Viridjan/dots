@@ -1,0 +1,21 @@
+services:
+  windows:
+    image: dockurr/windows
+    container_name: windows
+    environment:
+      VERSION: "11"
+      RAM_SIZE: "8G"
+      CPU_CORES: "4"
+      DISK_SIZE: "128G"
+    devices:
+      - /dev/kvm
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - 8006:8006   # web UI (noVNC)
+      - 3389:3389/tcp
+      - 3389:3389/udp
+    volumes:
+      - ./storage:/storage
+    restart: on-failure
+    stop_grace_period: 2m

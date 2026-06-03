@@ -22,6 +22,3 @@ For each: remove from `.paru-S-common.list`, add to `.flatpak-S.list`, check mim
 
 No Flatpak: `alacritty` (terminal sandboxing issues), `btop`, `shelly`, `proton-mail-bin`.
 
-## Investigate
-
-- Windows in Docker: https://github.com/dockur/windows
