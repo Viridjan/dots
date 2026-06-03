@@ -791,10 +791,15 @@ print_manual_steps() {
     echo "  8. Open Notebook (if needed):"
     echo "       cd ~/Projects/Open_notebook && docker compose up -d"
     echo ""
+    if [[ "${MACHINE:-}" == surface ]]; then
+    echo "  9. Steam games — per-game launch option for forced fullscreen (2880x1920 @ 60Hz):"
+    echo "       gamescope -f -W 2880 -H 1920 -r 60 -- %command%"
+    else
     echo "  9. Steam games — per-game launch option for forced fullscreen (3440x1440 @ 165Hz):"
     echo "       gamescope -f -W 3440 -H 1440 -r 165 -- %command%"
     echo "       # Upscale from 1080p if game lacks ultrawide support:"
     echo "       gamescope -f -W 3440 -H 1440 -w 1920 -h 1080 -r 165 -- %command%"
+    fi
     echo ""
     echo " 10. Maintenance (update, cache, orphans):"
     echo "       vjupdate --update"
