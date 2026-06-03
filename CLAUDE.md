@@ -32,10 +32,13 @@ dots/
   paru/           → ~/.config/paru/
   qt5ct/          → ~/.config/qt5ct/
   qt6ct/          → ~/.config/qt6ct/
-  scripts/        → ~/.local/bin/  (vjupdate, graphify, claude-auto-retry)
+  scripts/        → ~/.local/bin/  (vjupdate, graphify, claude-auto-retry, start-windows, start-macos)
+                  + ~/.local/share/applications/  (.desktop launchers)
   surface/        → ~/.config/niri/cfg/display.kdl + input.kdl + surface-layout.kdl  (Surface Pro 9 only)
   vesktop/        → ~/.config/vesktop/  (settings.json + settings/)
   VSCodium/       → ~/.config/VSCodium/
+  windows/        ← NOT a stow package — Docker Compose for Windows 11 VM (dockur/windows, port 8006)
+  macos/          ← NOT a stow package — Docker Compose for macOS Sequoia VM (dockur/macos, port 8007)
 ```
 
 `niri` uses **file-level symlinks** — the `cfg/` and `dms/` directories are real, but individual `.kdl` files are symlinked. All other packages use directory-level symlinks.
@@ -176,6 +179,21 @@ Package management uses flat text files (one package per line, `#` comments):
 | `.dms-plugins.list` | DankMaterialShell plugins |
 | `.install-scripts.list` | Scripts run during bootstrap |
 
+## VM webapps
+
+`windows/` and `macos/` are standalone Docker Compose projects, not stow packages. Launch via scripts:
+
+```bash
+start-windows   # starts Windows 11 VM, opens noVNC at http://localhost:8006
+start-macos     # starts macOS Sequoia VM, opens noVNC at http://localhost:8007
+```
+
+Both open Chromium `--app` at 75% of screen size (100% on Surface). Window size is machine-aware via `hostname`.
+
+**macOS first boot**: the blank disk shows as "locked" in the installer. Fix once in Disk Utility: View → Show All Devices → select top-level disk → Erase → APFS, GUID Partition Map → then reinstall.
+
+Stop a VM: `cd ~/Projects/dots/<windows|macos> && docker compose down`
+
 ## vjupdate bootstrap phases
 
 Phases use stamps in `~/.local/state/dots/` — heavy phases (mirrors, keyrings) skip automatically if run within 48h.
@@ -190,12 +208,14 @@ repos → packages → flatpaks → dotfiles → system → apps → update → 
 | `packages` | install pacman/AUR packages |
 | `flatpaks` | install flatpak apps |
 | `dotfiles` | stow dotfiles, dms-import |
-| `system` | enable services, snapper, extra-disks, keyboard, greeter |
-| `apps` | dms-plugins, install-scripts, fish, claude, clone projects |
-| `update` | paru upgrade, flatpak update, clean caches |
-| `audit` | orphans, rebuilds, python-rebuilds, pacnew, firmware |
+| `system` | enable services, snapper, extra-disks, keyboard, greeter (**FIRST_RUN only**) |
+| `apps` | dms-plugins (**FIRST_RUN**), install-scripts, fish, claude plugins (**FIRST_RUN**), clone projects, vm setup |
+| `update` | paru upgrade, flatpak update, flatpak orphan cleanup, clean caches |
+| `audit` | orphans, flatpak orphans, rebuilds, python-rebuilds, pacnew, firmware |
 
 `--interactive` / `-i` prompts before each phase. `update` and `audit` also run via `vjupdate --update` and `vjupdate --check`.
+
+Bootstrap asks **"First run?"** at start — answering `y` enables: `enable_services`, `setup_snapper`, `setup_extra_disks`, `setup_keyboard`, `setup_greeter`, `install_dms_plugins`, `setup_claude`. All skip by default on re-runs (`FIRST_RUN=false`).
 
 ## Current key values (as of last sync)
 

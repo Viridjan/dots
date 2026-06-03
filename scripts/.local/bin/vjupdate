@@ -19,11 +19,12 @@ die()   { echo -e "${RED}[✗] $*${NC}" >&2; exit 1; }
 DOTS_DIR="$HOME/Projects/dots"
 STAMP_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/dots"
 INTERACTIVE=true
+FIRST_RUN=false
 mkdir -p "$STAMP_DIR"
 
 _run_phase() {
     local name="$1"; shift
-    if [[ -n "${SKIP_PHASES:-}" ]] && echo " $SKIP_PHASES " | grep -qi " $name "; then
+    if [[ " ${SKIP_PHASES:-} " == *" $name "* ]]; then
         warn "Skipped: $name"
         return
     fi
@@ -471,6 +472,25 @@ run_install_scripts() {
     done < "$list"
 }
 
+# ─── Phase 7f: VM setup ──────────────────────────────────
+setup_vms() {
+    if ! command -v docker &>/dev/null; then
+        warn "docker not found — skipping VM setup"
+        return
+    fi
+
+    info "Setting up VM storage directories..."
+    mkdir -p "$DOTS_DIR/windows/storage"
+    mkdir -p "$DOTS_DIR/macos/storage"
+    ok "VM storage dirs ready"
+
+    info "Pulling VM images (background)..."
+    docker pull dockurr/windows &>/dev/null &
+    docker pull dockurr/macos   &>/dev/null &
+    wait
+    ok "VM images pulled"
+}
+
 # ─── Phase 7e: Fish plugins (tide prompt) ────────────────
 # fish_variables is NOT tracked (tide writes a per-session prompt cache that
 # would churn git endlessly), so the prompt is reproduced here instead.
@@ -605,6 +625,18 @@ flatpak_update() {
     ok "Flatpaks up to date"
 }
 
+# ─── Maintenance: flatpak unused runtimes ────────────────
+check_flatpak_orphans() {
+    if ! command -v flatpak &>/dev/null; then
+        warn "flatpak not installed — skipping"
+        return
+    fi
+    info "Removing unused flatpak runtimes..."
+    flatpak uninstall --unused --assumeyes --noninteractive \
+        && ok "Flatpak unused runtimes removed" \
+        || warn "flatpak uninstall --unused had warnings"
+}
+
 # ─── Maintenance: cache cleanup ──────────────────────────
 clean_caches() {
     info "Cleaning package caches..."
@@ -656,7 +688,7 @@ check_python_rebuilds() {
     fi
 
     local all_packages=""
-    for dir in $old_dirs; do
+    while IFS= read -r dir; do
         local dir_packages
         dir_packages=$(pacman -Qoq "$dir" 2>/dev/null || true)
         if [[ -n "$dir_packages" ]]; then
@@ -664,7 +696,7 @@ check_python_rebuilds() {
             echo "$dir_packages"
             all_packages="$all_packages $dir_packages"
         fi
-    done
+    done <<< "$old_dirs"
 
     local unique_packages
     unique_packages=$(echo "$all_packages" | tr ' ' '\n' | sort -u | tr '\n' ' ' | xargs 2>/dev/null || true)
@@ -820,10 +852,25 @@ phase_repos()    { install_paru; reset_keyrings; setup_linux_surface_repo; refre
 phase_packages() { install_packages; }
 phase_flatpaks() { install_flatpaks; }
 phase_dotfiles() { deploy_dotfiles; dms_import; }
-phase_system()   { enable_services; setup_snapper; setup_extra_disks; setup_keyboard; setup_greeter; }
-phase_apps()     { install_dms_plugins; run_install_scripts; setup_fish; setup_claude; clone_projects; }
+phase_system() {
+    if $FIRST_RUN; then
+        enable_services
+        setup_snapper
+        setup_extra_disks
+        setup_keyboard
+        setup_greeter
+    fi
+}
+phase_apps() {
+    if $FIRST_RUN; then install_dms_plugins; fi
+    run_install_scripts
+    setup_fish
+    if $FIRST_RUN; then setup_claude; fi
+    clone_projects
+    setup_vms
+}
 phase_update()   { system_update; flatpak_update; clean_caches; }
-phase_audit()    { check_foreign_orphans; check_rebuilds; check_python_rebuilds; check_pacnew; check_firmware; }
+phase_audit()    { check_foreign_orphans; check_flatpak_orphans; check_rebuilds; check_python_rebuilds; check_pacnew; check_firmware; }
 
 # ─── Main ────────────────────────────────────────────────
 bootstrap() {
@@ -836,6 +883,11 @@ bootstrap() {
     detect_machine
     _ensure_dots_repo
     if $INTERACTIVE; then
+        read -rp "First run? Enables: snapper, disks, keyboard, greeter, DMS plugins, Claude plugins [y/N]: " _first_run_ans
+        [[ "$_first_run_ans" =~ ^[Yy]$ ]] && FIRST_RUN=true
+        echo ""
+    fi
+    if $INTERACTIVE; then
         local _phases=(repos packages flatpaks dotfiles system apps update audit)
         local -A _desc=(
             [repos]="paru · keyrings · surface repo · mirrors"
@@ -843,7 +895,7 @@ bootstrap() {
             [flatpaks]="install flatpak apps"
             [dotfiles]="stow dotfiles · dms-import"
             [system]="services · snapper · disks · keyboard · greeter"
-            [apps]="dms-plugins · fish · claude · clone projects"
+            [apps]="dms-plugins · fish · claude · clone projects · vm setup"
             [update]="paru upgrade · flatpak update · clean caches"
             [audit]="orphans · rebuilds · pacnew · firmware"
         )
@@ -883,9 +935,9 @@ update() {
     echo ""
 
     detect_machine
-    setup_extra_disks
     system_update
     flatpak_update
+    check_flatpak_orphans
     clean_caches
 }
 

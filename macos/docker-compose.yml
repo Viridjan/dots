@@ -1,9 +1,9 @@
 services:
-  windows:
-    image: dockurr/windows
-    container_name: windows
+  macos:
+    image: dockurr/macos
+    container_name: macos
     environment:
-      VERSION: "11"
+      VERSION: "sequoia"
       RAM_SIZE: "8G"
       CPU_CORES: "4"
       DISK_SIZE: "128G"
@@ -13,10 +13,11 @@ services:
       - /dev/kvm
     cap_add:
       - NET_ADMIN
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     ports:
-      - 8006:8006   # web UI (noVNC)
-      - 3389:3389/tcp
-      - 3389:3389/udp
+      - 8007:8006   # web UI (noVNC) — 8007 avoids conflict with windows on 8006
     volumes:
       - ./storage:/storage
     restart: on-failure
