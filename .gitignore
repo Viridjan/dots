@@ -1,57 +1,13 @@
-# Discord runtime state (app binaries, cache, cookies — not user config)
-discord/.config/discord/[0-9]*/
-discord/.config/discord/app-*/
-discord/.config/discord/Cache/
-discord/.config/discord/Code Cache/
-discord/.config/discord/Crashpad/
-discord/.config/discord/GPUCache/
-discord/.config/discord/Local Storage/
-discord/.config/discord/Service Worker/
-discord/.config/discord/Session Storage/
-discord/.config/discord/Shared Dictionary/
-discord/.config/discord/SharedStorage
-discord/.config/discord/SharedStorage-wal
-discord/.config/discord/DawnGraphiteCache/
-discord/.config/discord/DawnWebGPUCache/
-discord/.config/discord/VideoDecodeStats/
-discord/.config/discord/WebStorage/
-discord/.config/discord/Dictionaries/
-discord/.config/discord/Cookies
-discord/.config/discord/Cookies-journal
-discord/.config/discord/DIPS
-discord/.config/discord/DIPS-wal
-discord/.config/discord/Discord
-discord/.config/discord/Preferences
-discord/.config/discord/TransportSecurity
-discord/.config/discord/Trust Tokens
-discord/.config/discord/Trust Tokens-journal
-discord/.config/discord/Network Persistent State
-discord/.config/discord/SingletonCookie
-discord/.config/discord/SingletonLock
-discord/.config/discord/SingletonSocket
-discord/.config/discord/installer.db
-discord/.config/discord/logs/
-discord/.config/discord/discord_asset_cache/
-discord/.config/discord/.org.chromium.Chromium.*
-discord/.config/discord/module_data/
-discord/.config/discord/sentry/
-discord/.config/discord/shared_proto_db/
-discord/.config/discord/quotes.json
-
 # Fish runtime state
 fish/.config/fish/fish_history
 # Universal vars — tide writes a per-session prompt cache here; the prompt is
 # reproduced by vjupdate's setup_fish instead. Don't track.
 fish/.config/fish/fish_variables*
 
-# Micro runtime state
-micro/.config/micro/backups/
-micro/.config/micro/buffers/
 
-# VSCodium runtime state (cache, session, Chromium internals — not user config)
+# VSCodium — binary caches and Chromium session state (volatile, machine-specific)
 VSCodium/.config/VSCodium/Cache/
 VSCodium/.config/VSCodium/CachedData/
-VSCodium/.config/VSCodium/CachedProfilesData/
 VSCodium/.config/VSCodium/Code Cache/
 VSCodium/.config/VSCodium/Crashpad/
 VSCodium/.config/VSCodium/DawnGraphiteCache/
@@ -61,20 +17,18 @@ VSCodium/.config/VSCodium/GPUCache/
 VSCodium/.config/VSCodium/Local Storage/
 VSCodium/.config/VSCodium/Session Storage/
 VSCodium/.config/VSCodium/Shared Dictionary/
+VSCodium/.config/VSCodium/Cookies
+VSCodium/.config/VSCodium/Cookies-journal
 VSCodium/.config/VSCodium/DIPS
 VSCodium/.config/VSCodium/DIPS-wal
 VSCodium/.config/VSCodium/Network Persistent State
-VSCodium/.config/VSCodium/Preferences
+VSCodium/.config/VSCodium/TransportSecurity
 VSCodium/.config/VSCodium/Trust Tokens
 VSCodium/.config/VSCodium/Trust Tokens-journal
-VSCodium/.config/VSCodium/machineid
-VSCodium/.config/VSCodium/languagepacks.json
-VSCodium/.config/VSCodium/User/chatLanguageModels.json
-VSCodium/.config/VSCodium/User/globalStorage/
-VSCodium/.config/VSCodium/User/workspaceStorage/
 
-# Windows VM storage (Docker volume — disk image, not config)
+# VM storage (Docker volumes — disk images, not config)
 windows/storage/
+macos/storage/
 
 # Vesktop runtime state
 vesktop/.config/vesktop/Crashpad/
@@ -86,20 +40,5 @@ vesktop/.config/vesktop/themes/
 # Ghostty backups
 ghostty/.config/ghostty/config.backup.*
 
-# Claude Code — credentials and runtime state (never commit)
+# Claude Code — credentials only (never commit API keys)
 claude/.claude/.credentials.json
-claude/.claude/settings.local.json
-claude/.claude/history.jsonl
-claude/.claude/cache/
-claude/.claude/sessions/
-claude/.claude/backups/
-claude/.claude/file-history/
-claude/.claude/shell-snapshots/
-claude/.claude/tasks/
-claude/.claude/plans/
-claude/.claude/.caveman-active
-claude/.claude/.caveman-history.jsonl
-claude/.claude/.caveman-statusline-suffix
-
-# graphify — generated knowledge graph output
-graphify-out/
