@@ -12,6 +12,7 @@ echo "Waiting for Windows VM web UI..."
 timeout 30 bash -c 'until curl -sf http://localhost:8006 > /dev/null 2>&1; do sleep 1; done' \
     || echo "Web UI not ready yet — opening anyway"
 
+mkdir -p "$HOME/.local/share/firefox-apps/windows-vm"
 firefox --no-remote --new-instance \
     --profile "$HOME/.local/share/firefox-apps/windows-vm" \
     --app=http://localhost:8006
