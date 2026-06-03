@@ -315,6 +315,7 @@ enable_services() {
     if [[ "$MACHINE" == desktop ]]; then
         _enable libvirtd
         sudo usermod -aG libvirt "$USER" 2>/dev/null || true
+        sudo usermod -aG docker "$USER" 2>/dev/null || true
     fi
 
     if [[ "$MACHINE" == surface ]]; then

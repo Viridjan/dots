@@ -73,6 +73,9 @@ VSCodium/.config/VSCodium/User/chatLanguageModels.json
 VSCodium/.config/VSCodium/User/globalStorage/
 VSCodium/.config/VSCodium/User/workspaceStorage/
 
+# Windows VM storage (Docker volume — disk image, not config)
+windows/storage/
+
 # Vesktop runtime state
 vesktop/.config/vesktop/Crashpad/
 vesktop/.config/vesktop/sessionData/
