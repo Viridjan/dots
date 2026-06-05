@@ -151,8 +151,10 @@ refresh_mirrors() {
         return
     fi
     info "Refreshing mirrors..."
-    sudo cachyos-rate-mirrors 2>/dev/null \
-        || sudo rate-mirrors --save /etc/pacman.d/cachyos-mirrorlist cachyos 2>/dev/null \
+    sudo RATE_MIRRORS_PER_MIRROR_TIMEOUT=1500 RATE_MIRRORS_MAX_MIRRORS_TO_OUTPUT=5 cachyos-rate-mirrors 2>/dev/null \
+        || sudo rate-mirrors \
+               --per-mirror-timeout 1500 --max-mirrors-to-output 5 \
+               --save /etc/pacman.d/cachyos-mirrorlist cachyos 2>/dev/null \
         || warn "Mirror refresh failed — continuing with existing mirrors"
     sudo pacman -Syy
     _mark_done mirrors
