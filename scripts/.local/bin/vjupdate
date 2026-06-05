@@ -822,12 +822,16 @@ print_manual_steps() {
         echo ""
     fi
     echo "  8. Open Notebook (if needed):"
-    echo "       cd ~/Projects/Open_notebook && docker compose up -d"
+    echo "       start-open-notebook"
+    echo "       # First launch auto-creates .env and starts containers"
     echo ""
     if [[ "${MACHINE:-}" == desktop ]]; then
-    echo "  8b. Windows VM (if needed):"
-    echo "       cd ~/Projects/dots/windows && docker compose up -d"
-    echo "       # Web UI: http://localhost:8006  RDP: localhost:3389"
+    echo "  8b. Virtual machines (images pre-pulled, run on demand):"
+    echo "       start-windows   # Windows 11 — opens at http://localhost:8006"
+    echo "       start-macos     # macOS Sequoia — opens at http://localhost:8007"
+    echo "       # First macOS boot: Disk Utility → Show All Devices → Erase disk"
+    echo "       #   as APFS / GUID Partition Map, then Reinstall macOS"
+    echo "       # Stop a VM: cd ~/Projects/dots/<windows|macos> && docker compose down"
     fi
     echo ""
     if [[ "${MACHINE:-}" == surface ]]; then
