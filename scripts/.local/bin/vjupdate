@@ -279,6 +279,11 @@ deploy_dotfiles() {
 
     [[ -d bkg ]] && stow --adopt -t "$HOME" bkg && _stowed+=("bkg")
 
+    # ollama targets / (root) not ~HOME — stow systemd drop-in for ROCm GPU support
+    if [[ -d ollama ]]; then
+        sudo stow --adopt -t / ollama && _stowed+=("ollama→/")
+    fi
+
     ok "stowed: ${_stowed[*]}"
 }
 
@@ -324,6 +329,7 @@ enable_services() {
     if [[ "$MACHINE" == desktop ]]; then
         _enable libvirtd
         _enable ollama
+        sudo systemctl daemon-reload 2>/dev/null || true
         sudo usermod -aG libvirt "$USER" 2>/dev/null || true
         sudo usermod -aG docker "$USER" 2>/dev/null || true
     fi
