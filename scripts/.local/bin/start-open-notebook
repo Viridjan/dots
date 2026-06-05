@@ -2,14 +2,33 @@
 # Launch Open Notebook and open webapp
 set -euo pipefail
 
-COMPOSE_DIR="$HOME/Projects/Open_notebook"
+COMPOSE_DIR="$HOME/Projects/open_notebook"
 
 cd "$COMPOSE_DIR"
-docker compose up -d
+
+# Auto-create .env on first run
+if [[ ! -f .env ]]; then
+    [[ -f .env.example ]] || { echo "ERROR: .env.example missing in $COMPOSE_DIR" >&2; exit 1; }
+    cp .env.example .env
+    local_key=$(openssl rand -hex 24)
+    if grep -q 'change-me-to-a-secret-string-min-16-chars' .env; then
+        sed -i "s|change-me-to-a-secret-string-min-16-chars|${local_key}|" .env
+    else
+        echo "WARNING: could not set encryption key — edit OPEN_NOTEBOOK_ENCRYPTION_KEY in .env manually" >&2
+    fi
+fi
+
+docker compose up -d 2>&1 || echo "WARNING: docker compose failed — container may already be running" >&2
 
 # Wait for web UI to be ready (max 30s)
 echo "Waiting for Open Notebook..."
 timeout 30 bash -c 'until curl -sf http://localhost:8502 > /dev/null 2>&1; do sleep 1; done' \
     || echo "Web UI not ready yet — opening anyway"
 
-chromium --app=http://localhost:8502 --start-fullscreen
+case "$(hostname)" in
+    *desktop*) WIN_W=2580; WIN_H=1080 ;;  # 75% of 3440×1440
+    *surface*) WIN_W=2880; WIN_H=1920 ;;  # 100% of 2880×1920
+    *)         WIN_W=1440; WIN_H=810  ;;  # 75% of 1920×1080
+esac
+
+chromium --app=http://localhost:8502 --window-size="${WIN_W},${WIN_H}"
