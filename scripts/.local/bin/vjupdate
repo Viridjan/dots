@@ -207,6 +207,7 @@ install_packages() {
 # ─── Phase 4: Dotfiles ───────────────────────────────────
 COMMON_STOW_PKGS=(
     alacritty
+    cave
     DankMaterialShell
     vesktop
     fish

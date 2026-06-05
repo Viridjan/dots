@@ -42,3 +42,7 @@ ghostty/.config/ghostty/config.backup.*
 
 # Claude Code — credentials only (never commit API keys)
 claude/.claude/.credentials.json
+
+# caveman-code — runtime state and credentials
+cave/.cave/agent/auth.json
+cave/.cave/agent/sessions/
