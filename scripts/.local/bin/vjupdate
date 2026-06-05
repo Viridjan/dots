@@ -481,6 +481,24 @@ run_install_scripts() {
     done < "$list"
 }
 
+# ─── Phase 7g: Ollama model setup ───────────────────────
+setup_ollama() {
+    if ! command -v ollama &>/dev/null; then
+        warn "ollama not found — skipping model pull"
+        return
+    fi
+
+    if [[ "${MACHINE:-}" != "desktop" ]]; then
+        warn "ollama model pull skipped on $MACHINE — see TODO.md for surface model decision"
+        return
+    fi
+
+    info "Pulling ollama model: qwen3:14b..."
+    ollama pull qwen3:14b \
+        && ok "ollama: qwen3:14b ready" \
+        || warn "ollama pull failed — run manually: ollama pull qwen3:14b"
+}
+
 # ─── Phase 7f: VM setup ──────────────────────────────────
 setup_vms() {
     if ! command -v docker &>/dev/null; then
@@ -917,6 +935,7 @@ phase_apps() {
     setup_fish
     if $FIRST_RUN; then setup_claude; fi
     if $FIRST_RUN; then setup_caveman_code; fi
+    if $FIRST_RUN; then setup_ollama; fi
     clone_projects
     setup_vms
 }
