@@ -580,6 +580,27 @@ setup_claude() {
         || warn "graphify plugin install failed — run manually: claude plugin marketplace add safishamsi/graphify && claude plugin install graphify --scope user"
 }
 
+# ─── Phase 8b: caveman-code ──────────────────────────────
+setup_caveman_code() {
+    if ! command -v npm &>/dev/null; then
+        warn "npm not found — skipping caveman-code install"
+        return
+    fi
+
+    info "Installing caveman-code..."
+    npm install -g @juliusbrussee/caveman-code 2>/dev/null \
+        && ok "caveman-code installed" \
+        || { warn "caveman-code npm install failed"; return; }
+
+    # ~/.local/bin is a stow symlink → npm's relative ../lib symlink breaks.
+    # Replace with absolute-path wrapper (already in dotfiles via stow).
+    local broken="$HOME/.local/bin/caveman-code"
+    if [[ -L "$broken" ]]; then
+        rm -f "$broken"
+        ok "removed broken npm symlink — stow wrapper takes over"
+    fi
+}
+
 # ─── Phase 8: Projects ───────────────────────────────────
 clone_projects() {
     local list="$DOTS_DIR/projects.list"
@@ -894,6 +915,7 @@ phase_apps() {
     run_install_scripts
     setup_fish
     if $FIRST_RUN; then setup_claude; fi
+    if $FIRST_RUN; then setup_caveman_code; fi
     clone_projects
     setup_vms
 }
