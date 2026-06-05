@@ -101,7 +101,7 @@ reset_keyrings() {
     sudo pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com
     sudo pacman-key --lsign-key F3B607488DB35A47
     if [[ "${MACHINE:-}" == surface ]]; then
-        curl -s https://raw.githubusercontent.com/linux-surface/linux-surface/master/pkg/keys/surface.asc \
+        curl -sf https://raw.githubusercontent.com/linux-surface/linux-surface/master/pkg/keys/surface.asc \
             | sudo pacman-key --add -
         sudo pacman-key --finger 56C464BAAC421453
         sudo pacman-key --lsign-key 56C464BAAC421453
@@ -711,7 +711,7 @@ check_python_rebuilds() {
     if ! $INTERACTIVE; then warn "Skipped Python rebuild (non-interactive)"; return; fi
     read -rp "Rebuild? [y/N]: " confirm
     [[ "$confirm" =~ ^[Yy]$ ]] || { warn "Skipped"; return; }
-    paru -S --noconfirm $unique_packages
+    paru -S --noconfirm "$unique_packages"
     ok "Python rebuild done"
 }
 
