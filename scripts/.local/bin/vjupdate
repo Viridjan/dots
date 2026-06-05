@@ -10,11 +10,16 @@
 # ─────────────────────────────────────────────────────────
 set -euo pipefail
 
-RED='\033[0;31m'; YEL='\033[0;33m'; GRN='\033[0;32m'; BLU='\033[0;34m'; NC='\033[0m'
-info()  { echo -e "${BLU}==> $*${NC}"; }
-ok()    { echo -e "${GRN} ✓  $*${NC}"; }
-warn()  { echo -e "${YEL}[!] $*${NC}"; }
-die()   { echo -e "${RED}[✗] $*${NC}" >&2; exit 1; }
+RED='\033[0;31m'; YEL='\033[0;33m'; GRN='\033[0;32m'; BLU='\033[0;34m'; CYN='\033[0;36m'; NC='\033[0m'
+info()    { echo -e "${BLU}==> $*${NC}"; }
+ok()      { echo -e "${GRN} ✓  $*${NC}"; }
+warn()    { echo -e "${YEL}[!] $*${NC}"; WARNINGS+=("$*"); }
+die()     { echo -e "${RED}[✗] $*${NC}" >&2; exit 1; }
+section() { echo -e "\n${CYN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; \
+            echo -e "${CYN}  ▶  ${1^^}${NC}"; \
+            echo -e "${CYN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; }
+
+WARNINGS=()
 
 DOTS_DIR="$HOME/Projects/dots"
 STAMP_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/dots"
@@ -25,9 +30,10 @@ mkdir -p "$STAMP_DIR"
 _run_phase() {
     local name="$1"; shift
     if [[ " ${SKIP_PHASES:-} " == *" $name "* ]]; then
-        warn "Skipped: $name"
+        section "phase: $name — skipped"
         return
     fi
+    section "phase: $name"
     "$@"
 }
 
@@ -787,6 +793,22 @@ check_firmware() {
     fwupdmgr get-updates 2>/dev/null || ok "No firmware updates available"
 }
 
+# ─── Warnings recap ──────────────────────────────────────
+print_recap() {
+    if [[ ${#WARNINGS[@]} -eq 0 ]]; then
+        echo -e "\n${GRN}  ✓  No warnings.${NC}"
+        return
+    fi
+    echo ""
+    echo -e "${YEL}════════════════════════════════════════════${NC}"
+    echo -e "${YEL}  ⚠  Warnings / Errors (${#WARNINGS[@]})${NC}"
+    echo -e "${YEL}════════════════════════════════════════════${NC}"
+    for w in "${WARNINGS[@]}"; do
+        echo -e "${YEL}  [!] $w${NC}"
+    done
+    echo ""
+}
+
 # ─── Phase 9: Summary ────────────────────────────────────
 print_manual_steps() {
     echo ""
@@ -930,6 +952,7 @@ bootstrap() {
     _run_phase "apps"     phase_apps
     _run_phase "update"   phase_update
     _run_phase "audit"    phase_audit
+    print_recap
     print_manual_steps
 }
 
@@ -945,6 +968,7 @@ update() {
     flatpak_update
     check_flatpak_orphans
     clean_caches
+    print_recap
 }
 
 check() {
@@ -959,6 +983,7 @@ check() {
     check_python_rebuilds
     check_pacnew
     check_firmware
+    print_recap
 }
 
 usage() {
