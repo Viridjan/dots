@@ -10,6 +10,9 @@ lib32-opencl-mesa
 # Desktop peripherals
 vial-appimage
 
+# AI / local LLM
+ollama-rocm
+
 # Virtualisation
 virt-manager
 qemu-full
