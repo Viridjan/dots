@@ -29,6 +29,7 @@ matugen
 qt6-multimedia-ffmpeg
 
 # System tools
+fwupd
 kimageformats
 cava
 fish
