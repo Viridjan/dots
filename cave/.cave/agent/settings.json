@@ -1,0 +1,14 @@
+{
+  "telemetry": {
+    "enabled": false
+  },
+  "onboarding": {
+    "hasCompletedOnboarding": true,
+    "completedAt": "2026-06-05T09:34:28.555Z",
+    "completedVersion": "0.65.2"
+  },
+  "lastChangelogVersion": "0.65.2",
+  "update": {
+    "lastCheckedAt": "2026-06-05T09:34:28.638Z"
+  }
+}
