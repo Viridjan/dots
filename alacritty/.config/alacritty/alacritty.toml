@@ -12,7 +12,7 @@ opacity = 1.0
 history = 3023
 
 [cursor]
-style = { shape = "Block", blinking = "On" }
+style = { shape = "Beam", blinking = "On" }
 blink_interval = 500
 unfocused_hollow = true
 
