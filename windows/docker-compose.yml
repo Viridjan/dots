@@ -4,8 +4,8 @@ services:
     container_name: windows
     environment:
       VERSION: "11"
-      RAM_SIZE: "8G"
-      CPU_CORES: "4"
+      RAM_SIZE: "16G"
+      CPU_CORES: "8"
       DISK_SIZE: "128G"
       SCREEN_WIDTH: "1920"
       SCREEN_HEIGHT: "1080"
