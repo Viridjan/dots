@@ -172,6 +172,8 @@ Result: `~/.config/<pkg>` becomes a directory symlink into the repo. App writes 
 
 `TODO.md` — pending work tracked in the repo; currently lists pacman packages with available Flatpak equivalents to migrate.
 
+Package install priority: **pacman > flatpak > paru**. If a package is available in official Arch/CachyOS repos, prefer pacman. Flatpak over AUR when both exist. AUR only as last resort.
+
 Package management uses flat text files (one package per line, `#` comments):
 
 | File | Purpose |
