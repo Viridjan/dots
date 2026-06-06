@@ -15,21 +15,5 @@
 // (~/.config/autostart/*.desktop), which may be more convenient for
 // apps that already have desktop entries.
 
-// spawn-at-startup "waybar" // waybar — a popular Wayland status bar
-
-// Social apps — open on the "social" workspace (see rules.kdl).
-// spawn-sh used here so shell PATH resolution picks up the command.
-spawn-sh-at-startup "discord"
-spawn-sh-at-startup "steam"
-
-// Media apps — open on the "media" workspace (see rules.kdl).
-spawn-at-startup "spotify-launcher"
-spawn-at-startup "flatpak" "run" "com.ktechpit.whatsie"
-spawn-at-startup "Telegram"
-
-// Background daemons
-spawn-at-startup "/usr/lib/polkit-kde-authentication-agent-1"
-spawn-sh-at-startup "wl-paste --watch cliphist store"
-spawn-at-startup "udiskie"
-
+// All autostart entries live in cfg/autostart-machine.kdl (machine-specific).
 // hotkey-overlay and screenshot-path are set in misc.kdl
