@@ -199,6 +199,8 @@ Both open Chromium `--app` at 75% of screen size (100% on Surface). Window size 
 
 **macOS first boot**: the blank disk shows as "locked" in the installer. Fix once in Disk Utility: View → Show All Devices → select top-level disk → Erase → APFS, GUID Partition Map → then reinstall.
 
+**Windows shared folder**: `~/Shared` on host is mounted into the VM via Samba. Inside Windows, map `\\host.lan\Data` as a network drive (This PC → Map network drive).
+
 Stop a VM: `cd ~/Projects/dots/<windows|macos> && docker compose down`
 
 ## vjupdate bootstrap phases

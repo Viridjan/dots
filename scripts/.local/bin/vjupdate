@@ -1014,6 +1014,8 @@ print_manual_steps() {
     echo "       # First macOS boot: Disk Utility → Show All Devices → Erase disk"
     echo "       #   as APFS / GUID Partition Map, then Reinstall macOS"
     echo "       # Stop a VM: cd ~/Projects/dots/<windows|macos> && docker compose down"
+    echo "       # Windows shared folder: ~/Shared on host → \\\\host.lan\\Data in Windows"
+    echo "       #   Map network drive in Windows: This PC → Map network drive → \\\\host.lan\\Data"
     echo ""
     echo "  8c. VR — Pico 4 Ultra via ALVR (wireless streaming):"
     echo "       # 1. Install android-tools if not already present:"
