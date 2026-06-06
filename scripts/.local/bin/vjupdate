@@ -1156,7 +1156,8 @@ usage() {
     echo "  --update, -u        Update packages + clean caches"
     echo "  --check, -c         Audit: orphans, rebuilds, pacnew, firmware"
     echo "  --kernels           Interactively install or remove CachyOS kernels"
-    echo "  --automount         Detect internal partitions and add to /etc/fstab"
+    echo "  --automount         Detect internal partitions and add to /etc/fstab
+  --keyring-pam       Add pam_gnome_keyring.so to /etc/pam.d/greetd (idempotent)"
     echo "  --dms-export        Copy live ~/.config/niri/dms/*.kdl → repo (then commit)"
     echo "  --dms-import        Copy repo dms overrides → live (skips auto-generated files)"
     echo "  --help              Show this message"
@@ -1169,6 +1170,7 @@ case "${1:-}" in
     --check|-c)       check ;;
     --kernels)        manage_kernels ;;
     --automount)      detect_machine; automount_disks ;;
+    --keyring-pam)    setup_keyring_pam ;;
     --dms-export)     dms_export ;;
     --dms-import)     dms_import ;;
     --help|-h)        usage ;;
