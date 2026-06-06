@@ -7,6 +7,7 @@ services:
       RAM_SIZE: "16G"
       CPU_CORES: "8"
       DISK_SIZE: "128G"
+      SHARED: "/shared"
       SCREEN_WIDTH: "1920"
       SCREEN_HEIGHT: "1080"
     devices:
@@ -19,5 +20,6 @@ services:
       - 3389:3389/udp
     volumes:
       - ./storage:/storage
+      - ~/Shared:/shared
     restart: on-failure
     stop_grace_period: 2m
