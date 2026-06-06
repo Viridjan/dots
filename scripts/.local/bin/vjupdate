@@ -358,37 +358,134 @@ setup_snapper() {
     fi
 }
 
-# ─── Phase 7d: Extra disks (desktop) ────────────────────
-setup_extra_disks() {
-    [[ "${MACHINE:-}" != "desktop" ]] && return
-    info "Configuring extra disks (desktop)..."
+# ─── Phase 7d: Automount disks ───────────────────────────
+automount_disks() {
+    command -v lsblk >/dev/null || { warn "automount: lsblk not found — skipping"; return; }
 
-    _add_fstab() {
-        local uuid="$1" mnt="$2" fstype="$3" opts="$4" pass="$5"
-        if grep -q "UUID=$uuid" /etc/fstab; then
-            ok "fstab: $mnt already present"
-            return
+    section "automount disks"
+    echo ""
+    lsblk -f
+    echo ""
+
+    local -A _mnt_at=()
+    while IFS= read -r _line; do
+        local _dev _mp
+        _dev=$(echo "$_line" | awk '{print $1}')
+        _mp=$(echo  "$_line" | awk '{print $2}')
+        _mnt_at["$_dev"]="$_mp"
+    done < <(lsblk -rno NAME,MOUNTPOINT | grep -v '^$')
+
+    local -a _candidates=()
+    while IFS= read -r _line; do
+        local _name _fstype _label _uuid
+        _name=$(echo   "$_line" | awk '{print $1}')
+        _fstype=$(echo "$_line" | awk '{print $2}')
+        _label=$(echo  "$_line" | awk '{print $3}')
+        _uuid=$(echo   "$_line" | awk '{print $4}')
+
+        [[ -z "$_fstype" || -z "$_uuid" ]] && continue
+
+        case "$_fstype" in
+            swap|zram*|tmpfs|squashfs|iso9660|vfat) continue ;;
+        esac
+        [[ "$_name" == loop* ]] && continue
+
+        local _curmnt="${_mnt_at[$_name]:-}"
+        case "$_curmnt" in
+            /|/boot|/boot/*|/efi|/efi/*) continue ;;
+        esac
+
+        if grep -qs "UUID=$_uuid" /etc/fstab; then
+            ok "fstab: /dev/$_name already present — skipping"
+            continue
         fi
-        sudo mkdir -p "$mnt"
-        printf 'UUID=%s %s %s %s 0 %s\n' "$uuid" "$mnt" "$fstype" "$opts" "$pass" \
-            | sudo tee -a /etc/fstab > /dev/null
-        ok "fstab: added $mnt"
-    }
 
-    # nofail + device-timeout: a missing/dead secondary disk must never block boot.
-    # nvme0n1p1 — 3.4T ext4, label 'data'
-    _add_fstab "150b328c-7d61-4efd-9740-0ad395b4ab27" /mnt/data ext4 "defaults,noatime,nofail,x-systemd.device-timeout=10" 2
+        _candidates+=("$_name|$_fstype|$_label|$_uuid")
+    done < <(lsblk -rno NAME,FSTYPE,LABEL,UUID)
 
-    # sda2 — 461.8G btrfs
-    _add_fstab "694d092d-8f7c-4bfb-9d60-34742ab760a3" /mnt/sda btrfs "defaults,noatime,compress=zstd:1,nofail,x-systemd.device-timeout=10" 0
+    if [[ ${#_candidates[@]} -eq 0 ]]; then
+        ok "automount: no eligible partitions found"
+        return
+    fi
+
+    local -a _fstab_entries=() _mount_points=()
+
+    for _entry in "${_candidates[@]}"; do
+        IFS='|' read -r _name _fstype _label _uuid <<< "$_entry"
+
+        echo "  ── /dev/$_name ──────────────────────────────────"
+        echo "  FSTYPE : $_fstype"
+        echo "  LABEL  : ${_label:-(none)}"
+        echo "  UUID   : $_uuid"
+        echo ""
+
+        read -rp "  Automount /dev/$_name? [y/N] " _reply
+        [[ "${_reply,,}" == "y" ]] || { echo "  Skipped."; echo ""; continue; }
+
+        local _default_mp
+        if [[ -n "$_label" ]]; then
+            _default_mp="/mnt/$_label"
+        else
+            _default_mp="/mnt/$_uuid"
+        fi
+
+        read -rp "  Mount point [$_default_mp]: " _mp
+        _mp="${_mp:-$_default_mp}"
+
+        local _opts _pass
+        case "$_fstype" in
+            ext4)
+                _opts="defaults,noatime,nofail,x-systemd.device-timeout=5"
+                _pass=2 ;;
+            btrfs)
+                _opts="defaults,noatime,compress=zstd,nofail,x-systemd.device-timeout=5"
+                _pass=0 ;;
+            ntfs|ntfs-3g)
+                _opts="defaults,nofail,uid=1000,gid=1000,umask=022,x-systemd.device-timeout=5"
+                _pass=0 ;;
+            exfat)
+                _opts="defaults,nofail,uid=1000,gid=1000,umask=022,x-systemd.device-timeout=5"
+                _pass=0 ;;
+            *)
+                _opts="defaults,nofail,x-systemd.device-timeout=5"
+                _pass=0 ;;
+        esac
+
+        local _fstab_line="UUID=$_uuid  $_mp  $_fstype  $_opts  0  $_pass"
+        echo ""
+        echo "  Entry: $_fstab_line"
+        read -rp "  Confirm? [y/N] " _reply
+        [[ "${_reply,,}" == "y" ]] || { echo "  Skipped."; echo ""; continue; }
+
+        _fstab_entries+=("$_fstab_line")
+        _mount_points+=("$_mp")
+        echo ""
+    done
+
+    [[ ${#_fstab_entries[@]} -eq 0 ]] && { ok "automount: nothing to add"; return; }
+
+    local _backup="/etc/fstab.backup.$(date +%Y%m%d-%H%M%S)"
+    info "Backing up /etc/fstab → $_backup"
+    sudo cp /etc/fstab "$_backup"
+
+    for _mp in "${_mount_points[@]}"; do
+        sudo mkdir -p "$_mp"
+    done
+
+    printf '\n# Added by vjupdate --automount on %s\n' "$(date)" | sudo tee -a /etc/fstab > /dev/null
+    for _fstab_line in "${_fstab_entries[@]}"; do
+        echo "$_fstab_line" | sudo tee -a /etc/fstab > /dev/null
+        ok "fstab: added $_fstab_line"
+    done
 
     sudo systemctl daemon-reload
-    local mnt_err
-    if mnt_err=$(sudo mount -a 2>&1); then
-        ok "Extra disks mounted"
+    local _mnt_err
+    if _mnt_err=$(sudo mount -a 2>&1); then
+        ok "automount: all entries mounted"
     else
-        warn "mount -a had errors — check fstab:"
-        echo "$mnt_err"
+        warn "mount -a failed — check /etc/fstab"
+        warn "Restore: sudo cp $_backup /etc/fstab"
+        echo "$_mnt_err"
     fi
 }
 
@@ -931,7 +1028,7 @@ phase_system() {
     if $FIRST_RUN; then
         enable_services
         setup_snapper
-        setup_extra_disks
+        if $INTERACTIVE; then automount_disks; fi
         setup_keyboard
         setup_greeter
     fi
@@ -1044,6 +1141,7 @@ usage() {
     echo "  --update, -u        Update packages + clean caches"
     echo "  --check, -c         Audit: orphans, rebuilds, pacnew, firmware"
     echo "  --kernels           Interactively install or remove CachyOS kernels"
+    echo "  --automount         Detect internal partitions and add to /etc/fstab"
     echo "  --dms-export        Copy live ~/.config/niri/dms/*.kdl → repo (then commit)"
     echo "  --dms-import        Copy repo dms overrides → live (skips auto-generated files)"
     echo "  --help              Show this message"
@@ -1055,6 +1153,7 @@ case "${1:-}" in
     --update|-u)      update ;;
     --check|-c)       check ;;
     --kernels)        manage_kernels ;;
+    --automount)      detect_machine; automount_disks ;;
     --dms-export)     dms_export ;;
     --dms-import)     dms_import ;;
     --help|-h)        usage ;;
