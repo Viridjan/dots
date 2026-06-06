@@ -1,5 +1,4 @@
 // Social workspace
-spawn-sh-at-startup "discord"
 spawn-sh-at-startup "steam"
 
 // Media workspace
