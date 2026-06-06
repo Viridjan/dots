@@ -179,7 +179,6 @@ Package management uses flat text files (one package per line, `#` comments):
 | `.paru-S-common.list` | Installed on both machines |
 | `.paru-S-desktop.list` | Desktop-only packages |
 | `.paru-S-surface.list` | Surface Pro 9-only packages |
-| `.paru-S.list` | Misc/gaming packages (manual reference) |
 | `.paru-R.list` | Packages force-removed before install (conflict resolution) |
 | `.flatpak-S.list` | Flatpak apps |
 | `.dms-plugins.list` | DankMaterialShell plugins |

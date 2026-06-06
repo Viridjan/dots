@@ -47,7 +47,7 @@ open-focused false keeps the focus on whatever you were doing when they launch.
 window-rule {
 	match title="Spotify"
 	match title="Steam"
-	match title="Dota 2"
+	match app-id="BambuStudio"
 	open-on-workspace "media"
 	open-focused false
 	default-column-width { proportion 0.5; }
@@ -78,6 +78,14 @@ window-rule {
 	match app-id="vesktop"
 	match title="Vesktop"
 	default-column-width { proportion 0.4; }
+}
+
+// Steam games — all apps launched from Steam open on media workspace, fullscreen.
+window-rule {
+	match app-id="^steam_app_"
+	open-on-workspace "media"
+	open-focused true
+	open-fullscreen true
 }
 
 // LibreOffice — every component (writer/calc/impress/...) opens at 50% width.
