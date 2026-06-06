@@ -91,7 +91,7 @@ Later includes override earlier ones for the same property. `dms/binds.kdl` is l
 
 - **User settings** (layout, keybinds, rules, animations): edit files under `cfg/`. Changes go directly into the repo via symlinks.
 - **Machine-specific niri overrides**: both `desktop/` and `surface/` packages provide identically-named `.kdl` files under `cfg/`. `vjupdate` symlinks the active machine's version into `~/.config/niri/cfg/`. `config.kdl` includes them unconditionally — the machine-specific content differs, or one side is empty. Current files:
-  - `autostart-machine.kdl` — desktop has all `spawn-at-startup` entries; surface is empty (no autorun)
+  - `autostart-machine.kdl` — desktop has `spawn-at-startup` entries (steam, spotify, whatsie, Telegram, daemons); surface is empty (no autorun). Vesktop launches via XDG autostart (`~/.config/autostart/vesktop.desktop`), not here.
   - `surface-layout.kdl` — surface has `window-rule { default-column-width { proportion 0.5; } }`; desktop is empty
   - To add a new machine-specific override: create the `.kdl` in both `desktop/` and `surface/` packages, add `include "cfg/<name>.kdl"` to `config.kdl`, and add `<name>` to the `for f in ...` loop in `vjupdate`'s `_stow_niri_cfg`.
   - Content common to both machines but that needs to differ slightly: put shared parts in `config.kdl` or `cfg/` (niri pkg), machine-specific delta in the per-machine file.
@@ -117,6 +117,12 @@ vjupdate --check
 
 # Interactively install/remove CachyOS kernels
 vjupdate --kernels
+
+# Detect internal partitions and add to /etc/fstab interactively
+vjupdate --automount
+
+# Add pam_gnome_keyring.so to /etc/pam.d/greetd (idempotent; fixes keyring unlock prompt)
+vjupdate --keyring-pam
 
 # Sync DMS overrides: live ~/.config/niri/dms/*.kdl → repo (then commit)
 vjupdate --dms-export
@@ -208,14 +214,14 @@ repos → packages → flatpaks → dotfiles → system → apps → update → 
 | `packages` | install pacman/AUR packages |
 | `flatpaks` | install flatpak apps |
 | `dotfiles` | stow dotfiles, dms-import |
-| `system` | enable services, snapper, extra-disks, keyboard, greeter (**FIRST_RUN only**) |
+| `system` | enable services, snapper, automount-disks (interactive only), keyboard, greeter, keyring-pam (**FIRST_RUN only**) |
 | `apps` | dms-plugins (**FIRST_RUN**), install-scripts, fish, claude plugins (**FIRST_RUN**), clone projects, vm setup |
 | `update` | paru upgrade, flatpak update, flatpak orphan cleanup, clean caches |
 | `audit` | orphans, flatpak orphans, rebuilds, python-rebuilds, pacnew, firmware |
 
 `--interactive` / `-i` prompts before each phase. `update` and `audit` also run via `vjupdate --update` and `vjupdate --check`.
 
-Bootstrap asks **"First run?"** at start — answering `y` enables: `enable_services`, `setup_snapper`, `setup_extra_disks`, `setup_keyboard`, `setup_greeter`, `install_dms_plugins`, `setup_claude`. All skip by default on re-runs (`FIRST_RUN=false`).
+Bootstrap asks **"First run?"** at start — answering `y` enables: `enable_services`, `setup_snapper`, `automount_disks` (interactive mode only), `setup_keyboard`, `setup_greeter`, `setup_keyring_pam`, `install_dms_plugins`, `setup_claude`. All skip by default on re-runs (`FIRST_RUN=false`).
 
 ## Current key values (as of last sync)
 
