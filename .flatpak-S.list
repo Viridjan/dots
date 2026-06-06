@@ -2,7 +2,6 @@
 # Feed to flatpak: while read -r app; do flatpak install -y flathub "$app"; done < .flatpak-S.list
 
 # Applications
-org.kde.gwenview
 ch.protonmail.protonmail-bridge
 com.bambulab.BambuStudio
 xyz.xclicker.xclicker
