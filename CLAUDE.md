@@ -134,7 +134,7 @@ vjupdate --dms-import
 SKIP_PHASES="mirrors keyrings" vjupdate
 
 # Re-apply all packages at once
-cd ~/Projects/dots && stow --restow -t ~ alacritty DankMaterialShell fish \
+cd ~/Projects/dots && stow --restow -t ~ alacritty cave DankMaterialShell fish \
     gtk-3.0 gtk-4.0 micro mimeapps paru qt5ct qt6ct vesktop VSCodium scripts
 stow --adopt --restow -t ~ claude
 stow --restow -t ~ desktop   # or: surface
@@ -219,9 +219,7 @@ sources → install → dotfiles → configure → audit
 | `configure` | system services, snapper, keyboard, greeter, keyring-pam (user-prompted); DMS plugins, install scripts, fish, claude, VMs (first-run prompted) |
 | `audit` | orphan packages, flatpak cleanup, rebuild check, pacnew files, firmware updates |
 
-`--interactive` / `-i` prompts before each phase. `update` and `audit` also run via `vjupdate --update` and `vjupdate --check`.
-
-Bootstrap asks **"First run?"** at start — answering `y` enables: `enable_services`, `setup_snapper`, `automount_disks` (interactive mode only), `setup_keyboard`, `setup_greeter`, `setup_keyring_pam`, `install_dms_plugins`, `setup_claude`. All skip by default on re-runs (`FIRST_RUN=false`).
+Interactive mode (default, or `-i`) opens a built-in terminal TUI (no external deps) showing all phases and configure items in one screen. Essentials (sources/install/dotfiles/audit) are pre-selected; one-time configure items (services, greeter, fish, claude plugins, etc.) are opt-in. `update` and `audit` also run via `vjupdate --update` and `vjupdate --check`.
 
 ## Current key values (as of last sync)
 

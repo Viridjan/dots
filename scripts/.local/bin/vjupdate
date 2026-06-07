@@ -42,14 +42,14 @@ _run_phase() {
 
 _ensure_dots_repo() {
     if [[ -d "$DOTS_DIR" ]]; then
-        ok "dots repo: $DOTS_DIR"
+        ok "found: dots repo ($DOTS_DIR)"
         return
     fi
     info "dots repo not found — cloning from GitHub..."
     mkdir -p "$(dirname "$DOTS_DIR")"
     git clone https://github.com/Viridjan/dots.git "$DOTS_DIR" \
         || die "Failed to clone dots repo — check network/git access"
-    ok "dots repo cloned to $DOTS_DIR"
+    ok "cloned: $DOTS_DIR"
 }
 
 # Returns 0 (run it) if stamp is absent or older than max_age seconds (default 48h).
@@ -80,13 +80,13 @@ detect_machine() {
             *) die "Aborted." ;;
         esac
     fi
-    ok "Machine profile: $MACHINE"
+    ok "profile: $MACHINE"
 }
 
 # ─── Phase 2: Paru ───────────────────────────────────────
 install_paru() {
     if command -v paru &>/dev/null; then
-        ok "paru already installed"
+        ok "already installed: paru"
         return
     fi
     info "Installing paru..."
@@ -95,13 +95,13 @@ install_paru() {
     git clone https://aur.archlinux.org/paru.git "$tmp/paru"
     (cd "$tmp/paru" && makepkg -si --noconfirm)
     rm -rf "$tmp"
-    ok "paru installed"
+    ok "installed: paru"
 }
 
 # ─── Phase 2b: Keyrings ──────────────────────────────────
 reset_keyrings() {
     if ! _needs_run keyrings; then
-        ok "keyrings: skipped (< 48h)"  # keyrings keep 48h stamp
+        ok "skipped: keyrings (< 48h)"
         return
     fi
     info "Resetting pacman keyrings..."
@@ -115,10 +115,10 @@ reset_keyrings() {
             | sudo pacman-key --add -
         sudo pacman-key --finger 56C464BAAC421453
         sudo pacman-key --lsign-key 56C464BAAC421453
-        ok "linux-surface key imported"
+        ok "imported: linux-surface key"
     fi
     _mark_done keyrings
-    ok "Keyrings reset"
+    ok "reset: keyrings"
 }
 
 # ─── Phase 2c: linux-surface repo ───────────────────────
@@ -126,7 +126,7 @@ setup_linux_surface_repo() {
     [[ "${MACHINE:-}" != "surface" ]] && return
 
     if grep -q '^\[linux-surface\]' /etc/pacman.conf; then
-        ok "linux-surface repo already in pacman.conf"
+        ok "already added: linux-surface repo"
         return
     fi
 
@@ -137,7 +137,7 @@ setup_linux_surface_repo() {
 Server = https://pkg.surfacelinux.com/arch/
 EOF
     sudo pacman -Sy
-    ok "linux-surface repo added to pacman.conf"
+    ok "added: linux-surface repo"
 }
 
 # ─── Phase 3: Packages ───────────────────────────────────
@@ -157,7 +157,7 @@ _install_list() {
 
 refresh_mirrors() {
     if ! _needs_run mirrors 2592000; then
-        ok "mirrors: skipped (< 30 days)"
+        ok "skipped: mirrors (< 30 days)"
         return
     fi
 
@@ -205,7 +205,7 @@ refresh_mirrors() {
         [[ "$country" != "RU" && "$country" != "CN" ]] && \
             sed -i "1iServer = https://archlinux.cachyos.org/repo/\$repo/os/\$arch" "$tmp_arch"
         sudo install -m 0644 --backup=simple --suffix=-backup "$tmp_arch" /etc/pacman.d/mirrorlist
-        ok "arch: $(grep -c '^Server' "$tmp_arch") mirrors selected"
+        ok "ranked: $(grep -c '^Server' "$tmp_arch") arch mirrors"
     else
         warn "arch mirror refresh failed — keeping existing"
     fi
@@ -216,7 +216,7 @@ refresh_mirrors() {
         sudo cp /etc/pacman.d/cachyos-mirrorlist /etc/pacman.d/cachyos-v4-mirrorlist
         sudo sed -i 's|/$arch/|/$arch_v3/|g' /etc/pacman.d/cachyos-v3-mirrorlist
         sudo sed -i 's|/$arch/|/$arch_v4/|g' /etc/pacman.d/cachyos-v4-mirrorlist
-        ok "CachyOS: $(grep -c '^Server' "$tmp_cachyos") mirrors selected"
+        ok "ranked: $(grep -c '^Server' "$tmp_cachyos") CachyOS mirrors"
     else
         warn "CachyOS mirror refresh failed — keeping existing"
     fi
@@ -224,12 +224,12 @@ refresh_mirrors() {
     rm -f "$tmp_arch" "$tmp_cachyos"
     sudo pacman -Syy
     _mark_done mirrors
-    ok "Mirrors refreshed"
+    ok "refreshed: mirrors"
 }
 
 install_all() {
-    command -v paru    &>/dev/null && ok "paru already installed"    || die "paru not found — run sources phase first"
-    command -v flatpak &>/dev/null && ok "flatpak already installed" || warn "flatpak not found — flatpak installs will be skipped"
+    command -v paru    &>/dev/null && ok "already installed: paru"    || die "paru not found — run sources phase first"
+    command -v flatpak &>/dev/null && ok "already installed: flatpak" || warn "flatpak not found — flatpak installs will be skipped"
 
     # Force-remove known conflicting packages before installing.
     # -Rdd skips dep checks so replacements (e.g. wine→wine-cachyos) don't block.
@@ -249,7 +249,7 @@ install_all() {
 
     info "Upgrading existing packages..."
     paru -Syuu --noconfirm || warn "Full upgrade had warnings — continuing"
-    ok "System upgraded"
+    ok "upgraded: system"
 
     _do_install() {
         info "Installing common packages..."
@@ -277,13 +277,13 @@ install_all() {
             fi
         done < <(_pkg_list "$DOTS_DIR/.flatpak-S.list")
         info "Updating flatpak apps..."
-        flatpak update -y &>/dev/null && ok "Flatpaks up to date" || warn "flatpak update had warnings"
+        flatpak update -y &>/dev/null && ok "flatpaks up to date" || warn "flatpak update had warnings"
     fi
 
     info "Cleaning package caches..."
     sudo paccache -rk2 &>/dev/null; sudo paccache -ruk0 &>/dev/null
     rm -rf "$HOME/.cache/paru/clone" "$HOME/.cache/paru" "$HOME/.cache/yay"
-    ok "Caches cleaned"
+    ok "caches cleaned"
 }
 
 # ─── Phase 4: Dotfiles ───────────────────────────────────
@@ -367,7 +367,7 @@ deploy_dotfiles() {
         sudo stow --adopt -t / ollama && _stowed+=("ollama→/")
     fi
 
-    ok "stowed: ${_stowed[*]}"
+    for _pkg in "${_stowed[@]}"; do ok "stowed: $_pkg"; done
 }
 
 # ─── Phase 5: Services ───────────────────────────────────
@@ -417,9 +417,9 @@ enable_services() {
 setup_snapper() {
     info "Configuring snapper..."
     if [[ ! -f /etc/snapper/configs/root ]]; then
-        sudo snapper -c root create-config / && ok "snapper: root config created"
+        sudo snapper -c root create-config / && ok "created: snapper root config"
     else
-        ok "snapper: root config already exists"
+        ok "already exists: snapper root config"
     fi
 }
 
@@ -461,7 +461,7 @@ automount_disks() {
         esac
 
         if grep -qs "UUID=$_uuid" /etc/fstab; then
-            ok "fstab: /dev/$_name already present — skipping"
+            ok "skipped: /dev/$_name (already in fstab)"
             continue
         fi
 
@@ -469,7 +469,7 @@ automount_disks() {
     done < <(lsblk -rno NAME,FSTYPE,LABEL,UUID)
 
     if [[ ${#_candidates[@]} -eq 0 ]]; then
-        ok "automount: no eligible partitions found"
+        ok "no eligible partitions"
         return
     fi
 
@@ -527,7 +527,7 @@ automount_disks() {
         echo ""
     done
 
-    [[ ${#_fstab_entries[@]} -eq 0 ]] && { ok "automount: nothing to add"; return; }
+    [[ ${#_fstab_entries[@]} -eq 0 ]] && { ok "nothing to add"; return; }
 
     local _backup="/etc/fstab.backup.$(date +%Y%m%d-%H%M%S)"
     info "Backing up /etc/fstab → $_backup"
@@ -540,13 +540,13 @@ automount_disks() {
     printf '\n# Added by vjupdate --automount on %s\n' "$(date)" | sudo tee -a /etc/fstab > /dev/null
     for _fstab_line in "${_fstab_entries[@]}"; do
         echo "$_fstab_line" | sudo tee -a /etc/fstab > /dev/null
-        ok "fstab: added $_fstab_line"
+        ok "added: $_fstab_line"
     done
 
     sudo systemctl daemon-reload
     local _mnt_err
     if _mnt_err=$(sudo mount -a 2>&1); then
-        ok "automount: all entries mounted"
+        ok "mounted: all entries"
     else
         warn "mount -a failed — check /etc/fstab"
         warn "Restore: sudo cp $_backup /etc/fstab"
@@ -558,7 +558,7 @@ automount_disks() {
 setup_keyboard() {
     info "Setting X11/XWayland keyboard layout (us intl)..."
     sudo localectl set-x11-keymap us pc105 intl \
-        && ok "keyboard: us intl" \
+        && ok "configured: keyboard (us intl)" \
         || warn "keyboard: localectl failed"
 }
 
@@ -568,22 +568,22 @@ setup_greeter() {
         return
     fi
     info "Configuring DMS greeter (greetd)..."
-    dms greeter install --yes && ok "greeter: configured" || warn "greeter: install failed — run: dms greeter install"
+    dms greeter install --yes && ok "configured: greeter" || warn "greeter: install failed — run: dms greeter install"
     sudo mkdir -p /var/cache/dms-greeter && sudo chown greeter:greeter /var/cache/dms-greeter
-    dms greeter sync && ok "greeter: synced" || warn "greeter: sync failed — run: dms greeter sync"
+    dms greeter sync && ok "synced: greeter" || warn "greeter: sync failed — run: dms greeter sync"
 }
 
 # ─── Phase 7f: Keyring PAM integration ───────────────────
 setup_keyring_pam() {
     local pam=/etc/pam.d/greetd
     if grep -q "pam_gnome_keyring" "$pam" 2>/dev/null; then
-        ok "keyring PAM: already configured"
+        ok "already configured: keyring PAM"
         return
     fi
     info "Configuring gnome-keyring PAM integration..."
     printf '\nauth       optional     pam_gnome_keyring.so\nsession    optional     pam_gnome_keyring.so auto_start\n' \
         | sudo tee -a "$pam" > /dev/null \
-        && ok "keyring PAM: configured (/etc/pam.d/greetd)" \
+        && ok "configured: keyring PAM (/etc/pam.d/greetd)" \
         || warn "keyring PAM: failed — add manually to /etc/pam.d/greetd"
 }
 
@@ -602,7 +602,7 @@ dms_export() {
     fi
     info "Exporting DMS config: live → repo..."
     cp "$DMS_LIVE"/*.kdl "$DMS_REPO/"
-    ok "DMS exported — commit niri/dms/"
+    ok "exported: DMS config (commit niri/dms/)"
 }
 
 dms_import() {
@@ -678,7 +678,7 @@ setup_ollama() {
 
     info "Pulling ollama model: qwen3:14b..."
     ollama pull qwen3:14b \
-        && ok "ollama: qwen3:14b ready" \
+        && ok "qwen3:14b ready" \
         || warn "ollama pull failed — run manually: ollama pull qwen3:14b"
 }
 
@@ -698,7 +698,7 @@ setup_vms() {
     docker pull dockurr/windows &>/dev/null &
     docker pull dockurr/macos   &>/dev/null &
     wait
-    ok "VM images pulled"
+    ok "pulled: VM images"
 }
 
 # ─── Phase 7e: Fish plugins (tide prompt) ────────────────
@@ -713,16 +713,16 @@ setup_fish() {
 
     info "Installing fish plugins (tide)..."
     fish -c 'fisher install IlanCosman/tide@v6' >/dev/null 2>&1 \
-        && ok "fish plugin: tide" \
+        && ok "installed: tide" \
         || warn "tide install failed — run manually: fisher install IlanCosman/tide@v6"
 
     # Configure only on first setup so later manual tweaks aren't overwritten.
     if fish -c 'set -q _tide_left_items' 2>/dev/null; then
-        ok "tide already configured"
+        ok "already configured: tide"
     else
         info "Applying tide rainbow preset..."
         fish -c "tide configure --auto --style=Rainbow --prompt_colors='True color' --show_time='24-hour format' --rainbow_prompt_separators=Angled --powerline_prompt_heads=Sharp --powerline_prompt_tails=Flat --powerline_prompt_style='One line' --prompt_connection=Disconnected --powerline_right_prompt_frame=No --prompt_connection_andor_frame_color=Lightest --prompt_spacing=Sparse --icons='Many icons' --transient=No" \
-            && ok "tide configured (rainbow)" \
+            && ok "configured: tide (rainbow)" \
             || warn "tide configure failed — run manually: tide configure"
     fi
 
@@ -753,7 +753,7 @@ setup_fish() {
         set -U tide_status_color_failure         d75a59
         set -U tide_prompt_color_frame_and_connection 124a73
         set -U tide_prompt_color_separator_same_color 4087bc
-    " && ok "tide colors: blue/steel" \
+    " && ok "applied: tide colors (blue/steel)" \
       || warn "tide color set failed — run manually: set -U tide_pwd_bg_color 124a73"
 }
 
@@ -769,16 +769,16 @@ setup_claude() {
     # These commands install the plugin assets (skills, hook scripts).
     claude plugin marketplace add JuliusBrussee/caveman 2>/dev/null || true
     claude plugin install caveman --scope user 2>/dev/null \
-        && ok "plugin: caveman" \
+        && ok "installed: caveman" \
         || warn "caveman plugin install failed — run manually: claude plugin marketplace add JuliusBrussee/caveman && claude plugin install caveman --scope user"
 
     claude plugin install superpowers@claude-plugins-official --scope user 2>/dev/null \
-        && ok "plugin: superpowers" \
+        && ok "installed: superpowers" \
         || warn "superpowers plugin install failed — run manually: claude plugin install superpowers@claude-plugins-official --scope user"
 
     claude plugin marketplace add safishamsi/graphify 2>/dev/null || true
     claude plugin install graphify --scope user 2>/dev/null \
-        && ok "plugin: graphify" \
+        && ok "installed: graphify" \
         || warn "graphify plugin install failed — run manually: claude plugin marketplace add safishamsi/graphify && claude plugin install graphify --scope user"
 }
 
@@ -791,7 +791,7 @@ setup_caveman_code() {
 
     info "Installing caveman-code..."
     npm install -g @juliusbrussee/caveman-code 2>/dev/null \
-        && ok "caveman-code installed" \
+        && ok "installed: caveman-code" \
         || { warn "caveman-code npm install failed"; return; }
 
     # ~/.local/bin is a stow symlink → npm's relative ../lib symlink breaks.
@@ -799,7 +799,7 @@ setup_caveman_code() {
     local broken="$HOME/.local/bin/caveman-code"
     if [[ -L "$broken" ]]; then
         rm -f "$broken"
-        ok "removed broken npm symlink — stow wrapper takes over"
+        ok "removed: npm symlink (stow wrapper active)"
     fi
 }
 
@@ -842,7 +842,7 @@ system_update() {
 
     info "Updating all packages..."
     paru -Syuu --noconfirm
-    ok "System up to date"
+    ok "system up to date"
 }
 
 # ─── Maintenance: flatpak update ─────────────────────────
@@ -853,7 +853,7 @@ flatpak_update() {
     fi
     info "Updating flatpak apps..."
     flatpak update -y
-    ok "Flatpaks up to date"
+    ok "flatpaks up to date"
 }
 
 # ─── Maintenance: flatpak unused runtimes ────────────────
@@ -864,7 +864,7 @@ check_flatpak_orphans() {
     fi
     info "Removing unused flatpak runtimes..."
     flatpak uninstall --unused --assumeyes --noninteractive \
-        && ok "Flatpak unused runtimes removed" \
+        && ok "removed: unused flatpak runtimes" \
         || warn "flatpak uninstall --unused had warnings"
 }
 
@@ -874,7 +874,7 @@ clean_caches() {
     sudo paccache -rk2
     sudo paccache -ruk0
     rm -rf "$HOME/.cache/paru/clone" "$HOME/.cache/paru" "$HOME/.cache/yay"
-    ok "Caches cleaned"
+    ok "caches cleaned"
 }
 
 # ─── Maintenance: foreign packages + orphan removal ──────
@@ -885,22 +885,22 @@ check_foreign_orphans() {
     if [[ -n "$foreign" ]]; then
         echo "$foreign"
         echo "$foreign" > "$HOME/foreign-pkgs.txt"
-        ok "foreign pkgs → ~/foreign-pkgs.txt"
+        ok "saved: foreign pkgs (~/foreign-pkgs.txt)"
     else
-        ok "No foreign packages"
+        ok "no foreign packages"
     fi
 
     info "Checking for orphaned packages..."
     local orphans
     orphans=$(paru -Qdtq 2>/dev/null || true)
     if [[ -z "$orphans" ]]; then
-        ok "No orphans found"
+        ok "no orphans"
         return
     fi
     echo "$orphans"
     if ! $AUDIT_ORPHAN_REMOVAL; then warn "Orphan removal skipped — enable via configure checklist"; return; fi
     echo "$orphans" | xargs sudo pacman -Rns --noconfirm
-    ok "Orphans removed"
+    ok "removed: orphans"
 }
 
 # ─── Maintenance: python rebuild check ───────────────────
@@ -912,7 +912,7 @@ check_python_rebuilds() {
     local old_dirs
     old_dirs=$(ls -d /usr/lib/python3.* 2>/dev/null | grep -v "python${current_version}" || true)
     if [[ -z "$old_dirs" ]]; then
-        ok "No old Python directories found"
+        ok "no stale python dirs"
         return
     fi
 
@@ -930,14 +930,14 @@ check_python_rebuilds() {
     local unique_packages
     unique_packages=$(echo "$all_packages" | tr ' ' '\n' | sort -u | tr '\n' ' ' | xargs 2>/dev/null || true)
     if [[ -z "$unique_packages" ]]; then
-        ok "No packages need rebuilding"
+        ok "no python rebuilds needed"
         return
     fi
 
     warn "Packages needing Python rebuild: $unique_packages"
     if ! $AUDIT_PYTHON_REBUILD; then warn "Python rebuild skipped — enable via configure checklist"; return; fi
     paru -S --noconfirm "$unique_packages"
-    ok "Python rebuild done"
+    ok "python packages rebuilt"
 }
 
 # ─── Maintenance: rebuild check ──────────────────────────
@@ -950,7 +950,7 @@ check_rebuilds() {
     local out
     out=$(checkrebuild 2>/dev/null || true)
     if [[ -z "$out" ]]; then
-        ok "No rebuilds needed"
+        ok "no rebuilds needed"
     else
         warn "Packages needing rebuild:"
         echo "$out"
@@ -988,7 +988,7 @@ manage_kernels() {
             fi
         fi
     fi
-    ok "Kernel management done"
+    ok "kernel management done"
 }
 
 # ─── Maintenance: pacnew files ───────────────────────────
@@ -1009,13 +1009,13 @@ check_firmware() {
     fi
     info "Checking firmware updates..."
     fwupdmgr refresh --force 2>/dev/null || true
-    fwupdmgr get-updates 2>/dev/null || ok "No firmware updates available"
+    fwupdmgr get-updates 2>/dev/null || ok "no firmware updates"
 }
 
 # ─── Warnings recap ──────────────────────────────────────
 print_recap() {
     if [[ ${#WARNINGS[@]} -eq 0 ]]; then
-        echo ""; ok "No warnings."
+        echo ""; ok "no warnings"
         return
     fi
     echo ""
@@ -1111,7 +1111,7 @@ print_manual_steps() {
     echo " 10. Maintenance (update, cache, orphans):"
     echo "       vjupdate --update"
     echo ""
-    ok "Bootstrap complete for: $MACHINE"
+    ok "bootstrap complete: $MACHINE"
     echo ""
 }
 
@@ -1124,24 +1124,32 @@ phase_sources() {
     if command -v flatpak &>/dev/null; then
         info "Adding Flathub remote..."
         flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo \
-            && ok "Flathub remote ready" || warn "flathub remote-add failed"
+            && ok "flathub remote ready" || warn "flathub remote-add failed"
     fi
     clone_projects
 }
 phase_install()  { install_all; }
 phase_dotfiles() { deploy_dotfiles; dms_import; }
-# _multiselect RESULT_VAR HEADER ITEM...
+# _multiselect HEADER ITEM...
 # Items prefixed with ':' are non-selectable group headers.
-# Writes newline-separated selected items to RESULT_VAR.
+# Items prefixed with '+' are pre-selected ('+' stripped from display and output).
+# Prints newline-separated selected items to stdout. All TUI output goes to /dev/tty.
 # Returns 1 if user cancels (esc / q / ctrl-c).
 _multiselect() {
-    local _result_var="$1" _header="$2"; shift 2
+    local _header="$1"; shift
     local -a _items=("$@")
     local _n=${#_items[@]}
     local -a _sel=()
     local _cursor=0 _i _key _esc
 
-    for (( _i=0; _i<_n; _i++ )); do _sel+=( false ); done
+    for (( _i=0; _i<_n; _i++ )); do
+        if [[ "${_items[$_i]}" == +* ]]; then
+            _sel+=( true )
+            _items[$_i]="${_items[$_i]:1}"
+        else
+            _sel+=( false )
+        fi
+    done
 
     # Position cursor on first selectable item
     for (( _i=0; _i<_n; _i++ )); do
@@ -1149,67 +1157,63 @@ _multiselect() {
     done
 
     _ms_draw() {
-        tput cup "$1" 0
+        tput cup 3 0 >/dev/tty
         for (( _i=0; _i<_n; _i++ )); do
             local _item="${_items[$_i]}"
             if [[ "$_item" == :* ]]; then
-                printf "\033[36m  %s\033[0m\n" "${_item:1}"
+                printf "\033[36m  %s\033[0m\n" "${_item:1}" >/dev/tty
             else
                 local _pfx="  " _chk
                 [[ $_i -eq $_cursor ]] && _pfx="\033[36m❯ \033[0m"
                 ${_sel[$_i]} && _chk="\033[32m●\033[0m" || _chk="\033[90m○\033[0m"
-                printf " %b %b %s\n" "$_pfx" "$_chk" "$_item"
+                printf " %b %b %s\n" "$_pfx" "$_chk" "$_item" >/dev/tty
             fi
         done
-        printf "\033[90m  ↑↓ navigate · space toggle · enter confirm · q abort\033[0m\n"
+        printf "\n\033[90m  ↑↓ navigate · space toggle · enter confirm · q abort\033[0m\n" >/dev/tty
     }
 
-    tput civis
-    echo -e "\n${BLU}  ${_header}${NC}"
-    local _start_row; _start_row=$(( $(tput lines) - _n - 3 ))
-    (( _start_row < 1 )) && _start_row=1
-    _ms_draw "$_start_row"
+    tput civis >/dev/tty
+    tput clear >/dev/tty
+    printf "  \033[34m%s\033[0m\n\n" "$_header" >/dev/tty
+    _ms_draw
 
     while true; do
-        IFS= read -rsn1 _key
+        IFS= read -rsn1 _key </dev/tty
         if [[ "$_key" == $'\x1b' ]]; then
-            IFS= read -rsn1 -t 0.1 _esc
+            IFS= read -rsn1 -t 0.1 _esc </dev/tty
             if [[ "$_esc" == '[' ]]; then
-                IFS= read -rsn1 -t 0.1 _key
+                IFS= read -rsn1 -t 0.1 _key </dev/tty
                 case "$_key" in
-                A) # up
-                    for (( _i=_cursor-1; _i>=0; _i-- )); do
-                        [[ "${_items[$_i]}" != :* ]] && { _cursor=$_i; break; }
-                    done ;;
-                B) # down
-                    for (( _i=_cursor+1; _i<_n; _i++ )); do
-                        [[ "${_items[$_i]}" != :* ]] && { _cursor=$_i; break; }
-                    done ;;
+                A) for (( _i=_cursor-1; _i>=0; _i-- )); do
+                       [[ "${_items[$_i]}" != :* ]] && { _cursor=$_i; break; }
+                   done ;;
+                B) for (( _i=_cursor+1; _i<_n; _i++ )); do
+                       [[ "${_items[$_i]}" != :* ]] && { _cursor=$_i; break; }
+                   done ;;
                 esac
             else
-                tput cnorm; return 1  # bare esc = cancel
+                tput cnorm >/dev/tty; return 1
             fi
         elif [[ "$_key" == ' ' ]]; then
             ${_sel[$_cursor]} && _sel[$_cursor]=false || _sel[$_cursor]=true
-        elif [[ "$_key" == '' ]]; then  # enter
+        elif [[ "$_key" == '' ]]; then
             break
         elif [[ "$_key" == 'q' || "$_key" == $'\x03' ]]; then
-            tput cnorm; return 1
+            tput cnorm >/dev/tty; return 1
         fi
-        _ms_draw "$_start_row"
+        _ms_draw
     done
 
-    tput cnorm
+    tput cnorm >/dev/tty
     local _out=""
     for (( _i=0; _i<_n; _i++ )); do
         ${_sel[$_i]} && _out+="${_items[$_i]}"$'\n'
     done
-    printf -v "$_result_var" '%s' "$_out"
+    printf '%s' "$_out"
 }
 
 _configure_items_multiselect() {
-    local _result
-    _multiselect _result "additional configuration" \
+    _multiselect "additional configuration" \
         ":── System ──────────────────────────────────" \
         "services — Enable system services (NetworkManager, bluetooth, etc.)" \
         "snapper — Configure btrfs snapshots" \
@@ -1229,9 +1233,37 @@ _configure_items_multiselect() {
         "vms — Pull VM Docker images (Windows/macOS)" \
         ":── Maintenance ─────────────────────────────" \
         "orphan-removal — Remove orphaned packages (audit)" \
-        "python-rebuild — Rebuild Python packages needing rebuild (audit)" \
-    || return 1
-    printf '%s' "$_result"
+        "python-rebuild — Rebuild Python packages needing rebuild (audit)"
+}
+
+_bootstrap_multiselect() {
+    _multiselect "vjupdate — CachyOS setup" \
+        ":── Essentials ──────────────────────────────" \
+        "+sources — paru · keyrings · mirror ranking · flathub remote · clone repos" \
+        "+install — conflict removal · full upgrade · pacman/flatpak/AUR · cache cleanup" \
+        "+dotfiles — stow symlinks · DMS config import" \
+        "+audit — orphan pkgs · flatpak cleanup · rebuild check · pacnew · firmware" \
+        ":── One-time configs ────────────────────────" \
+        ":  System ─────────────────────────────────" \
+        "services — Enable system services (NetworkManager, bluetooth, etc.)" \
+        "snapper — Configure btrfs snapshots" \
+        "automount — Detect and add partitions to /etc/fstab" \
+        "keyboard — Set X11 keyboard layout (us intl)" \
+        "keyring-pam — Configure gnome-keyring PAM integration" \
+        ":  DMS ─────────────────────────────────────" \
+        "greeter — Configure DMS greeter (greetd)" \
+        "dms-plugins — Install DMS plugins" \
+        ":  Shell & tools ───────────────────────────" \
+        "fish — Set up fish shell and tide theme" \
+        "install-scripts — Run custom install scripts" \
+        "claude — Install Claude Code plugins" \
+        "caveman-code — Install caveman-code npm tool" \
+        ":  AI & VMs ────────────────────────────────" \
+        "ollama — Pull ollama AI model (desktop only)" \
+        "vms — Pull VM Docker images (Windows/macOS)" \
+        ":  Maintenance ─────────────────────────────" \
+        "orphan-removal — Remove orphaned packages (audit)" \
+        "python-rebuild — Rebuild Python packages needing rebuild (audit)"
 }
 
 phase_configure() {
@@ -1244,7 +1276,7 @@ phase_configure() {
         setup_fish
         return
     else
-        _selected=$(_configure_items_multiselect) || { warn "configure: cancelled"; return; }
+        _selected=$(_configure_items_multiselect) || { warn "cancelled: configure"; return; }
     fi
 
     _sel() { echo "$_selected" | grep -q "^$1 —"; }
@@ -1279,64 +1311,27 @@ bootstrap() {
     detect_machine
     _ensure_dots_repo
     if $INTERACTIVE; then
-        local _phases=(sources install dotfiles configure audit)
-        local -A _desc=(
-            [sources]="paru · keyrings · mirror ranking · flathub remote · clone repos"
-            [install]="conflict removal · full upgrade · pacman/flatpak/AUR · cache cleanup"
-            [dotfiles]="stow symlinks · DMS config import"
-            [configure]="system services · snapper · keyboard · greeter · plugins · fish · claude · VMs"
-            [audit]="orphan pkgs · flatpak cleanup · rebuild check · pacnew · firmware"
-        )
         SKIP_PHASES=""
-        if command -v gum &>/dev/null; then
-            local _display=()
-            for _p in "${_phases[@]}"; do
-                _display+=("$_p — ${_desc[$_p]}")
-            done
-            local _all_selected
-            _all_selected=$(IFS=','; echo "${_display[*]}")
-            local _selected_phases
-            _selected_phases=$(
-                GUM_CHOOSE_HEADER_FOREGROUND="4" \
-                GUM_CHOOSE_CURSOR_FOREGROUND="6" \
-                GUM_CHOOSE_SELECTED_FOREGROUND="2" \
-                gum choose --no-limit \
-                    --height 10 \
-                    --header "  vjupdate — select phases to run" \
-                    --selected="$_all_selected" \
-                    "${_display[@]}"
-            ) || { warn "Aborted."; exit 0; }
-            echo -e "${BLU}  phases:${NC}"
-            echo "$_selected_phases" | sed 's/^/    /'
-            for _p in "${_phases[@]}"; do
-                echo "$_selected_phases" | grep -q "^$_p " || SKIP_PHASES+="$_p "
-            done
-            if echo "$_selected_phases" | grep -q "^configure "; then
-                CONFIGURE_ITEMS=$(_configure_items_multiselect) \
-                    || { warn "configure: cancelled — skipping phase"; SKIP_PHASES+="configure "; }
-                CONFIGURE_PROMPTED=true
-                if [[ -n "$CONFIGURE_ITEMS" ]]; then
-                    echo -e "${BLU}  configure:${NC}"
-                    echo "$CONFIGURE_ITEMS" | sed 's/^/    /'
-                else
-                    SKIP_PHASES+="configure "
-                fi
-            fi
+        local _selected
+        _selected=$(_bootstrap_multiselect) || { warn "Aborted."; exit 0; }
+
+        local _phase_keys=(sources install dotfiles audit)
+        for _p in "${_phase_keys[@]}"; do
+            echo "$_selected" | grep -q "^$_p —" || SKIP_PHASES+="$_p "
+        done
+
+        CONFIGURE_ITEMS=$(echo "$_selected" | grep -vE "^(sources|install|dotfiles|audit) —" || true)
+        if [[ -n "$CONFIGURE_ITEMS" ]]; then
+            CONFIGURE_PROMPTED=true
         else
-            echo -e "${BLU}  #   Phase       Description${NC}"
-            echo    "  ──────────────────────────────────────────────────────"
-            local _i=1
-            for _p in "${_phases[@]}"; do
-                printf "  %2d) %-12s %s\n" "$_i" "$_p" "${_desc[$_p]}"
-                (( _i++ ))
-            done
-            echo ""
-            read -rp "Skip phases (numbers, space-separated, q to quit, Enter to run all): " _skip_nums
-            [[ "$_skip_nums" =~ ^[qQ] ]] && { warn "Aborted."; exit 0; }
-            for _n in $_skip_nums; do
-                local _idx=$(( _n - 1 ))
-                [[ $_idx -ge 0 && $_idx -lt ${#_phases[@]} ]] && SKIP_PHASES+="${_phases[$_idx]} "
-            done
+            SKIP_PHASES+="configure "
+        fi
+
+        echo -e "${BLU}  essentials:${NC}"
+        echo "$_selected" | grep -E "^(sources|install|dotfiles|audit) —" | sed 's/^/    /' || true
+        if [[ -n "$CONFIGURE_ITEMS" ]]; then
+            echo -e "${BLU}  one-time configs:${NC}"
+            echo "$CONFIGURE_ITEMS" | sed 's/^/    /'
         fi
         echo ""
     fi
