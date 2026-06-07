@@ -273,7 +273,14 @@ install_all() {
                     || warn "failed to install: $app"
             fi
         done < <(_pkg_list "$DOTS_DIR/.flatpak-S.list")
+        info "Updating flatpak apps..."
+        flatpak update -y &>/dev/null && ok "Flatpaks up to date" || warn "flatpak update had warnings"
     fi
+
+    info "Cleaning package caches..."
+    sudo paccache -rk2 &>/dev/null; sudo paccache -ruk0 &>/dev/null
+    rm -rf "$HOME/.cache/paru/clone" "$HOME/.cache/paru" "$HOME/.cache/yay"
+    ok "Caches cleaned"
 }
 
 # ─── Phase 4: Dotfiles ───────────────────────────────────
@@ -1162,14 +1169,13 @@ bootstrap() {
         echo ""
     fi
     if $INTERACTIVE; then
-        local _phases=(sources install dotfiles system apps update audit)
+        local _phases=(sources install dotfiles system apps audit)
         local -A _desc=(
             [sources]="paru · keyrings · mirrors · flathub · clone projects"
-            [install]="remove conflicts · pacman/AUR + flatpak packages"
+            [install]="remove conflicts · upgrade · pacman/AUR + flatpak · clean caches"
             [dotfiles]="stow dotfiles · dms-import"
             [system]="services · snapper · disks · keyboard · greeter"
             [apps]="dms-plugins · install scripts · fish · claude · vm setup"
-            [update]="paru upgrade · flatpak update · clean caches"
             [audit]="orphans · rebuilds · pacnew · firmware"
         )
         echo -e "${BLU}  #   Phase       Description${NC}"
@@ -1194,7 +1200,6 @@ bootstrap() {
     _run_phase "dotfiles" phase_dotfiles
     _run_phase "system"   phase_system
     _run_phase "apps"     phase_apps
-    _run_phase "update"   phase_update
     _run_phase "audit"    phase_audit
     print_recap
     print_manual_steps
