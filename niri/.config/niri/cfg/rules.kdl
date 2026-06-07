@@ -53,7 +53,7 @@ Media workspace — Spotify, Steam, and Dota 2 open on the "media" workspace.
 open-focused false keeps the focus on whatever you were doing when they launch.
 */
 window-rule {
-	match title="Spotify"
+	match app-id="Spotify"
 	match title="Steam"
 	match app-id="BambuStudio"
 	open-on-workspace "media"
