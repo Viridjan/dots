@@ -224,7 +224,10 @@ refresh_mirrors() {
     ok "Mirrors refreshed"
 }
 
-install_packages() {
+install_all() {
+    command -v paru    &>/dev/null && ok "paru already installed"    || die "paru not found — run sources phase first"
+    command -v flatpak &>/dev/null && ok "flatpak already installed" || warn "flatpak not found — flatpak installs will be skipped"
+
     # Force-remove known conflicting packages before installing.
     # -Rdd skips dep checks so replacements (e.g. wine→wine-cachyos) don't block.
     if [[ -f "$DOTS_DIR/.paru-R.list" ]]; then
@@ -259,6 +262,18 @@ install_packages() {
         _do_install || die "Package install failed after mirror refresh."
     fi
 
+    if command -v flatpak &>/dev/null; then
+        info "Installing flatpak apps..."
+        while IFS= read -r app; do
+            if flatpak info "$app" &>/dev/null; then
+                ok "already installed: $app"
+            else
+                flatpak install -y flathub "$app" &>/dev/null \
+                    && ok "installed: $app" \
+                    || warn "failed to install: $app"
+            fi
+        done < <(_pkg_list "$DOTS_DIR/.flatpak-S.list")
+    fi
 }
 
 # ─── Phase 4: Dotfiles ───────────────────────────────────
@@ -345,31 +360,7 @@ deploy_dotfiles() {
     ok "stowed: ${_stowed[*]}"
 }
 
-# ─── Phase 5: Flatpaks ───────────────────────────────────
-install_flatpaks() {
-    if ! command -v flatpak &>/dev/null; then
-        warn "flatpak not installed — skipping"
-        return
-    fi
-    ok "flatpak already installed"
-
-    info "Adding Flathub remote..."
-    flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-
-    info "Installing flatpak apps..."
-    while IFS= read -r app; do
-        if flatpak info "$app" &>/dev/null; then
-            ok "already installed: $app"
-        else
-            flatpak install -y flathub "$app" &>/dev/null \
-                && ok "installed: $app" \
-                || warn "failed to install: $app"
-        fi
-    done < <(_pkg_list "$DOTS_DIR/.flatpak-S.list")
-
-}
-
-# ─── Phase 6: Services ───────────────────────────────────
+# ─── Phase 5: Services ───────────────────────────────────
 _enable() {
     # Enable a service, silently skip if unit doesn't exist
     systemctl enable --now "$1" 2>/dev/null && ok "enabled: $1" || warn "skipped (not found): $1"
@@ -1119,9 +1110,19 @@ print_manual_steps() {
 }
 
 # ─── Phase groups ────────────────────────────────────────
-phase_repos()    { install_paru; reset_keyrings; setup_linux_surface_repo; refresh_mirrors; }
-phase_packages() { install_packages; }
-phase_flatpaks() { install_flatpaks; }
+phase_sources() {
+    install_paru
+    reset_keyrings
+    setup_linux_surface_repo
+    refresh_mirrors
+    if command -v flatpak &>/dev/null; then
+        info "Adding Flathub remote..."
+        flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo \
+            && ok "Flathub remote ready" || warn "flathub remote-add failed"
+    fi
+    clone_projects
+}
+phase_install()  { install_all; }
 phase_dotfiles() { deploy_dotfiles; dms_import; }
 phase_system() {
     if $FIRST_RUN; then
@@ -1140,7 +1141,6 @@ phase_apps() {
     if $FIRST_RUN; then setup_claude; fi
     if $FIRST_RUN; then setup_caveman_code; fi
     if $FIRST_RUN; then setup_ollama; fi
-    clone_projects
     setup_vms
 }
 phase_update()   { system_update; flatpak_update; clean_caches; }
@@ -1162,14 +1162,13 @@ bootstrap() {
         echo ""
     fi
     if $INTERACTIVE; then
-        local _phases=(repos packages flatpaks dotfiles system apps update audit)
+        local _phases=(sources install dotfiles system apps update audit)
         local -A _desc=(
-            [repos]="paru · keyrings · surface repo · mirrors"
-            [packages]="install pacman/AUR packages"
-            [flatpaks]="install flatpak apps"
+            [sources]="paru · keyrings · mirrors · flathub · clone projects"
+            [install]="remove conflicts · pacman/AUR + flatpak packages"
             [dotfiles]="stow dotfiles · dms-import"
             [system]="services · snapper · disks · keyboard · greeter"
-            [apps]="dms-plugins · fish · claude · clone projects · vm setup"
+            [apps]="dms-plugins · install scripts · fish · claude · vm setup"
             [update]="paru upgrade · flatpak update · clean caches"
             [audit]="orphans · rebuilds · pacnew · firmware"
         )
@@ -1190,9 +1189,8 @@ bootstrap() {
         done
         echo ""
     fi
-    _run_phase "repos"    phase_repos
-    _run_phase "packages" phase_packages
-    _run_phase "flatpaks" phase_flatpaks
+    _run_phase "sources"  phase_sources
+    _run_phase "install"  phase_install
     _run_phase "dotfiles" phase_dotfiles
     _run_phase "system"   phase_system
     _run_phase "apps"     phase_apps
