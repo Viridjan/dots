@@ -208,16 +208,16 @@ Stop a VM: `cd ~/Projects/dots/<windows|macos> && docker compose down`
 Phases use stamps in `~/.local/state/dots/` — heavy phases (mirrors, keyrings) skip automatically if run within 48h.
 
 ```
-sources → install → extra-setup → dotfiles → audit
+sources → install → dotfiles → configure → audit
 ```
 
 | Phase | Contains |
 |---|---|
-| `sources` | install paru, reset keyrings, surface repo, refresh mirrors, flathub remote, clone projects |
-| `install` | remove conflicts (.paru-R.list), upgrade, install pacman/AUR + flatpak packages, flatpak update, clean caches |
-| `extra-setup` | system config (prompts: services, snapper, keyboard, greeter, keyring-pam), dms-plugins, install-scripts, fish, claude plugins, vm setup (first-run items prompted) |
-| `dotfiles` | stow dotfiles, dms-import |
-| `audit` | orphans, flatpak orphans, rebuilds, python-rebuilds, pacnew, firmware |
+| `sources` | install paru, reset keyrings, surface repo, rank mirrors, add flathub remote, clone repos |
+| `install` | conflict removal, full upgrade, install pacman/flatpak/AUR packages, flatpak update, cache cleanup |
+| `dotfiles` | stow symlinks, DMS config import |
+| `configure` | system services, snapper, keyboard, greeter, keyring-pam (user-prompted); DMS plugins, install scripts, fish, claude, VMs (first-run prompted) |
+| `audit` | orphan packages, flatpak cleanup, rebuild check, pacnew files, firmware updates |
 
 `--interactive` / `-i` prompts before each phase. `update` and `audit` also run via `vjupdate --update` and `vjupdate --check`.
 

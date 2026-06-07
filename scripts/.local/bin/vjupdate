@@ -1130,28 +1130,64 @@ phase_sources() {
 }
 phase_install()  { install_all; }
 phase_dotfiles() { deploy_dotfiles; dms_import; }
-phase_extra_setup() {
-    read -rp "Configure system (services, snapper, keyboard, greeter, keyring)? [y/N] " _sys_ans
-    if [[ "$_sys_ans" =~ ^[Yy]$ ]]; then
-        enable_services
-        setup_snapper
-        automount_disks
-        setup_keyboard
-        setup_greeter
-        setup_keyring_pam
+phase_configure() {
+    if ! $INTERACTIVE; then
+        run_install_scripts
+        setup_fish
+        return
     fi
 
-    local _first_run=false
-    read -rp "First run? Enables: DMS plugins, Claude plugins [y/N]: " _first_run_ans
-    [[ "$_first_run_ans" =~ ^[Yy]$ ]] && _first_run=true
+    if ! command -v gum &>/dev/null; then
+        warn "gum not found — falling back to y/N prompts"
+        read -rp "Configure system (services, snapper, keyboard, greeter, keyring)? [y/N] " _sys_ans
+        if [[ "$_sys_ans" =~ ^[Yy]$ ]]; then
+            enable_services; setup_snapper; automount_disks
+            setup_keyboard; setup_greeter; setup_keyring_pam
+        fi
+        local _fr=false
+        read -rp "First run? Enables: DMS plugins, Claude plugins [y/N]: " _fr_ans
+        [[ "$_fr_ans" =~ ^[Yy]$ ]] && _fr=true
+        if $_fr; then install_dms_plugins; fi
+        run_install_scripts; setup_fish
+        if $_fr; then setup_claude; setup_caveman_code; setup_ollama; fi
+        setup_vms
+        return
+    fi
 
-    if $_first_run; then install_dms_plugins; fi
-    run_install_scripts
-    setup_fish
-    if $_first_run; then setup_claude; fi
-    if $_first_run; then setup_caveman_code; fi
-    if $_first_run; then setup_ollama; fi
-    setup_vms
+    local _selected
+    _selected=$(gum choose --no-limit \
+        --header "  configure — select items (↑↓ navigate, x toggle, enter confirm)" \
+        --selected="install-scripts — Run custom install scripts,fish — Set up fish shell and tide theme" \
+        "services — Enable system services (NetworkManager, bluetooth, etc.)" \
+        "snapper — Configure btrfs snapshots" \
+        "automount — Detect and add partitions to /etc/fstab" \
+        "keyboard — Set X11 keyboard layout (us intl)" \
+        "greeter — Configure DMS greeter (greetd)" \
+        "keyring-pam — Configure gnome-keyring PAM integration" \
+        "install-scripts — Run custom install scripts" \
+        "fish — Set up fish shell and tide theme" \
+        "dms-plugins — Install DMS plugins" \
+        "claude — Install Claude Code plugins" \
+        "caveman-code — Install caveman-code npm tool" \
+        "ollama — Pull ollama AI model (desktop only)" \
+        "vms — Pull VM Docker images (Windows/macOS)" \
+    ) || { warn "configure: cancelled"; return; }
+
+    _sel() { echo "$_selected" | grep -q "^$1 —"; }
+
+    _sel "services"        && enable_services
+    _sel "snapper"         && setup_snapper
+    _sel "automount"       && automount_disks
+    _sel "keyboard"        && setup_keyboard
+    _sel "greeter"         && setup_greeter
+    _sel "keyring-pam"     && setup_keyring_pam
+    _sel "install-scripts" && run_install_scripts
+    _sel "fish"            && setup_fish
+    _sel "dms-plugins"     && install_dms_plugins
+    _sel "claude"          && setup_claude
+    _sel "caveman-code"    && setup_caveman_code
+    _sel "ollama"          && setup_ollama
+    _sel "vms"             && setup_vms
 }
 phase_update()   { system_update; flatpak_update; clean_caches; }
 phase_audit()    { check_foreign_orphans; check_flatpak_orphans; check_rebuilds; check_python_rebuilds; check_pacnew; check_firmware; }
@@ -1167,36 +1203,53 @@ bootstrap() {
     detect_machine
     _ensure_dots_repo
     if $INTERACTIVE; then
-        local _phases=(sources install extra-setup dotfiles audit)
+        local _phases=(sources install dotfiles configure audit)
         local -A _desc=(
-            [sources]="paru · keyrings · mirrors · flathub · clone projects"
-            [install]="remove conflicts · upgrade · pacman/AUR + flatpak · clean caches"
-            [dotfiles]="stow dotfiles · dms-import"
-            [extra-setup]="system config · dms-plugins · install scripts · fish · claude · vm setup"
-            [audit]="orphans · rebuilds · pacnew · firmware"
+            [sources]="paru · keyrings · mirror ranking · flathub remote · clone repos"
+            [install]="conflict removal · full upgrade · pacman/flatpak/AUR · cache cleanup"
+            [dotfiles]="stow symlinks · DMS config import"
+            [configure]="system services · snapper · keyboard · greeter · plugins · fish · claude · VMs"
+            [audit]="orphan pkgs · flatpak cleanup · rebuild check · pacnew · firmware"
         )
-        echo -e "${BLU}  #   Phase       Description${NC}"
-        echo    "  ──────────────────────────────────────────────────────"
-        local _i=1
-        for _p in "${_phases[@]}"; do
-            printf "  %2d) %-12s %s\n" "$_i" "$_p" "${_desc[$_p]}"
-            (( _i++ ))
-        done
-        echo ""
-        read -rp "Skip phases (numbers, space-separated, q to quit, Enter to run all): " _skip_nums
-        [[ "$_skip_nums" =~ ^[qQ] ]] && { warn "Aborted."; exit 0; }
         SKIP_PHASES=""
-        for _n in $_skip_nums; do
-            local _idx=$(( _n - 1 ))
-            [[ $_idx -ge 0 && $_idx -lt ${#_phases[@]} ]] && SKIP_PHASES+="${_phases[$_idx]} "
-        done
+        if command -v gum &>/dev/null; then
+            local _display=()
+            for _p in "${_phases[@]}"; do
+                _display+=("$_p — ${_desc[$_p]}")
+            done
+            local _all_selected
+            _all_selected=$(IFS=','; echo "${_display[*]}")
+            local _selected_phases
+            _selected_phases=$(gum choose --no-limit \
+                --header "  vjupdate — select phases to run (↑↓ navigate, x toggle, enter confirm)" \
+                --selected="$_all_selected" \
+                "${_display[@]}") || { warn "Aborted."; exit 0; }
+            for _p in "${_phases[@]}"; do
+                echo "$_selected_phases" | grep -q "^$_p " || SKIP_PHASES+="$_p "
+            done
+        else
+            echo -e "${BLU}  #   Phase       Description${NC}"
+            echo    "  ──────────────────────────────────────────────────────"
+            local _i=1
+            for _p in "${_phases[@]}"; do
+                printf "  %2d) %-12s %s\n" "$_i" "$_p" "${_desc[$_p]}"
+                (( _i++ ))
+            done
+            echo ""
+            read -rp "Skip phases (numbers, space-separated, q to quit, Enter to run all): " _skip_nums
+            [[ "$_skip_nums" =~ ^[qQ] ]] && { warn "Aborted."; exit 0; }
+            for _n in $_skip_nums; do
+                local _idx=$(( _n - 1 ))
+                [[ $_idx -ge 0 && $_idx -lt ${#_phases[@]} ]] && SKIP_PHASES+="${_phases[$_idx]} "
+            done
+        fi
         echo ""
     fi
-    _run_phase "sources"  phase_sources
-    _run_phase "install"  phase_install
-    _run_phase "extra-setup" phase_extra_setup
-    _run_phase "dotfiles" phase_dotfiles
-    _run_phase "audit"    phase_audit
+    _run_phase "sources"   phase_sources
+    _run_phase "install"   phase_install
+    _run_phase "dotfiles"  phase_dotfiles
+    _run_phase "configure" phase_configure
+    _run_phase "audit"     phase_audit
     print_recap
     print_manual_steps
 }
