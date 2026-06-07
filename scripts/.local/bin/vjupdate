@@ -24,7 +24,6 @@ WARNINGS=()
 DOTS_DIR="$HOME/Projects/dots"
 STAMP_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/dots"
 INTERACTIVE=true
-FIRST_RUN=false
 mkdir -p "$STAMP_DIR"
 
 _run_phase() {
@@ -1131,23 +1130,27 @@ phase_sources() {
 }
 phase_install()  { install_all; }
 phase_dotfiles() { deploy_dotfiles; dms_import; }
-phase_system() {
-    if $FIRST_RUN; then
+phase_extra_setup() {
+    read -rp "Configure system (services, snapper, keyboard, greeter, keyring)? [y/N] " _sys_ans
+    if [[ "$_sys_ans" =~ ^[Yy]$ ]]; then
         enable_services
         setup_snapper
-        if $INTERACTIVE; then automount_disks; fi
+        automount_disks
         setup_keyboard
         setup_greeter
         setup_keyring_pam
     fi
-}
-phase_apps() {
-    if $FIRST_RUN; then install_dms_plugins; fi
+
+    local _first_run=false
+    read -rp "First run? Enables: DMS plugins, Claude plugins [y/N]: " _first_run_ans
+    [[ "$_first_run_ans" =~ ^[Yy]$ ]] && _first_run=true
+
+    if $_first_run; then install_dms_plugins; fi
     run_install_scripts
     setup_fish
-    if $FIRST_RUN; then setup_claude; fi
-    if $FIRST_RUN; then setup_caveman_code; fi
-    if $FIRST_RUN; then setup_ollama; fi
+    if $_first_run; then setup_claude; fi
+    if $_first_run; then setup_caveman_code; fi
+    if $_first_run; then setup_ollama; fi
     setup_vms
 }
 phase_update()   { system_update; flatpak_update; clean_caches; }
@@ -1164,18 +1167,12 @@ bootstrap() {
     detect_machine
     _ensure_dots_repo
     if $INTERACTIVE; then
-        read -rp "First run? Enables: snapper, disks, keyboard, greeter, DMS plugins, Claude plugins [y/N]: " _first_run_ans
-        [[ "$_first_run_ans" =~ ^[Yy]$ ]] && FIRST_RUN=true
-        echo ""
-    fi
-    if $INTERACTIVE; then
-        local _phases=(sources install system apps dotfiles audit)
+        local _phases=(sources install extra-setup dotfiles audit)
         local -A _desc=(
             [sources]="paru · keyrings · mirrors · flathub · clone projects"
             [install]="remove conflicts · upgrade · pacman/AUR + flatpak · clean caches"
             [dotfiles]="stow dotfiles · dms-import"
-            [system]="services · snapper · disks · keyboard · greeter"
-            [apps]="dms-plugins · install scripts · fish · claude · vm setup"
+            [extra-setup]="system config · dms-plugins · install scripts · fish · claude · vm setup"
             [audit]="orphans · rebuilds · pacnew · firmware"
         )
         echo -e "${BLU}  #   Phase       Description${NC}"
@@ -1197,8 +1194,7 @@ bootstrap() {
     fi
     _run_phase "sources"  phase_sources
     _run_phase "install"  phase_install
-    _run_phase "system"   phase_system
-    _run_phase "apps"     phase_apps
+    _run_phase "extra-setup" phase_extra_setup
     _run_phase "dotfiles" phase_dotfiles
     _run_phase "audit"    phase_audit
     print_recap
