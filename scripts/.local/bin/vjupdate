@@ -12,7 +12,7 @@ set -euo pipefail
 
 RED='\033[0;31m'; YEL='\033[0;33m'; GRN='\033[0;32m'; BLU='\033[0;34m'; CYN='\033[0;36m'; NC='\033[0m'
 info()    { echo -e "${BLU}==> $*${NC}"; }
-ok()      { echo -e "${GRN} ✓  $*${NC}"; }
+ok()      { echo -e "${GRN}    $*${NC}"; }
 warn()    { echo -e "${YEL}[!] $*${NC}"; WARNINGS+=("$*"); }
 die()     { echo -e "${RED}[✗] $*${NC}" >&2; exit 1; }
 section() { echo -e "\n${CYN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; \
@@ -24,6 +24,10 @@ WARNINGS=()
 DOTS_DIR="$HOME/Projects/dots"
 STAMP_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/dots"
 INTERACTIVE=true
+CONFIGURE_ITEMS=""
+CONFIGURE_PROMPTED=false
+AUDIT_ORPHAN_REMOVAL=false
+AUDIT_PYTHON_REBUILD=false
 mkdir -p "$STAMP_DIR"
 
 _run_phase() {
@@ -894,9 +898,7 @@ check_foreign_orphans() {
         return
     fi
     echo "$orphans"
-    if ! $INTERACTIVE; then warn "Skipped orphan removal (non-interactive)"; return; fi
-    read -rp "Remove the above orphans? [y/N]: " confirm
-    [[ "$confirm" =~ ^[Yy]$ ]] || { warn "Skipped"; return; }
+    if ! $AUDIT_ORPHAN_REMOVAL; then warn "Orphan removal skipped — enable via configure checklist"; return; fi
     echo "$orphans" | xargs sudo pacman -Rns --noconfirm
     ok "Orphans removed"
 }
@@ -933,9 +935,7 @@ check_python_rebuilds() {
     fi
 
     warn "Packages needing Python rebuild: $unique_packages"
-    if ! $INTERACTIVE; then warn "Skipped Python rebuild (non-interactive)"; return; fi
-    read -rp "Rebuild? [y/N]: " confirm
-    [[ "$confirm" =~ ^[Yy]$ ]] || { warn "Skipped"; return; }
+    if ! $AUDIT_PYTHON_REBUILD; then warn "Python rebuild skipped — enable via configure checklist"; return; fi
     paru -S --noconfirm "$unique_packages"
     ok "Python rebuild done"
 }
@@ -1015,7 +1015,7 @@ check_firmware() {
 # ─── Warnings recap ──────────────────────────────────────
 print_recap() {
     if [[ ${#WARNINGS[@]} -eq 0 ]]; then
-        echo -e "\n${GRN}  ✓  No warnings.${NC}"
+        echo ""; ok "No warnings."
         return
     fi
     echo ""
@@ -1111,7 +1111,7 @@ print_manual_steps() {
     echo " 10. Maintenance (update, cache, orphans):"
     echo "       vjupdate --update"
     echo ""
-    echo -e "${GRN}  Bootstrap complete for: $MACHINE${NC}"
+    ok "Bootstrap complete for: $MACHINE"
     echo ""
 }
 
@@ -1130,48 +1130,122 @@ phase_sources() {
 }
 phase_install()  { install_all; }
 phase_dotfiles() { deploy_dotfiles; dms_import; }
-phase_configure() {
-    if ! $INTERACTIVE; then
-        run_install_scripts
-        setup_fish
-        return
-    fi
+# _multiselect RESULT_VAR HEADER ITEM...
+# Items prefixed with ':' are non-selectable group headers.
+# Writes newline-separated selected items to RESULT_VAR.
+# Returns 1 if user cancels (esc / q / ctrl-c).
+_multiselect() {
+    local _result_var="$1" _header="$2"; shift 2
+    local -a _items=("$@")
+    local _n=${#_items[@]}
+    local -a _sel=()
+    local _cursor=0 _i _key _esc
 
-    if ! command -v gum &>/dev/null; then
-        warn "gum not found — falling back to y/N prompts"
-        read -rp "Configure system (services, snapper, keyboard, greeter, keyring)? [y/N] " _sys_ans
-        if [[ "$_sys_ans" =~ ^[Yy]$ ]]; then
-            enable_services; setup_snapper; automount_disks
-            setup_keyboard; setup_greeter; setup_keyring_pam
+    for (( _i=0; _i<_n; _i++ )); do _sel+=( false ); done
+
+    # Position cursor on first selectable item
+    for (( _i=0; _i<_n; _i++ )); do
+        [[ "${_items[$_i]}" != :* ]] && { _cursor=$_i; break; }
+    done
+
+    _ms_draw() {
+        tput cup "$1" 0
+        for (( _i=0; _i<_n; _i++ )); do
+            local _item="${_items[$_i]}"
+            if [[ "$_item" == :* ]]; then
+                printf "\033[36m  %s\033[0m\n" "${_item:1}"
+            else
+                local _pfx="  " _chk
+                [[ $_i -eq $_cursor ]] && _pfx="\033[36m❯ \033[0m"
+                ${_sel[$_i]} && _chk="\033[32m●\033[0m" || _chk="\033[90m○\033[0m"
+                printf " %b %b %s\n" "$_pfx" "$_chk" "$_item"
+            fi
+        done
+        printf "\033[90m  ↑↓ navigate · space toggle · enter confirm · q abort\033[0m\n"
+    }
+
+    tput civis
+    echo -e "\n${BLU}  ${_header}${NC}"
+    local _start_row; _start_row=$(( $(tput lines) - _n - 3 ))
+    (( _start_row < 1 )) && _start_row=1
+    _ms_draw "$_start_row"
+
+    while true; do
+        IFS= read -rsn1 _key
+        if [[ "$_key" == $'\x1b' ]]; then
+            IFS= read -rsn1 -t 0.1 _esc
+            if [[ "$_esc" == '[' ]]; then
+                IFS= read -rsn1 -t 0.1 _key
+                case "$_key" in
+                A) # up
+                    for (( _i=_cursor-1; _i>=0; _i-- )); do
+                        [[ "${_items[$_i]}" != :* ]] && { _cursor=$_i; break; }
+                    done ;;
+                B) # down
+                    for (( _i=_cursor+1; _i<_n; _i++ )); do
+                        [[ "${_items[$_i]}" != :* ]] && { _cursor=$_i; break; }
+                    done ;;
+                esac
+            else
+                tput cnorm; return 1  # bare esc = cancel
+            fi
+        elif [[ "$_key" == ' ' ]]; then
+            ${_sel[$_cursor]} && _sel[$_cursor]=false || _sel[$_cursor]=true
+        elif [[ "$_key" == '' ]]; then  # enter
+            break
+        elif [[ "$_key" == 'q' || "$_key" == $'\x03' ]]; then
+            tput cnorm; return 1
         fi
-        local _fr=false
-        read -rp "First run? Enables: DMS plugins, Claude plugins [y/N]: " _fr_ans
-        [[ "$_fr_ans" =~ ^[Yy]$ ]] && _fr=true
-        if $_fr; then install_dms_plugins; fi
-        run_install_scripts; setup_fish
-        if $_fr; then setup_claude; setup_caveman_code; setup_ollama; fi
-        setup_vms
-        return
-    fi
+        _ms_draw "$_start_row"
+    done
 
-    local _selected
-    _selected=$(gum choose --no-limit \
-        --header "  configure — select items (↑↓ navigate, x toggle, enter confirm)" \
-        --selected="install-scripts — Run custom install scripts,fish — Set up fish shell and tide theme" \
+    tput cnorm
+    local _out=""
+    for (( _i=0; _i<_n; _i++ )); do
+        ${_sel[$_i]} && _out+="${_items[$_i]}"$'\n'
+    done
+    printf -v "$_result_var" '%s' "$_out"
+}
+
+_configure_items_multiselect() {
+    local _result
+    _multiselect _result "additional configuration" \
+        ":── System ──────────────────────────────────" \
         "services — Enable system services (NetworkManager, bluetooth, etc.)" \
         "snapper — Configure btrfs snapshots" \
         "automount — Detect and add partitions to /etc/fstab" \
         "keyboard — Set X11 keyboard layout (us intl)" \
-        "greeter — Configure DMS greeter (greetd)" \
         "keyring-pam — Configure gnome-keyring PAM integration" \
-        "install-scripts — Run custom install scripts" \
-        "fish — Set up fish shell and tide theme" \
+        ":── DMS ─────────────────────────────────────" \
+        "greeter — Configure DMS greeter (greetd)" \
         "dms-plugins — Install DMS plugins" \
+        ":── Shell & tools ───────────────────────────" \
+        "fish — Set up fish shell and tide theme" \
+        "install-scripts — Run custom install scripts" \
         "claude — Install Claude Code plugins" \
         "caveman-code — Install caveman-code npm tool" \
+        ":── AI & VMs ────────────────────────────────" \
         "ollama — Pull ollama AI model (desktop only)" \
         "vms — Pull VM Docker images (Windows/macOS)" \
-    ) || { warn "configure: cancelled"; return; }
+        ":── Maintenance ─────────────────────────────" \
+        "orphan-removal — Remove orphaned packages (audit)" \
+        "python-rebuild — Rebuild Python packages needing rebuild (audit)" \
+    || return 1
+    printf '%s' "$_result"
+}
+
+phase_configure() {
+    local _selected
+
+    if $CONFIGURE_PROMPTED; then
+        _selected="$CONFIGURE_ITEMS"
+    elif ! $INTERACTIVE; then
+        run_install_scripts
+        setup_fish
+        return
+    else
+        _selected=$(_configure_items_multiselect) || { warn "configure: cancelled"; return; }
+    fi
 
     _sel() { echo "$_selected" | grep -q "^$1 —"; }
 
@@ -1188,6 +1262,8 @@ phase_configure() {
     _sel "caveman-code"    && setup_caveman_code
     _sel "ollama"          && setup_ollama
     _sel "vms"             && setup_vms
+    _sel "orphan-removal"  && AUDIT_ORPHAN_REMOVAL=true
+    _sel "python-rebuild"  && AUDIT_PYTHON_REBUILD=true
 }
 phase_update()   { system_update; flatpak_update; clean_caches; }
 phase_audit()    { check_foreign_orphans; check_flatpak_orphans; check_rebuilds; check_python_rebuilds; check_pacnew; check_firmware; }
@@ -1220,13 +1296,32 @@ bootstrap() {
             local _all_selected
             _all_selected=$(IFS=','; echo "${_display[*]}")
             local _selected_phases
-            _selected_phases=$(gum choose --no-limit \
-                --header "  vjupdate — select phases to run (↑↓ navigate, x toggle, enter confirm)" \
-                --selected="$_all_selected" \
-                "${_display[@]}") || { warn "Aborted."; exit 0; }
+            _selected_phases=$(
+                GUM_CHOOSE_HEADER_FOREGROUND="4" \
+                GUM_CHOOSE_CURSOR_FOREGROUND="6" \
+                GUM_CHOOSE_SELECTED_FOREGROUND="2" \
+                gum choose --no-limit \
+                    --height 10 \
+                    --header "  vjupdate — select phases to run" \
+                    --selected="$_all_selected" \
+                    "${_display[@]}"
+            ) || { warn "Aborted."; exit 0; }
+            echo -e "${BLU}  phases:${NC}"
+            echo "$_selected_phases" | sed 's/^/    /'
             for _p in "${_phases[@]}"; do
                 echo "$_selected_phases" | grep -q "^$_p " || SKIP_PHASES+="$_p "
             done
+            if echo "$_selected_phases" | grep -q "^configure "; then
+                CONFIGURE_ITEMS=$(_configure_items_multiselect) \
+                    || { warn "configure: cancelled — skipping phase"; SKIP_PHASES+="configure "; }
+                CONFIGURE_PROMPTED=true
+                if [[ -n "$CONFIGURE_ITEMS" ]]; then
+                    echo -e "${BLU}  configure:${NC}"
+                    echo "$CONFIGURE_ITEMS" | sed 's/^/    /'
+                else
+                    SKIP_PHASES+="configure "
+                fi
+            fi
         else
             echo -e "${BLU}  #   Phase       Description${NC}"
             echo    "  ──────────────────────────────────────────────────────"
