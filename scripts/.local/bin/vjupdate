@@ -1169,7 +1169,7 @@ bootstrap() {
         echo ""
     fi
     if $INTERACTIVE; then
-        local _phases=(sources install dotfiles system apps audit)
+        local _phases=(sources install system apps dotfiles audit)
         local -A _desc=(
             [sources]="paru · keyrings · mirrors · flathub · clone projects"
             [install]="remove conflicts · upgrade · pacman/AUR + flatpak · clean caches"
@@ -1197,9 +1197,9 @@ bootstrap() {
     fi
     _run_phase "sources"  phase_sources
     _run_phase "install"  phase_install
-    _run_phase "dotfiles" phase_dotfiles
     _run_phase "system"   phase_system
     _run_phase "apps"     phase_apps
+    _run_phase "dotfiles" phase_dotfiles
     _run_phase "audit"    phase_audit
     print_recap
     print_manual_steps
