@@ -1,8 +1,11 @@
+// Main workspace
+spawn-at-startup "thunderbird"
+
 // Social workspace
 spawn-sh-at-startup "steam"
 
 // Media workspace
-spawn-at-startup "spotify-launcher"
+spawn-at-startup "flatpak" "run" "com.spotify.Client"
 spawn-at-startup "whatsie"
 spawn-at-startup "Telegram"
 

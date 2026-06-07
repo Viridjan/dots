@@ -2,10 +2,12 @@
 # Feed to flatpak: while read -r app; do flatpak install -y flathub "$app"; done < .flatpak-S.list
 
 # Applications
+com.spotify.Client
 ch.protonmail.protonmail-bridge
 com.bambulab.BambuStudio
 xyz.xclicker.xclicker
 com.ktechpit.whatsie
+org.nomacs.ImageLounge
 
 # Emulators
 app.xemu.xemu
