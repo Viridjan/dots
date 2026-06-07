@@ -351,13 +351,20 @@ install_flatpaks() {
         warn "flatpak not installed — skipping"
         return
     fi
+    ok "flatpak already installed"
 
     info "Adding Flathub remote..."
     flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
     info "Installing flatpak apps..."
     while IFS= read -r app; do
-        flatpak install -y flathub "$app" || warn "Failed to install flatpak: $app"
+        if flatpak info "$app" &>/dev/null; then
+            ok "already installed: $app"
+        else
+            flatpak install -y flathub "$app" &>/dev/null \
+                && ok "installed: $app" \
+                || warn "failed to install: $app"
+        fi
     done < <(_pkg_list "$DOTS_DIR/.flatpak-S.list")
 
 }
