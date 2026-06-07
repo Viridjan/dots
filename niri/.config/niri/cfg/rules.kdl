@@ -28,6 +28,14 @@ window-rule {
 	open-floating false
 }
 
+// Thunderbird — opens on main workspace (workspace 1), doesn't steal focus.
+window-rule {
+	match app-id="thunderbird"
+	open-on-workspace "main"
+	open-focused false
+	default-column-width { proportion 0.5; }
+}
+
 /*
 Social workspace — Discord and Ferdium open on the "social" workspace automatically.
 open-focused false prevents them from stealing focus when they open at startup.
