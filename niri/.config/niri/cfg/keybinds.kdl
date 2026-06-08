@@ -198,4 +198,9 @@ binds {
 	/* `dms ipc brightness` adjusts backlight via DMS (uses brightnessctl or similar). */
 	XF86MonBrightnessUp			allow-when-locked=true { spawn "dms" "ipc" "brightness" "increment" "5" ""; }
 	XF86MonBrightnessDown		allow-when-locked=true { spawn "dms" "ipc" "brightness" "decrement" "5" ""; }
+
+	// ─── Gaming: keyboard shortcut inhibit ───
+	/* Toggle shortcut inhibition — when active, all keys pass through to the focused app (e.g. games).
+	   allow-inhibiting=false ensures this bind always works, even while inhibiting is active. */
+	Mod+Escape	allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
 }

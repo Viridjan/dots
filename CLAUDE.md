@@ -130,6 +130,9 @@ vjupdate --dms-export
 # Sync DMS overrides: repo → live (skips auto-generated files)
 vjupdate --dms-import
 
+# Create .desktop launchers for all installed Steam games
+vjupdate --steam-launchers
+
 # Skip specific bootstrap phases (space-separated phase names)
 SKIP_PHASES="mirrors keyrings" vjupdate
 
