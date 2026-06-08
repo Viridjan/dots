@@ -32,11 +32,10 @@ mkdir -p "$STAMP_DIR"
 
 _run_phase() {
     local name="$1"; shift
-    if [[ " ${SKIP_PHASES:-} " == *" $name "* ]]; then
-        section "$name — skipped"
-        return
-    fi
-    section "$name"
+    [[ " ${SKIP_PHASES:-} " == *" $name "* ]] && return
+    local label="$name"
+    [[ "$name" == "configure" ]] && label="configs"
+    section "$label"
     "$@"
 }
 
@@ -1169,7 +1168,7 @@ _multiselect() {
                 printf " %b %b %s\n" "$_pfx" "$_chk" "$_item" >/dev/tty
             fi
         done
-        printf "\n\033[90m  ↑↓ navigate · space toggle · enter confirm · q abort\033[0m\n" >/dev/tty
+        printf "\n\033[90m  ↑↓ navigate · space toggle · ctrl+a select all · enter confirm · q abort\033[0m\n" >/dev/tty
     }
 
     tput civis >/dev/tty
@@ -1196,6 +1195,16 @@ _multiselect() {
             fi
         elif [[ "$_key" == ' ' ]]; then
             ${_sel[$_cursor]} && _sel[$_cursor]=false || _sel[$_cursor]=true
+        elif [[ "$_key" == $'\x01' ]]; then
+            local _all_on=true
+            for (( _i=0; _i<_n; _i++ )); do
+                [[ "${_items[$_i]}" == :* ]] && continue
+                ${_sel[$_i]} || { _all_on=false; break; }
+            done
+            for (( _i=0; _i<_n; _i++ )); do
+                [[ "${_items[$_i]}" == :* ]] && continue
+                $_all_on && _sel[$_i]=false || _sel[$_i]=true
+            done
         elif [[ "$_key" == '' ]]; then
             break
         elif [[ "$_key" == 'q' || "$_key" == $'\x03' ]]; then
@@ -1204,6 +1213,7 @@ _multiselect() {
         _ms_draw
     done
 
+    tput clear >/dev/tty
     tput cnorm >/dev/tty
     local _out=""
     for (( _i=0; _i<_n; _i++ )); do
@@ -1317,18 +1327,12 @@ phase_audit()    { check_foreign_orphans; check_flatpak_orphans; check_rebuilds;
 
 # ─── Main ────────────────────────────────────────────────
 bootstrap() {
-    echo ""
-    echo -e "${BLU}╔═════════════════════════════════════╗${NC}"
-    echo -e "${BLU}║      vjupdate — CachyOS setup       ║${NC}"
-    echo -e "${BLU}╚═════════════════════════════════════╝${NC}"
-    echo ""
-
-    detect_machine
-    _ensure_dots_repo
     if $INTERACTIVE; then
         SKIP_PHASES=""
         local _selected
         _selected=$(_bootstrap_multiselect) || { warn "Aborted."; exit 0; }
+
+        { detect_machine; _ensure_dots_repo; } >/dev/null
 
         local _phase_keys=(sources install dotfiles audit)
         for _p in "${_phase_keys[@]}"; do
@@ -1344,14 +1348,9 @@ bootstrap() {
         else
             SKIP_PHASES+="configure "
         fi
-
-        echo -e "${BLU}  essentials:${NC}"
-        echo "$_selected" | grep -E "^(sources|install|dotfiles|audit) —" | sed 's/^/    /' || true
-        if [[ -n "$CONFIGURE_ITEMS" ]]; then
-            echo -e "${BLU}  one-time configs:${NC}"
-            echo "$CONFIGURE_ITEMS" | sed 's/^/    /'
-        fi
-        echo ""
+    else
+        detect_machine
+        _ensure_dots_repo
     fi
     _run_phase "sources"   phase_sources
     _run_phase "install"   phase_install
