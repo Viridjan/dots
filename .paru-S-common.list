@@ -4,7 +4,9 @@
 # Gaming
 cachyos-gaming-meta
 cachyos-gaming-applications
+gamemode
 protonup-qt
+protonplus
 gamescope
 goverlay
 wine-cachyos
@@ -45,6 +47,14 @@ profile-sync-daemon
 bpftune-git
 dmemcg-booster
 plasma-foreground-booster
+intel-lpmd
+openssh
+pacman-contrib
+rebuild-detector
+rsync
+smartmontools
+ffmpegthumbnailer
+unrar
 
 # Display manager
 dms-shell
@@ -91,6 +101,7 @@ chromium
 # Development
 jdk21-openjdk
 nodejs
+nodejs-lts-jod
 npm
 git-filter-repo
 
@@ -112,6 +123,13 @@ btop
 duf
 glances
 fastfetch
+plocate
+pv
+translate-shell
+xdotool
+xorg-xwininfo
+yad
+libdvdcss
 # Network / firewall
 ufw
 ufw-extras
