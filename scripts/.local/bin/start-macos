@@ -19,3 +19,6 @@ case "$(hostname)" in
 esac
 
 chromium --app=http://localhost:8007 --window-size="${WIN_W},${WIN_H}"
+
+echo "Browser closed — shutting down macOS VM..."
+docker compose down
