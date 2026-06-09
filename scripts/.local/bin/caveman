@@ -1,2 +1,1 @@
-#!/usr/bin/env bash
-exec node "$HOME/.local/lib/node_modules/@juliusbrussee/caveman-code/dist/cli.js" "$@"
+../lib/node_modules/@juliusbrussee/caveman-code/dist/cli.js
