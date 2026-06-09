@@ -1254,9 +1254,9 @@ _configure_items_multiselect() {
 _bootstrap_multiselect() {
     _multiselect "vjupdate — CachyOS setup" \
         ":── Essentials ──────────────────────────────" \
-        "+sources — paru · keyrings · mirror ranking · flathub remote · clone repos" \
+        "sources — paru · keyrings · mirror ranking · flathub remote · clone repos" \
         "+install — conflict removal · full upgrade · pacman/flatpak/AUR · cache cleanup" \
-        "+dotfiles — stow symlinks · DMS config import" \
+        "dotfiles — stow symlinks · DMS config import" \
         "+audit — orphan pkgs · flatpak cleanup · rebuild check · pacnew · firmware" \
         "manual-steps — Show post-install checklist (git, SSH, DMS, Bitwarden, etc.)" \
         ":── One-time configs ────────────────────────" \
