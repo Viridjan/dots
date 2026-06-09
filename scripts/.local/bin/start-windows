@@ -18,7 +18,8 @@ case "$(hostname)" in
     *)         WIN_W=1440; WIN_H=810  ;;  # 75% of 1920×1080
 esac
 
-chromium --app=http://localhost:8006 --window-size="${WIN_W},${WIN_H}"
+chromium --app=http://localhost:8006 --window-size="${WIN_W},${WIN_H}" \
+    --user-data-dir=/tmp/chromium-vm-windows
 
 echo "Browser closed — shutting down Windows VM..."
 docker compose down

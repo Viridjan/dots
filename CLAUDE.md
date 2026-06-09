@@ -222,7 +222,7 @@ sources → install → dotfiles → configure → audit
 | `configure` | system services, snapper, keyboard, greeter, keyring-pam (user-prompted); DMS plugins, install scripts, fish, claude, VMs (first-run prompted) |
 | `audit` | orphan packages, flatpak cleanup, rebuild check, pacnew files, firmware updates |
 
-Interactive mode (default, or `-i`) opens a built-in terminal TUI (no external deps) showing all phases and configure items in one screen. Essentials (sources/install/dotfiles/audit) are pre-selected; one-time configure items (services, greeter, fish, claude plugins, etc.) are opt-in. Keys: `↑↓` navigate, `space` toggle, `ctrl+a` select/deselect all, `enter` confirm, `q` abort. `update` and `audit` also run via `vjupdate --update` and `vjupdate --check`.
+Interactive mode (default, or `-i`) opens a built-in terminal TUI (no external deps) showing all phases and configure items in one screen. Defaults: `install` and `audit` are pre-selected; `sources` and `dotfiles` are opt-in; one-time configure items (services, greeter, fish, claude plugins, etc.) are opt-in. Keys: `↑↓` navigate, `space` toggle, `ctrl+a` select/deselect all, `enter` confirm, `q` abort. `update` and `audit` also run via `vjupdate --update` and `vjupdate --check`.
 
 ## Current key values (as of last sync)
 

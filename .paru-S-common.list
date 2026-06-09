@@ -3,12 +3,15 @@
 
 # Gaming
 cachyos-gaming-meta
-cachyos-gaming-applications
 gamemode
 protonup-qt
 protonplus
 gamescope
 goverlay
+lib32-mangohud
+mangohud
+steam
+wqy-zenhei
 wine-cachyos
 proton-cachyos
 
@@ -36,6 +39,7 @@ kimageformats
 cava
 fish
 fisher
+cups
 cups-pk-helper
 khal
 micro
@@ -100,8 +104,7 @@ chromium
 
 # Development
 jdk21-openjdk
-nodejs
-nodejs-lts-jod
+nodejs-lts-krypton
 npm
 git-filter-repo
 

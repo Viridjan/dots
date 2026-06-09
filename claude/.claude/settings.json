@@ -31,13 +31,20 @@
   },
   "enabledPlugins": {
     "caveman@caveman": true,
-    "superpowers@claude-plugins-official": true
+    "superpowers@claude-plugins-official": true,
+    "graphify@graphify": true
   },
   "extraKnownMarketplaces": {
     "caveman": {
       "source": {
         "source": "github",
         "repo": "JuliusBrussee/caveman"
+      }
+    },
+    "graphify": {
+      "source": {
+        "source": "directory",
+        "path": "/home/viridjan/.claude/skills/graphify"
       }
     }
   },
