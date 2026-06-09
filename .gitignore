@@ -40,6 +40,9 @@ vesktop/.config/vesktop/themes/
 # Ghostty backups
 ghostty/.config/ghostty/config.backup.*
 
+# graphify — knowledge graph output (generated, not config)
+graphify-out/
+
 # Claude Code — credentials only (never commit API keys)
 claude/.claude/.credentials.json
 
