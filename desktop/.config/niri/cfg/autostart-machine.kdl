@@ -5,6 +5,7 @@ spawn-at-startup "thunderbird"
 spawn-sh-at-startup "steam"
 
 // Media workspace
+spawn-at-startup "kitty" "--title" "dgop-monitor" "-e" "dgop"
 spawn-at-startup "flatpak" "run" "com.spotify.Client"
 spawn-at-startup "whatsie"
 spawn-at-startup "Telegram"

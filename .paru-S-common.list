@@ -71,6 +71,12 @@ btrfs-assistant
 # inotify-tools: required by limine-snapper-watcher (limine-snapper-sync.service)
 inotify-tools
 
+# Music
+mpd
+rmpc
+spotify-player
+playerctl
+
 # Applications
 firefox
 thunderbird

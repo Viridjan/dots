@@ -93,7 +93,7 @@ After pulling new changes from this repo:
 ```bash
 cd ~/Projects/dots
 stow --restow -t ~ alacritty DankMaterialShell fish gtk-3.0 gtk-4.0 \
-     micro mimeapps paru qt5ct qt6ct vesktop VSCodium scripts
+     micro mimeapps mpd paru qt5ct qt6ct vesktop VSCodium scripts
 stow --adopt --restow -t ~ claude   # --adopt absorbs existing real files
 stow --restow -t ~ desktop          # or: surface
 # niri is NOT stowed — it uses file-level symlinks (DMS owns ~/.config/niri/).
