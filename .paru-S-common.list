@@ -120,10 +120,16 @@ docker-compose
 
 # Optional — file manager
 dolphin
+yazi
+
+# Theme extras
+arcticons-icon-theme-dark
+satty
 
 # Terminal & fonts
 alacritty
 ttf-meslo-nerd
+ttf-space-mono-nerd
 awesome-terminal-fonts
 
 # CLI tools
