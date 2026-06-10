@@ -69,6 +69,14 @@ window-rule {
 	default-column-width { proportion 0.75; }
 }
 
+// spotify-player TUI — opens on media workspace at 50% width.
+window-rule {
+	match title="spotify-player"
+	open-on-workspace "media"
+	open-focused false
+	default-column-width { proportion 0.5; }
+}
+
 /*
 Common apps — default to half the monitor width.
 app-id is used where apps set it reliably (GTK/Qt apps on Wayland);
