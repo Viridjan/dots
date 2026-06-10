@@ -27,6 +27,7 @@ dots/
   gtk-3.0/        → ~/.config/gtk-3.0/
   gtk-4.0/        → ~/.config/gtk-4.0/
   micro/          → ~/.config/micro/
+  mpd/            → ~/.config/mpd/  (Music Player Daemon config)
   mimeapps/       → ~/.config/mimeapps.list
   niri/           → ~/.config/niri/  (common kdl files, cfg/ minus display+input+surface-layout)
   paru/           → ~/.config/paru/
@@ -138,7 +139,7 @@ SKIP_PHASES="mirrors keyrings" vjupdate
 
 # Re-apply all packages at once
 cd ~/Projects/dots && stow --restow -t ~ alacritty cave DankMaterialShell fish \
-    gtk-3.0 gtk-4.0 micro mimeapps paru qt5ct qt6ct vesktop VSCodium scripts
+    gtk-3.0 gtk-4.0 micro mimeapps mpd paru qt5ct qt6ct vesktop VSCodium scripts
 stow --adopt --restow -t ~ claude
 stow --restow -t ~ desktop   # or: surface
 

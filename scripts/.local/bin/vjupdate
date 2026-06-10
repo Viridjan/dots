@@ -407,8 +407,9 @@ enable_services() {
         _enable thermald
     fi
 
-    # psd is a user service
+    # user services
     systemctl --user enable --now psd 2>/dev/null && ok "enabled: psd (user)" || warn "skipped (not found): psd"
+    systemctl --user enable --now mpd 2>/dev/null && ok "enabled: mpd (user)" || warn "skipped (not found): mpd"
 
 }
 

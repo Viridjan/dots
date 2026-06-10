@@ -61,6 +61,14 @@ window-rule {
 	default-column-width { proportion 0.5; }
 }
 
+// dgop system monitor — opens on media workspace at 75% width.
+window-rule {
+	match title="dgop-monitor"
+	open-on-workspace "media"
+	open-focused false
+	default-column-width { proportion 0.75; }
+}
+
 /*
 Common apps — default to half the monitor width.
 app-id is used where apps set it reliably (GTK/Qt apps on Wayland);

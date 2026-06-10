@@ -152,8 +152,8 @@ overview {
     }
 }
 
-workspace "main"
 workspace "media"
+workspace "main"
 workspace "social"
 
 environment {
