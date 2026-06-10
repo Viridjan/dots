@@ -92,12 +92,12 @@ Later includes override earlier ones for the same property. `dms/binds.kdl` is l
 
 - **User settings** (layout, keybinds, rules, animations): edit files under `cfg/`. Changes go directly into the repo via symlinks.
 - **Machine-specific niri overrides**: both `desktop/` and `surface/` packages provide identically-named `.kdl` files under `cfg/`. `vjupdate` symlinks the active machine's version into `~/.config/niri/cfg/`. `config.kdl` includes them unconditionally — the machine-specific content differs, or one side is empty. Current files:
-  - `autostart-machine.kdl` — desktop has `spawn-at-startup` entries (steam, spotify, whatsie, Telegram, daemons); surface is empty (no autorun). Vesktop launches via XDG autostart (`~/.config/autostart/vesktop.desktop`), not here.
+  - `autostart-machine.kdl` — desktop has `spawn-at-startup` entries (steam, spotify-player TUI, dgop monitor, whatsie, Telegram, daemons); surface is empty (no autorun). Vesktop launches via XDG autostart (`~/.config/autostart/vesktop.desktop`), not here.
   - `surface-layout.kdl` — surface has `window-rule { default-column-width { proportion 0.5; } }`; desktop is empty
   - To add a new machine-specific override: create the `.kdl` in both `desktop/` and `surface/` packages, add `include "cfg/<name>.kdl"` to `config.kdl`, and add `<name>` to the `for f in ...` loop in `vjupdate`'s `_stow_niri_cfg`.
   - Content common to both machines but that needs to differ slightly: put shared parts in `config.kdl` or `cfg/` (niri pkg), machine-specific delta in the per-machine file.
 - **DMS overrides** (colors, layout values, binds): edit files under `~/.config/niri/dms/`, then run `vjupdate --dms-export` to copy to `dots/niri/.config/niri/dms/` and commit. Reload: `niri msg action load-config-file`
-- **Do not** rely on `dms/colors.kdl` or `dms/outputs.kdl` being hand-editable — DMS regenerates them on theme/display changes.
+- **Do not** rely on `dms/colors.kdl` or `dms/outputs.kdl` being hand-editable — DMS regenerates them on theme/display changes. Exception: `dms/colors.kdl` in the repo has manual overrides for focus-ring (`#4caf50` green) and shadow color (`#0d3320CC`). After any DMS color regeneration, re-apply: `cp ~/Projects/dots/niri/.config/niri/dms/colors.kdl ~/.config/niri/dms/colors.kdl && niri msg action load-config-file`
 
 ## Stow operations
 
@@ -231,8 +231,11 @@ Interactive mode (default, or `-i`) opens a built-in terminal TUI (no external d
 |---|---|---|
 | Gaps | 13px | cfg/layout.kdl |
 | Focus-ring width | 4px | cfg/layout.kdl |
+| Focus-ring color | #4caf50 (green) | dms/colors.kdl (manual override) |
 | Border width | 4px | cfg/layout.kdl |
 | Corner radius | 15px | cfg/rules.kdl + dms/layout.kdl + dms/alttab.kdl |
+| Shadow | on; softness 1, spread -1, offset x=15 y=15 | cfg/layout.kdl |
+| Shadow color | #0d3320CC (forest green) | dms/colors.kdl (manual override) |
 | Keyboard layout | us intl | cfg/input.kdl |
 | Screenshot path | ~/Pictures/Screenshots/ | cfg/misc.kdl |
 | Terminal keybind | Mod+Return | dms/binds.kdl |
