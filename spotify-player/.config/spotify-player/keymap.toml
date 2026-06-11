@@ -1,0 +1,15 @@
+[[keymaps]]
+command = "None"
+key_sequence = "j"
+
+[[keymaps]]
+command = "None"
+key_sequence = "k"
+
+[[keymaps]]
+command = "None"
+key_sequence = "C-n"
+
+[[keymaps]]
+command = "None"
+key_sequence = "C-p"

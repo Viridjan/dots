@@ -302,6 +302,7 @@ COMMON_STOW_PKGS=(
     qt5ct
     qt6ct
     scripts
+    spotify-player
     VSCodium
 )
 
