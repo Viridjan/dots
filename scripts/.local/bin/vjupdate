@@ -292,6 +292,7 @@ COMMON_STOW_PKGS=(
     DankMaterialShell
     vesktop
     fish
+    fonts
     gtk-3.0
     gtk-4.0
     micro
