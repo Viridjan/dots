@@ -13,3 +13,7 @@ key_sequence = "C-n"
 [[keymaps]]
 command = "None"
 key_sequence = "C-p"
+
+[[keymaps]]
+command = "None"
+key_sequence = "T"
