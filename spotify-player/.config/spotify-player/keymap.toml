@@ -1,22 +1,19 @@
-# Disabled default keybindings (command = "None" removes a default binding)
-
-# Navigation: arrows only, vim keys removed
 [[keymaps]]
-command = "None"
-key_sequence = "j"         # was: SelectNextOrScrollDown
+command = "None"          # was: SelectNextOrScrollDown
+key_sequence = "j"
 
 [[keymaps]]
-command = "None"
-key_sequence = "k"         # was: SelectPreviousOrScrollUp
+command = "None"          # was: SelectPreviousOrScrollUp
+key_sequence = "k"
 
 [[keymaps]]
-command = "None"
-key_sequence = "C-n"       # was: SelectNextOrScrollDown
+command = "None"          # was: SelectNextOrScrollDown
+key_sequence = "C-n"
 
 [[keymaps]]
-command = "None"
-key_sequence = "C-p"       # was: SelectPreviousOrScrollUp
+command = "None"          # was: SelectPreviousOrScrollUp
+key_sequence = "C-p"
 
 [[keymaps]]
-command = "None"
-key_sequence = "T"         # was: SwitchTheme
+command = "None"          # was: SwitchTheme
+key_sequence = "T"
