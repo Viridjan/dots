@@ -93,7 +93,7 @@ After pulling new changes from this repo:
 ```bash
 cd ~/Projects/dots
 stow --restow -t ~ alacritty DankMaterialShell fish fonts gtk-3.0 gtk-4.0 \
-     micro mimeapps mpd paru qt5ct qt6ct vesktop VSCodium scripts
+     micro mimeapps mpd paru qt5ct qt6ct spotify-player vesktop VSCodium scripts
 stow --adopt --restow -t ~ claude   # --adopt absorbs existing real files
 stow --restow -t ~ desktop          # or: surface
 # niri is NOT stowed — it uses file-level symlinks (DMS owns ~/.config/niri/).
@@ -189,6 +189,9 @@ bash scripts/.local/bin/vjupdate
 | `mimeapps` | `~/.config/mimeapps.list` |
 | `paru` | `~/.config/paru/paru.conf` |
 | `claude` | `~/.claude/settings.json` + `hooks/` (Claude Code + caveman plugin) |
+| `fonts` | `~/.local/share/fonts/` — user fonts (Luminari) |
+| `mpd` | `~/.config/mpd/mpd.conf` |
+| `spotify-player` | `~/.config/spotify-player/keymap.toml` |
 | `scripts` | `~/.local/bin/vjupdate` — bootstrap + maintenance script |
 
 **niri note:** `cfg/display.kdl`, `cfg/input.kdl`, and `cfg/surface-layout.kdl` are NOT in the `niri` package —
