@@ -144,14 +144,48 @@ _pkg_list() {
     grep -v '^#' "$1" | grep -v '^$'
 }
 
+# Returns true if $1 is in the skip list
+_pkg_skipped() {
+    local pkg="$1"
+    [[ -f "$DOTS_DIR/.paru-skip.list" ]] || return 1
+    grep -qxF "$pkg" <(grep -v '^#' "$DOTS_DIR/.paru-skip.list" | grep -v '^$')
+}
+
 _install_list() {
     local list="$1" to_install=()
     while IFS= read -r pkg; do
+        if _pkg_skipped "$pkg"; then
+            ok "skipped (skip list): $pkg"
+            continue
+        fi
         pacman -Qi "$pkg" &>/dev/null || to_install+=("$pkg")
     done < <(_pkg_list "$list")
     if [[ ${#to_install[@]} -gt 0 ]]; then
         paru -S --needed --noconfirm "${to_install[@]}"
     fi
+}
+
+# Pre-install malware gate: check all AUR package lists against malware definitions
+_check_packages_against_malware() {
+    local malware_list="$HOME/.local/share/aur-malware-check/package_list.txt"
+    [[ -f "$malware_list" ]] || { warn "malware definitions not found — run audit first"; return; }
+    info "Pre-install malware gate: scanning package lists..."
+    local infected=()
+    local lists=("$DOTS_DIR/.paru-S-common.list" "$DOTS_DIR/.paru-S-${MACHINE}.list")
+    for list in "${lists[@]}"; do
+        [[ -f "$list" ]] || continue
+        while IFS= read -r pkg; do
+            if grep -qxF "$pkg" "$malware_list"; then
+                infected+=("$pkg")
+            fi
+        done < <(_pkg_list "$list")
+    done
+    if [[ ${#infected[@]} -gt 0 ]]; then
+        echo -e "${RED}[✗] MALWARE GATE: infected packages in install lists:${NC}" >&2
+        for p in "${infected[@]}"; do echo -e "${RED}    - $p${NC}" >&2; done
+        die "Remove infected packages from list files before proceeding"
+    fi
+    ok "malware gate: all packages clean"
 }
 
 refresh_mirrors() {
@@ -229,6 +263,8 @@ refresh_mirrors() {
 install_all() {
     command -v paru    &>/dev/null && ok "already installed: paru"    || die "paru not found — run sources phase first"
     command -v flatpak &>/dev/null && ok "already installed: flatpak" || warn "flatpak not found — flatpak installs will be skipped"
+
+    _check_packages_against_malware
 
     # Force-remove known conflicting packages before installing.
     # -Rdd skips dep checks so replacements (e.g. wine→wine-cachyos) don't block.
@@ -1006,6 +1042,68 @@ manage_kernels() {
     ok "kernel management done"
 }
 
+# ─── Package picker ──────────────────────────────────────
+add_package() {
+    local pkg_name="${1:-}"
+
+    if [[ -z "$pkg_name" ]]; then
+        read -rp "Package name to search: " pkg_name </dev/tty
+        [[ -z "$pkg_name" ]] && { warn "no package name given"; return; }
+    fi
+
+    echo ""
+    info "Searching pacman/AUR for '$pkg_name'..."
+    local pacman_results
+    pacman_results=$(paru -Ss "$pkg_name" 2>/dev/null | grep -E "^[^ ]" | head -20) || true
+    if [[ -n "$pacman_results" ]]; then
+        echo -e "${CYAN}Pacman/AUR:${NC}"
+        echo "$pacman_results"
+    else
+        echo "  (no pacman/AUR results)"
+    fi
+
+    echo ""
+    info "Searching flatpak for '$pkg_name'..."
+    local flatpak_results
+    flatpak_results=$(flatpak search "$pkg_name" 2>/dev/null | tail -n +2 | head -10) || true
+    if [[ -n "$flatpak_results" ]]; then
+        echo -e "${CYAN}Flatpak:${NC}"
+        echo "$flatpak_results"
+    else
+        echo "  (no flatpak results)"
+    fi
+
+    echo ""
+    read -rp "Exact package name to add (Enter to cancel): " exact_pkg </dev/tty
+    [[ -z "$exact_pkg" ]] && { warn "cancelled"; return; }
+
+    echo ""
+    echo "  1) .paru-S-common.list  — pacman/AUR, both machines"
+    echo "  2) .paru-S-desktop.list — pacman/AUR, desktop only"
+    echo "  3) .paru-S-surface.list — pacman/AUR, surface only"
+    echo "  4) .flatpak-S.list      — flatpak"
+    echo "  5) .paru-skip.list      — skip during install"
+    read -rp "List [1-5]: " list_choice </dev/tty
+
+    local list_file
+    case "$list_choice" in
+        1) list_file="$DOTS_DIR/.paru-S-common.list" ;;
+        2) list_file="$DOTS_DIR/.paru-S-desktop.list" ;;
+        3) list_file="$DOTS_DIR/.paru-S-surface.list" ;;
+        4) list_file="$DOTS_DIR/.flatpak-S.list" ;;
+        5) list_file="$DOTS_DIR/.paru-skip.list" ;;
+        *) warn "invalid choice"; return ;;
+    esac
+
+    if grep -qxF "$exact_pkg" "$list_file" 2>/dev/null; then
+        warn "already in list: $exact_pkg"
+        return
+    fi
+
+    echo "$exact_pkg" >> "$list_file"
+    ok "added to $(basename "$list_file"): $exact_pkg"
+}
+
 # ─── Maintenance: pacnew files ───────────────────────────
 check_pacnew() {
     info "Checking for pacnew files..."
@@ -1287,7 +1385,9 @@ _configure_items_multiselect() {
         "orphan-removal — Remove orphaned packages (audit)" \
         "python-rebuild — Rebuild Python packages needing rebuild (audit)" \
         ":── Gaming ──────────────────────────────────" \
-        "steam-launchers — Create .desktop launchers for all installed Steam games"
+        "steam-launchers — Create .desktop launchers for all installed Steam games" \
+        ":── Packages ────────────────────────────────" \
+        "add-package — Search and add a package to an install list"
 }
 
 _bootstrap_multiselect() {
@@ -1324,7 +1424,9 @@ _bootstrap_multiselect() {
         "orphan-removal — Remove orphaned packages (audit)" \
         "python-rebuild — Rebuild Python packages needing rebuild (audit)" \
         ":  Gaming ──────────────────────────────────" \
-        "steam-launchers — Create .desktop launchers for all installed Steam games"
+        "steam-launchers — Create .desktop launchers for all installed Steam games" \
+        ":  Packages ────────────────────────────────" \
+        "add-package — Search and add a package to an install list"
 }
 
 phase_configure() {
@@ -1362,6 +1464,7 @@ phase_configure() {
     _sel "orphan-removal"  && AUDIT_ORPHAN_REMOVAL=true
     _sel "python-rebuild"  && AUDIT_PYTHON_REBUILD=true
     _sel "steam-launchers" && setup_steam_launchers
+    _sel "add-package"     && add_package
 }
 phase_update()   { system_update; flatpak_update; clean_caches; }
 phase_audit()    { check_foreign_orphans; check_flatpak_orphans; check_rebuilds; check_python_rebuilds; check_pacnew; check_firmware; check_aur_malware; }
@@ -1517,6 +1620,7 @@ usage() {
     echo "  --dms-export        Copy live ~/.config/niri/dms/*.kdl → repo (then commit)"
     echo "  --dms-import        Copy repo dms overrides → live (skips auto-generated files)"
     echo "  --steam-launchers   Create .desktop launchers for all installed Steam games"
+    echo "  --add-package [name]  Search and add a package to an install list"
     echo "  --help              Show this message"
 }
 
@@ -1531,6 +1635,7 @@ case "${1:-}" in
     --dms-export)        dms_export ;;
     --dms-import)        dms_import ;;
     --steam-launchers)   setup_steam_launchers ;;
+    --add-package)       detect_machine; add_package "${2:-}" ;;
     --help|-h)           usage ;;
     "")                  bootstrap ;;
     *)                   die "Unknown option: $1. Use --help." ;;

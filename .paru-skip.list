@@ -1,0 +1,3 @@
+# Packages to skip during vjupdate install phases.
+# One package per line. Lines starting with # are ignored.
+# Add entries here via: vjupdate --add-package (choose option 5)
