@@ -161,6 +161,18 @@ _install_list() {
         pacman -Qi "$pkg" &>/dev/null || to_install+=("$pkg")
     done < <(_pkg_list "$list")
     if [[ ${#to_install[@]} -gt 0 ]]; then
+        local malware_list="$HOME/.local/share/aur-malware-check/package_list.txt"
+        if [[ -f "$malware_list" ]]; then
+            local infected=()
+            for pkg in "${to_install[@]}"; do
+                grep -qxF "$pkg" "$malware_list" && infected+=("$pkg")
+            done
+            if [[ ${#infected[@]} -gt 0 ]]; then
+                echo -e "${RED}[✗] MALWARE GATE: infected packages about to be installed:${NC}" >&2
+                for p in "${infected[@]}"; do echo -e "${RED}    - $p${NC}" >&2; done
+                die "Remove infected packages from list files before proceeding"
+            fi
+        fi
         paru -S --needed --noconfirm "${to_install[@]}"
     fi
 }
