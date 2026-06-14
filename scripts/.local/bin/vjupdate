@@ -1021,10 +1021,11 @@ check_aur_malware() {
     local repo_dir="$HOME/.local/share/aur-malware-check"
     info "Checking AUR malware (supply chain attack scan)..."
     if [[ -d "$repo_dir" ]]; then
-        git -C "$repo_dir" pull --quiet 2>/dev/null || warn "aur-malware-check: failed to update repo"
+        git -C "$repo_dir" pull --quiet 2>/dev/null \
+            || die "aur-malware-check: failed to update repo — cannot proceed without up-to-date definitions"
     else
         git clone --quiet https://github.com/lenucksi/aur-malware-check.git "$repo_dir" 2>/dev/null \
-            || { warn "aur-malware-check: failed to clone repo"; return; }
+            || die "aur-malware-check: failed to clone repo — cannot proceed without definitions"
     fi
     chmod +x "$repo_dir/aur_check-v2.sh"
     local result
@@ -1032,8 +1033,8 @@ check_aur_malware() {
     if echo "$result" | grep -q "RESULT: CLEAN"; then
         ok "aur malware check: clean"
     else
-        warn "aur malware check: POSSIBLE INFECTION DETECTED — review output:"
         echo "$result"
+        die "aur malware check: POSSIBLE INFECTION DETECTED — aborting"
     fi
 }
 
