@@ -1016,6 +1016,27 @@ check_pacnew() {
     fi
 }
 
+# ─── Security: AUR malware check ─────────────────────────
+check_aur_malware() {
+    local repo_dir="$HOME/.local/share/aur-malware-check"
+    info "Checking AUR malware (supply chain attack scan)..."
+    if [[ -d "$repo_dir" ]]; then
+        git -C "$repo_dir" pull --quiet 2>/dev/null || warn "aur-malware-check: failed to update repo"
+    else
+        git clone --quiet https://github.com/lenucksi/aur-malware-check.git "$repo_dir" 2>/dev/null \
+            || { warn "aur-malware-check: failed to clone repo"; return; }
+    fi
+    chmod +x "$repo_dir/aur_check-v2.sh"
+    local result
+    result=$("$repo_dir/aur_check-v2.sh" --full --refresh 2>/dev/null)
+    if echo "$result" | grep -q "RESULT: CLEAN"; then
+        ok "aur malware check: clean"
+    else
+        warn "aur malware check: POSSIBLE INFECTION DETECTED — review output:"
+        echo "$result"
+    fi
+}
+
 # ─── Maintenance: firmware updates ───────────────────────
 check_firmware() {
     if ! command -v fwupdmgr &>/dev/null; then
@@ -1342,7 +1363,7 @@ phase_configure() {
     _sel "steam-launchers" && setup_steam_launchers
 }
 phase_update()   { system_update; flatpak_update; clean_caches; }
-phase_audit()    { check_foreign_orphans; check_flatpak_orphans; check_rebuilds; check_python_rebuilds; check_pacnew; check_firmware; }
+phase_audit()    { check_foreign_orphans; check_flatpak_orphans; check_rebuilds; check_python_rebuilds; check_pacnew; check_firmware; check_aur_malware; }
 
 # ─── Main ────────────────────────────────────────────────
 bootstrap() {
@@ -1407,6 +1428,7 @@ check() {
     check_python_rebuilds
     check_pacnew
     check_firmware
+    check_aur_malware
     print_recap
 }
 
