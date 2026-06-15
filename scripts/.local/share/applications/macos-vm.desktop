@@ -1,9 +1,0 @@
-[Desktop Entry]
-Name=macOS VM
-Comment=Launch macOS via Docker
-Exec=start-macos
-Icon=computer
-Terminal=false
-Type=Application
-Categories=System;Emulator;
-Keywords=macos;mac;vm;docker;
