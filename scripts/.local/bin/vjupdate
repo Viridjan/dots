@@ -753,7 +753,11 @@ setup_vms() {
     fi
 
     info "Setting up VM storage directories..."
-    mkdir -p "$DOTS_DIR/windows/storage"
+    local win_storage=/mnt/data/windows-vm-storage
+    mkdir -p "$win_storage"
+    if [[ ! -L "$DOTS_DIR/windows/storage" ]]; then
+        ln -sfn "$win_storage" "$DOTS_DIR/windows/storage"
+    fi
     ok "VM storage dirs ready"
 
     info "Pulling VM images (background)..."
