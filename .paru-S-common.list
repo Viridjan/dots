@@ -80,6 +80,7 @@ playerctl
 # Applications
 brave-bin
 thunderbird
+gomuks
 vlc
 vlc-plugins-all
 qbittorrent
@@ -100,7 +101,7 @@ fprintd
 quickshell
 dgop
 dsearch-bin
-telegram-desktop
+# telegram-desktop — removed, replaced by gomuks via mautrix-telegram bridge
 claude-code
 proton-mail-bin
 rofi-ykman-git

@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Launch Matrix stack (Synapse + bridges) and open gomuks
+set -euo pipefail
+
+COMPOSE_DIR="$HOME/Projects/dots/matrix"
+
+cd "$COMPOSE_DIR"
+docker compose up -d
+
+echo "Matrix stack started — launching gomuks..."
+alacritty --title gomuks -e gomuks
+
+echo "gomuks closed — shutting down Matrix stack..."
+docker compose down

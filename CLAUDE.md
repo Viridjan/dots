@@ -38,7 +38,9 @@ dots/
   surface/        → ~/.config/niri/cfg/display.kdl + input.kdl + surface-layout.kdl  (Surface Pro 9 only)
   vesktop/        → ~/.config/vesktop/  (settings.json + settings/)
   VSCodium/       → ~/.config/VSCodium/
+  gomuks/         → ~/.config/gomuks/  (gomuks Matrix TUI client config)
   windows/        ← NOT a stow package — Docker Compose for Windows 11 VM (dockur/windows, port 8006)
+  matrix/         ← NOT a stow package — Docker Compose for Matrix homeserver + bridges (Synapse + mautrix-whatsapp + mautrix-telegram)
 ```
 
 `niri` uses **file-level symlinks** — the `cfg/` and `dms/` directories are real, but individual `.kdl` files are symlinked. All other packages use directory-level symlinks.
@@ -191,10 +193,11 @@ Package management uses flat text files (one package per line, `#` comments):
 
 ## VM webapps
 
-`windows/` is a standalone Docker Compose project, not a stow package. Launch via script:
+`windows/` and `matrix/` are standalone Docker Compose projects, not stow packages. Launch via scripts:
 
 ```bash
 start-windows   # starts Windows 11 VM, opens noVNC at http://localhost:8006
+start-matrix    # starts Matrix stack (Synapse + bridges), opens gomuks in Alacritty
 ```
 
 Opens Chromium `--app` at 75% of screen size (100% on Surface). Window size is machine-aware via `hostname`.
@@ -203,7 +206,9 @@ Opens Chromium `--app` at 75% of screen size (100% on Surface). Window size is m
 
 **Windows shared folder**: `~/Shared` on host is mounted into the VM via Samba. Inside Windows, map `\\host.lan\Data` as a network drive (This PC → Map network drive).
 
-Stop VM: `cd ~/Projects/dots/windows && docker compose down`
+Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
+
+**Matrix storage**: data at `/mnt/data/matrix-data/` (symlinked as `matrix/data`). First-run: generate Synapse config, register user, configure bridges — see `vjupdate → matrix` for instructions. Telegram and WhatsApp are bridged into Matrix; gomuks is the single TUI client for both.
 
 ## vjupdate bootstrap phases
 

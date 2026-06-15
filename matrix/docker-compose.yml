@@ -1,0 +1,31 @@
+services:
+  synapse:
+    image: matrixdotorg/synapse:latest
+    container_name: synapse
+    restart: unless-stopped
+    volumes:
+      - ./data/synapse:/data
+    ports:
+      - "127.0.0.1:8008:8008"
+    environment:
+      - SYNAPSE_SERVER_NAME=localhost
+      - SYNAPSE_REPORT_STATS=no
+    depends_on: []
+
+  mautrix-whatsapp:
+    image: dock.mau.dev/mautrix/whatsapp:latest
+    container_name: mautrix-whatsapp
+    restart: unless-stopped
+    volumes:
+      - ./data/whatsapp:/data
+    depends_on:
+      - synapse
+
+  mautrix-telegram:
+    image: dock.mau.dev/mautrix/telegram:latest
+    container_name: mautrix-telegram
+    restart: unless-stopped
+    volumes:
+      - ./data/telegram:/data
+    depends_on:
+      - synapse

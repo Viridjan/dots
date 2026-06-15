@@ -1,0 +1,6 @@
+homeserver:
+  url: http://localhost:8008
+  server_name: localhost
+
+# Matrix user: @viridjan:localhost
+# Run gomuks once to complete auth; config auto-expanded on first login.

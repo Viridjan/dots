@@ -351,6 +351,7 @@ COMMON_STOW_PKGS=(
     qt6ct
     scripts
     spotify-player
+    gomuks
     VSCodium
 )
 
@@ -752,6 +753,37 @@ setup_vms() {
     docker pull dockurr/windows &>/dev/null &
     wait
     ok "pulled: VM images"
+}
+
+# ─── Phase 7g: Matrix homeserver + bridges ───────────────
+setup_matrix() {
+    if ! command -v docker &>/dev/null; then
+        warn "docker not found — skipping Matrix setup"
+        return
+    fi
+
+    local matrix_data=/mnt/data/matrix-data
+    local matrix_dir="$DOTS_DIR/matrix"
+
+    info "Setting up Matrix data directory..."
+    mkdir -p "$matrix_data"
+    if [[ ! -L "$matrix_dir/data" ]]; then
+        ln -sfn "$matrix_data" "$matrix_dir/data"
+    fi
+    ok "Matrix data dir ready: $matrix_data"
+
+    info "Pulling Matrix images (background)..."
+    docker compose -f "$matrix_dir/docker-compose.yml" pull &>/dev/null &
+    wait
+    ok "pulled: Matrix images (synapse, mautrix-whatsapp, mautrix-telegram)"
+
+    info "First-run steps (manual — run once after this script):"
+    echo "  1. Generate Synapse config:"
+    echo "       docker run --rm -v $matrix_data/synapse:/data matrixdotorg/synapse generate --server-name localhost"
+    echo "  2. Start stack:  cd $matrix_dir && docker compose up -d"
+    echo "  3. Register user: docker exec synapse register_new_matrix_user -c /data/homeserver.yaml http://localhost:8008"
+    echo "  4. Configure bridges: follow prompts in 'docker logs mautrix-whatsapp' and 'docker logs mautrix-telegram'"
+    echo "  5. Launch gomuks (or run: start-matrix)"
 }
 
 # ─── Phase 7e: Fish plugins (tide prompt) ────────────────
@@ -1378,7 +1410,8 @@ _configure_items_multiselect() {
         "caveman-code — Install caveman-code npm tool" \
         ":── AI & VMs ────────────────────────────────" \
         "ollama — Pull ollama AI model (desktop only)" \
-        "vms — Pull VM Docker images (Windows/macOS)" \
+        "vms — Pull VM Docker images (Windows)" \
+        "matrix — Set up Matrix homeserver + bridges (gomuks)" \
         ":── Maintenance ─────────────────────────────" \
         "orphan-removal — Remove orphaned packages (audit)" \
         "python-rebuild — Rebuild Python packages needing rebuild (audit)" \
@@ -1416,7 +1449,8 @@ _bootstrap_multiselect() {
         "caveman-code — Install caveman-code npm tool" \
         ":  AI & VMs ────────────────────────────────" \
         "ollama — Pull ollama AI model (desktop only)" \
-        "vms — Pull VM Docker images (Windows/macOS)" \
+        "vms — Pull VM Docker images (Windows)" \
+        "matrix — Set up Matrix homeserver + bridges (gomuks)" \
         ":  Maintenance ─────────────────────────────" \
         "orphan-removal — Remove orphaned packages (audit)" \
         "python-rebuild — Rebuild Python packages needing rebuild (audit)" \
@@ -1457,6 +1491,7 @@ _sel "install-scripts" && run_install_scripts
     _sel "caveman-code"    && setup_caveman_code
     _sel "ollama"          && setup_ollama
     _sel "vms"             && setup_vms
+    _sel "matrix"          && setup_matrix
     _sel "orphan-removal"  && AUDIT_ORPHAN_REMOVAL=true
     _sel "python-rebuild"  && AUDIT_PYTHON_REBUILD=true
     _sel "steam-launchers" && setup_steam_launchers

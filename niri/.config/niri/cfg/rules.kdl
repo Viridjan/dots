@@ -89,12 +89,16 @@ window-rule {
 	default-column-width { proportion 0.5; }
 }
 
-// Narrow apps — terminal and chat clients open at 30% width.
+// Narrow apps — terminal clients open at 30% width.
 window-rule {
 	match app-id="Alacritty"
-	match app-id="com.ktechpit.whatsie"
-	match app-id="org.telegram.desktop"
 	default-column-width { proportion 0.3; }
+}
+
+// gomuks — Matrix TUI, slightly wider for chat readability.
+window-rule {
+	match app-id="Alacritty" title="^gomuks$"
+	default-column-width { proportion 0.4; }
 }
 
 // Vesktop — 40% width. Workspace placement still comes from the social rule above.
