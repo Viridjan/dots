@@ -768,9 +768,9 @@ setup_matrix() {
     info "Setting up Matrix data directory..."
     mkdir -p "$matrix_data"
     if [[ -d "$matrix_dir/data" && ! -L "$matrix_dir/data" ]]; then
-        # Docker may have pre-created data/ as a real dir — migrate and replace with symlink
-        mv "$matrix_dir/data"/. "$matrix_data"/ 2>/dev/null || true
-        rmdir "$matrix_dir/data" 2>/dev/null || true
+        # Docker creates data/ as root-owned — use sudo to migrate and replace with symlink
+        sudo mv "$matrix_dir/data"/. "$matrix_data"/ 2>/dev/null || true
+        sudo rmdir "$matrix_dir/data"
     fi
     if [[ ! -L "$matrix_dir/data" ]]; then
         ln -sfn "$matrix_data" "$matrix_dir/data"
@@ -1186,6 +1186,19 @@ check_firmware() {
     fwupdmgr get-updates 2>/dev/null || ok "no firmware updates"
 }
 
+check_pacman_db() {
+    info "Checking pacman database integrity..."
+    local errors
+    errors=$(sudo pacman -Dk 2>&1 | grep -v "^$") || true
+    if [[ -n "$errors" ]]; then
+        warn "pacman database has broken entries:"
+        echo "$errors" | while IFS= read -r line; do echo "    $line"; done
+        warn "fix: sudo pacman -Fy  OR  sudo pacman -Rdd <broken-pkg>"
+    else
+        ok "pacman database: clean"
+    fi
+}
+
 # ─── Warnings recap ──────────────────────────────────────
 print_recap() {
     if [[ ${#WARNINGS[@]} -eq 0 ]]; then
@@ -1503,7 +1516,7 @@ _sel "install-scripts" && run_install_scripts
     _sel "add-package"     && add_package
 }
 phase_update()   { system_update; flatpak_update; clean_caches; }
-phase_audit()    { check_foreign_orphans; check_flatpak_orphans; check_rebuilds; check_python_rebuilds; check_pacnew; check_firmware; check_aur_malware; }
+phase_audit()    { check_foreign_orphans; check_flatpak_orphans; check_rebuilds; check_python_rebuilds; check_pacnew; check_firmware; check_aur_malware; check_pacman_db; }
 
 # ─── Main ────────────────────────────────────────────────
 bootstrap() {
@@ -1569,6 +1582,7 @@ check() {
     check_pacnew
     check_firmware
     check_aur_malware
+    check_pacman_db
     print_recap
 }
 
