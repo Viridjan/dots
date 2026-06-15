@@ -244,16 +244,17 @@ refresh_mirrors() {
     info "Rating arch + CachyOS mirrors in parallel..."
     sudo env "${_rm_env[@]}" rate-mirrors \
         --per-mirror-timeout 1500 --max-mirrors-to-output 5 \
-        --save "$tmp_arch" arch &>/dev/null &
+        --save "$tmp_arch" arch >>"$LOG_FILE" 2>&1 &
     local pid_arch=$!
 
     sudo env "${_rm_env[@]}" rate-mirrors \
         --per-mirror-timeout 1500 --max-mirrors-to-output 5 \
-        --save "$tmp_cachyos" cachyos &>/dev/null &
+        --save "$tmp_cachyos" cachyos >>"$LOG_FILE" 2>&1 &
     local pid_cachyos=$!
 
-    wait "$pid_arch";    local rc_arch=$?
-    wait "$pid_cachyos"; local rc_cachyos=$?
+    local rc_arch=0 rc_cachyos=0
+    wait "$pid_arch"    || rc_arch=$?
+    wait "$pid_cachyos" || rc_cachyos=$?
 
     if (( rc_arch == 0 )); then
         [[ "$country" != "RU" && "$country" != "CN" ]] && \
