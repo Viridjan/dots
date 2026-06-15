@@ -767,6 +767,11 @@ setup_matrix() {
 
     info "Setting up Matrix data directory..."
     mkdir -p "$matrix_data"
+    if [[ -d "$matrix_dir/data" && ! -L "$matrix_dir/data" ]]; then
+        # Docker may have pre-created data/ as a real dir — migrate and replace with symlink
+        mv "$matrix_dir/data"/. "$matrix_data"/ 2>/dev/null || true
+        rmdir "$matrix_dir/data" 2>/dev/null || true
+    fi
     if [[ ! -L "$matrix_dir/data" ]]; then
         ln -sfn "$matrix_data" "$matrix_dir/data"
     fi
