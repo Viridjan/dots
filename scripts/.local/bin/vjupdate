@@ -30,6 +30,15 @@ AUDIT_ORPHAN_REMOVAL=false
 AUDIT_PYTHON_REBUILD=false
 mkdir -p "$STAMP_DIR"
 
+# ─── Logging ─────────────────────────────────────────────
+LOG_FILE="$STAMP_DIR/vjupdate.log"
+for _i in 2 1; do
+    [[ -f "${LOG_FILE}.$_i" ]] && mv "${LOG_FILE}.$_i" "${LOG_FILE}$((_i+1))"
+done
+[[ -f "$LOG_FILE" ]] && mv "$LOG_FILE" "${LOG_FILE}.1"
+exec > >(tee "$LOG_FILE") 2>&1
+echo "=== vjupdate $(date '+%Y-%m-%d %H:%M:%S') args: ${*:-<none>} ==="
+
 _run_phase() {
     local name="$1"; shift
     [[ " ${SKIP_PHASES:-} " == *" $name "* ]] && return
