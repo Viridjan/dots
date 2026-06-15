@@ -1,14 +1,23 @@
 #!/usr/bin/env bash
-# Launch Matrix stack (Synapse + bridges) and open gomuks
+# Launch Matrix stack (Synapse + bridges) and open gomuks.
+# Stack stays running after gomuks exits (background notifications still work).
 set -euo pipefail
 
 COMPOSE_DIR="$HOME/Projects/dots/matrix"
 
 cd "$COMPOSE_DIR"
-docker compose up -d
 
-echo "Matrix stack started — launching gomuks..."
+if ! docker compose ps --status running 2>/dev/null | grep -q synapse; then
+    echo "Starting Matrix stack..."
+    docker compose up -d || { echo "ERROR: docker compose up failed"; exit 1; }
+fi
+
+echo "Waiting for Synapse to be ready..."
+for i in $(seq 1 30); do
+    curl -fsSL http://localhost:8008/health >/dev/null 2>&1 && break
+    sleep 2
+    [[ $i -eq 30 ]] && { echo "ERROR: Synapse not ready after 60s — run: docker logs synapse"; exit 1; }
+done
+
+echo "Synapse ready — launching gomuks"
 alacritty --title gomuks -e gomuks
-
-echo "gomuks closed — shutting down Matrix stack..."
-docker compose down

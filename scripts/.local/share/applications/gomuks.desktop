@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=gomuks (Matrix)
+Comment=Matrix TUI client — Telegram and WhatsApp via bridge stack
+Exec=start-matrix
+Icon=internet-chat
+Terminal=false
+Type=Application
+Categories=Network;InstantMessaging;
+Keywords=matrix;telegram;whatsapp;chat;gomuks;

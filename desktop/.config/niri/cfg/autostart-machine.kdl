@@ -7,7 +7,7 @@ spawn-sh-at-startup "steam"
 // Media workspace
 spawn-at-startup "kitty" "--title" "dgop-monitor" "-e" "dgop"
 spawn-at-startup "kitty" "--title" "spotify-player" "-e" "spotify_player"
-spawn-at-startup "alacritty" "--title" "gomuks" "-e" "gomuks"
+spawn-sh-at-startup "start-matrix"
 
 // Background daemons
 spawn-at-startup "/usr/lib/polkit-kde-authentication-agent-1"

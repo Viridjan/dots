@@ -7,10 +7,14 @@ services:
       - ./data/synapse:/data
     ports:
       - "127.0.0.1:8008:8008"
-    environment:
-      - SYNAPSE_SERVER_NAME=localhost
-      - SYNAPSE_REPORT_STATS=no
-    depends_on: []
+    healthcheck:
+      test: ["CMD", "curl", "-fsSL", "http://localhost:8008/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - matrix-net
 
   mautrix-whatsapp:
     image: dock.mau.dev/mautrix/whatsapp:latest
@@ -19,7 +23,10 @@ services:
     volumes:
       - ./data/whatsapp:/data
     depends_on:
-      - synapse
+      synapse:
+        condition: service_healthy
+    networks:
+      - matrix-net
 
   mautrix-telegram:
     image: dock.mau.dev/mautrix/telegram:latest
@@ -28,4 +35,11 @@ services:
     volumes:
       - ./data/telegram:/data
     depends_on:
-      - synapse
+      synapse:
+        condition: service_healthy
+    networks:
+      - matrix-net
+
+networks:
+  matrix-net:
+    driver: bridge
