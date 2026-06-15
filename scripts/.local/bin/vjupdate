@@ -227,7 +227,6 @@ refresh_mirrors() {
     [[ -n "$country" ]] && ok "region: $country"
 
     local _rm_env=(
-        RATE_MIRRORS_ALLOW_ROOT=true
         RATE_MIRRORS_PROTOCOL=https
         RATE_MIRRORS_FETCH_MIRRORS_TIMEOUT=30000
         RATE_MIRRORS_MAX_DELAY=10000
@@ -242,12 +241,12 @@ refresh_mirrors() {
     tmp_arch=$(mktemp); tmp_cachyos=$(mktemp)
 
     info "Rating arch + CachyOS mirrors in parallel..."
-    sudo env "${_rm_env[@]}" rate-mirrors \
+    env "${_rm_env[@]}" rate-mirrors \
         --per-mirror-timeout 1500 --max-mirrors-to-output 5 \
         --save "$tmp_arch" arch >>"$LOG_FILE" 2>&1 &
     local pid_arch=$!
 
-    sudo env "${_rm_env[@]}" rate-mirrors \
+    env "${_rm_env[@]}" rate-mirrors \
         --per-mirror-timeout 1500 --max-mirrors-to-output 5 \
         --save "$tmp_cachyos" cachyos >>"$LOG_FILE" 2>&1 &
     local pid_cachyos=$!
