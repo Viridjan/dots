@@ -84,8 +84,8 @@ title is used as fallback for XWayland apps that don't set app-id.
 */
 window-rule {
 	match title="Brave"
+	match app-id="brave-browser"
 	match title="Kitty"
-	match app-id="firefox"
 	default-column-width { proportion 0.5; }
 }
 

@@ -78,7 +78,7 @@ spotify-player
 playerctl
 
 # Applications
-firefox
+brave-bin
 thunderbird
 vlc
 vlc-plugins-all

@@ -624,18 +624,6 @@ setup_greeter() {
 }
 
 # ─── Phase 7f: Keyring PAM integration ───────────────────
-setup_firefox_userjs() {
-    local profile
-    profile=$(grep -A1 "Name=default-release" ~/.config/mozilla/firefox/profiles.ini 2>/dev/null | grep "^Path=" | cut -d= -f2)
-    if [[ -z "$profile" ]]; then
-        warn "firefox: default-release profile not found"
-        return
-    fi
-    local dest="$HOME/.config/mozilla/firefox/$profile/user.js"
-    local src="$DOTS_DIR/firefox/user.js"
-    mkdir -p "$(dirname "$dest")"
-    cp "$src" "$dest" && ok "configured: firefox user.js ($profile)" || warn "firefox: failed to copy user.js"
-}
 
 setup_keyring_pam() {
     local pam=/etc/pam.d/greetd
@@ -1377,7 +1365,6 @@ _configure_items_multiselect() {
         "automount — Detect and add partitions to /etc/fstab" \
         "keyboard — Set X11 keyboard layout (us intl)" \
         "keyring-pam — Configure gnome-keyring PAM integration" \
-        "firefox-userjs — Copy Firefox user.js (disables MPRIS media keys)" \
         "kernels — Interactively install or remove CachyOS kernels" \
         ":── DMS ─────────────────────────────────────" \
         "greeter — Configure DMS greeter (greetd)" \
@@ -1416,7 +1403,6 @@ _bootstrap_multiselect() {
         "automount — Detect and add partitions to /etc/fstab" \
         "keyboard — Set X11 keyboard layout (us intl)" \
         "keyring-pam — Configure gnome-keyring PAM integration" \
-        "firefox-userjs — Copy Firefox user.js (disables MPRIS media keys)" \
         "kernels — Interactively install or remove CachyOS kernels" \
         ":  DMS ─────────────────────────────────────" \
         "greeter — Configure DMS greeter (greetd)" \
@@ -1462,8 +1448,7 @@ phase_configure() {
     _sel "kernels"         && manage_kernels
     _sel "greeter"         && setup_greeter
     _sel "keyring-pam"     && setup_keyring_pam
-    _sel "firefox-userjs"  && setup_firefox_userjs
-    _sel "install-scripts" && run_install_scripts
+_sel "install-scripts" && run_install_scripts
     _sel "fish"            && setup_fish
     _sel "dms-plugins"     && install_dms_plugins
     _sel "dms-export"      && dms_export

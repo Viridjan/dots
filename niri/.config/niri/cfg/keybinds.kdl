@@ -34,7 +34,7 @@ binds {
 	Mod+Return					hotkey-overlay-title="Open Terminal" { spawn "alacritty"; }
 	Mod+Space					hotkey-overlay-title="Open App Launcher" { spawn "dms" "ipc" "spotlight" "toggle"; }
 	Mod+E						hotkey-overlay-title="File Manager" { spawn "dolphin"; }
-	Mod+B						hotkey-overlay-title="Open Browser" { spawn "firefox"; }
+	Mod+B						hotkey-overlay-title="Open Browser" { spawn "brave-browser"; }
 	Mod+Alt+L					hotkey-overlay-title="Lock Screen" { spawn "dms" "ipc" "lock" "lock"; }
 	Mod+Shift+Q					hotkey-overlay-title="Session Menu" { spawn "dms" "ipc" "powermenu" "toggle"; }
 
@@ -188,7 +188,7 @@ binds {
 	XF86AudioMute				allow-when-locked=true { spawn "dms" "ipc" "audio" "mute"; }
 	XF86AudioMicMute			allow-when-locked=true { spawn "dms" "ipc" "audio" "micmute"; }
 
-	/* playerctl targets spotify_player directly to avoid DMS picking Firefox/WhatSie when paused. */
+	/* playerctl targets spotify_player directly to avoid DMS picking Brave/WhatSie when paused. */
 	XF86AudioNext				allow-when-locked=true { spawn "playerctl" "--player=spotify_player" "next"; }
 	XF86AudioPrev				allow-when-locked=true { spawn "playerctl" "--player=spotify_player" "previous"; }
 	XF86AudioPlay				allow-when-locked=true { spawn "playerctl" "--player=spotify_player" "play-pause"; }
