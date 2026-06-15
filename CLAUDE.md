@@ -33,13 +33,12 @@ dots/
   paru/           → ~/.config/paru/
   qt5ct/          → ~/.config/qt5ct/
   qt6ct/          → ~/.config/qt6ct/
-  scripts/        → ~/.local/bin/  (vjupdate, graphify, claude-auto-retry, start-windows, start-macos)
+  scripts/        → ~/.local/bin/  (vjupdate, graphify, claude-auto-retry, start-windows)
                   + ~/.local/share/applications/  (.desktop launchers)
   surface/        → ~/.config/niri/cfg/display.kdl + input.kdl + surface-layout.kdl  (Surface Pro 9 only)
   vesktop/        → ~/.config/vesktop/  (settings.json + settings/)
   VSCodium/       → ~/.config/VSCodium/
   windows/        ← NOT a stow package — Docker Compose for Windows 11 VM (dockur/windows, port 8006)
-  macos/          ← NOT a stow package — Docker Compose for macOS Sequoia VM (dockur/macos, port 8007)
 ```
 
 `niri` uses **file-level symlinks** — the `cfg/` and `dms/` directories are real, but individual `.kdl` files are symlinked. All other packages use directory-level symlinks.
@@ -192,20 +191,19 @@ Package management uses flat text files (one package per line, `#` comments):
 
 ## VM webapps
 
-`windows/` and `macos/` are standalone Docker Compose projects, not stow packages. Launch via scripts:
+`windows/` is a standalone Docker Compose project, not a stow package. Launch via script:
 
 ```bash
 start-windows   # starts Windows 11 VM, opens noVNC at http://localhost:8006
-start-macos     # starts macOS Sequoia VM, opens noVNC at http://localhost:8007
 ```
 
-Both open Chromium `--app` at 75% of screen size (100% on Surface). Window size is machine-aware via `hostname`.
+Opens Chromium `--app` at 75% of screen size (100% on Surface). Window size is machine-aware via `hostname`.
 
-**macOS first boot**: the blank disk shows as "locked" in the installer. Fix once in Disk Utility: View → Show All Devices → select top-level disk → Erase → APFS, GUID Partition Map → then reinstall.
+**Windows storage**: VM disk lives at `/mnt/data/windows-vm-storage` (symlinked to `windows/storage`) — kept on the data partition to avoid filling root.
 
 **Windows shared folder**: `~/Shared` on host is mounted into the VM via Samba. Inside Windows, map `\\host.lan\Data` as a network drive (This PC → Map network drive).
 
-Stop a VM: `cd ~/Projects/dots/<windows|macos> && docker compose down`
+Stop VM: `cd ~/Projects/dots/windows && docker compose down`
 
 ## vjupdate bootstrap phases
 
