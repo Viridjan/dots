@@ -1587,6 +1587,7 @@ bootstrap() {
         _ensure_dots_repo
     fi
     _check_packages_against_malware
+    info "phases active: $({ for _p in sources install dotfiles configure audit; do [[ " ${SKIP_PHASES:-} " == *" $_p "* ]] || printf '%s ' "$_p"; done; })"
     _run_phase "sources"   phase_sources
     _run_phase "install"   phase_install
     _run_phase "dotfiles"  phase_dotfiles
