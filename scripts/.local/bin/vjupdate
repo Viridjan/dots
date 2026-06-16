@@ -38,7 +38,17 @@ done
 [[ -f "$LOG_FILE" ]] && mv "$LOG_FILE" "${LOG_FILE}.1"
 exec > >(tee "$LOG_FILE") 2>&1
 _TEE_PID=$!
-trap 'wait $_TEE_PID 2>/dev/null || true' EXIT
+trap 'wait $_TEE_PID 2>/dev/null || true; rm -f "$_MS_RESULT"' EXIT
+
+# Pause tee before TUI (close pipe so tee flushes), resume after.
+_tui_start() {
+    exec 1>/dev/tty 2>/dev/tty
+    wait "$_TEE_PID" 2>/dev/null || true
+}
+_tui_end() {
+    exec > >(tee -a "$LOG_FILE") 2>&1
+    _TEE_PID=$!
+}
 echo "=== vjupdate $(date '+%Y-%m-%d %H:%M:%S') args: ${*:-<none>} ==="
 
 _run_phase() {
@@ -1337,14 +1347,16 @@ phase_dotfiles() { deploy_dotfiles; dms_import; }
 # _multiselect HEADER ITEM...
 # Items prefixed with ':' are non-selectable group headers.
 # Items prefixed with '+' are pre-selected ('+' stripped from display and output).
-# Prints newline-separated selected items to stdout. All TUI output goes to /dev/tty.
-# Returns 1 if user cancels (esc / q / ctrl-c).
+# Writes newline-separated selected items to $_MS_RESULT (temp file).
+# Returns 1 if user cancels (esc / q / ctrl-c). All TUI output goes to /dev/tty.
+_MS_RESULT=""
 _multiselect() {
     local _header="$1"; shift
     local -a _items=("$@")
     local _n=${#_items[@]}
     local -a _sel=()
     local _cursor=0 _i _key _esc
+    _MS_RESULT=$(mktemp)
 
     for (( _i=0; _i<_n; _i++ )); do
         if [[ "${_items[$_i]}" == +* ]]; then
@@ -1376,6 +1388,7 @@ _multiselect() {
         printf "\n\033[90m  ↑↓ navigate · space toggle · ctrl+a select all · enter confirm · q abort\033[0m\n" >/dev/tty
     }
 
+    _tui_start
     tput civis >/dev/tty
     tput clear >/dev/tty
     printf "  \033[34m%s\033[0m\n\n" "$_header" >/dev/tty
@@ -1396,7 +1409,7 @@ _multiselect() {
                    done ;;
                 esac
             else
-                tput cnorm >/dev/tty; return 1
+                tput cnorm >/dev/tty; _tui_end; return 1
             fi
         elif [[ "$_key" == ' ' ]]; then
             ${_sel[$_cursor]} && _sel[$_cursor]=false || _sel[$_cursor]=true
@@ -1413,7 +1426,7 @@ _multiselect() {
         elif [[ "$_key" == '' ]]; then
             break
         elif [[ "$_key" == 'q' || "$_key" == $'\x03' ]]; then
-            tput cnorm >/dev/tty; return 1
+            tput cnorm >/dev/tty; _tui_end; return 1
         fi
         _ms_draw
     done
@@ -1424,7 +1437,8 @@ _multiselect() {
     for (( _i=0; _i<_n; _i++ )); do
         ${_sel[$_i]} && _out+="${_items[$_i]}"$'\n'
     done
-    printf '%s' "$_out"
+    printf '%s' "$_out" > "$_MS_RESULT"
+    _tui_end
 }
 
 _configure_items_multiselect() {
@@ -1507,7 +1521,8 @@ phase_configure() {
         setup_fish
         return
     else
-        _selected=$(_configure_items_multiselect) || { warn "cancelled: configure"; return; }
+        _configure_items_multiselect || { warn "cancelled: configure"; return; }
+        _selected=$(cat "$_MS_RESULT")
     fi
 
     _sel() { echo "$_selected" | grep -q "^$1 —"; }
@@ -1542,7 +1557,8 @@ bootstrap() {
     if $INTERACTIVE; then
         SKIP_PHASES=""
         local _selected
-        _selected=$(_bootstrap_multiselect) || { warn "Aborted."; exit 0; }
+        _bootstrap_multiselect || { warn "Aborted."; exit 0; }
+        _selected=$(cat "$_MS_RESULT")
 
         { detect_machine; _ensure_dots_repo; } >/dev/null
 
