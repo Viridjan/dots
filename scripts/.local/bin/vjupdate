@@ -37,6 +37,8 @@ for _i in 2 1; do
 done
 [[ -f "$LOG_FILE" ]] && mv "$LOG_FILE" "${LOG_FILE}.1"
 exec > >(tee "$LOG_FILE") 2>&1
+_TEE_PID=$!
+trap 'wait $_TEE_PID 2>/dev/null || true' EXIT
 echo "=== vjupdate $(date '+%Y-%m-%d %H:%M:%S') args: ${*:-<none>} ==="
 
 _run_phase() {
@@ -1557,6 +1559,12 @@ bootstrap() {
             CONFIGURE_PROMPTED=true
         else
             SKIP_PHASES+="configure "
+        fi
+
+        # If orphan-removal or python-rebuild are selected but audit phase is not,
+        # force-enable audit so those flags actually get used.
+        if echo "${CONFIGURE_ITEMS:-}" | grep -qE "^(orphan-removal|python-rebuild) —"; then
+            SKIP_PHASES="${SKIP_PHASES/ audit / }"
         fi
     else
         detect_machine
