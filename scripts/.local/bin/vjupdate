@@ -188,8 +188,19 @@ _install_list() {
 
 # Pre-install malware gate: check all AUR package lists against malware definitions
 _check_packages_against_malware() {
-    local malware_list="$HOME/.local/share/aur-malware-check/package_list.txt"
-    [[ -f "$malware_list" ]] || { warn "malware definitions not found — run audit first"; return; }
+    local repo_dir="$HOME/.local/share/aur-malware-check"
+    local malware_list="$repo_dir/package_list.txt"
+    if [[ ! -f "$malware_list" ]]; then
+        info "malware definitions not found — fetching..."
+        if [[ -d "$repo_dir" ]]; then
+            git -C "$repo_dir" pull --quiet 2>/dev/null \
+                || die "malware gate: failed to update definitions — aborting install"
+        else
+            git clone --quiet https://github.com/lenucksi/aur-malware-check.git "$repo_dir" 2>/dev/null \
+                || die "malware gate: failed to fetch definitions — aborting install"
+        fi
+        [[ -f "$malware_list" ]] || die "malware gate: definitions missing after fetch — aborting install"
+    fi
     info "Pre-install malware gate: scanning package lists..."
     local infected=()
     local lists=("$DOTS_DIR/.paru-S-common.list" "$DOTS_DIR/.paru-S-${MACHINE}.list")
