@@ -296,8 +296,6 @@ install_all() {
     command -v paru    &>/dev/null && ok "already installed: paru"    || die "paru not found — run sources phase first"
     command -v flatpak &>/dev/null && ok "already installed: flatpak" || warn "flatpak not found — flatpak installs will be skipped"
 
-    _check_packages_against_malware
-
     # Force-remove known conflicting packages before installing.
     # -Rdd skips dep checks so replacements (e.g. wine→wine-cachyos) don't block.
     if [[ -f "$DOTS_DIR/.paru-R.list" ]]; then
@@ -1564,6 +1562,7 @@ bootstrap() {
         detect_machine
         _ensure_dots_repo
     fi
+    _check_packages_against_malware
     _run_phase "sources"   phase_sources
     _run_phase "install"   phase_install
     _run_phase "dotfiles"  phase_dotfiles
