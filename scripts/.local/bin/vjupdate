@@ -1548,9 +1548,10 @@ _sel "install-scripts" && run_install_scripts
     _sel "python-rebuild"  && AUDIT_PYTHON_REBUILD=true
     _sel "steam-launchers" && setup_steam_launchers
     _sel "add-package"     && add_package
+    return 0
 }
 phase_update()   { system_update; flatpak_update; clean_caches; }
-phase_audit()    { check_foreign_orphans; check_flatpak_orphans; check_rebuilds; check_python_rebuilds; check_pacnew; check_firmware; check_aur_malware; check_pacman_db; }
+phase_audit()    { check_foreign_orphans; check_flatpak_orphans; check_rebuilds; check_python_rebuilds; check_pacnew; check_firmware; check_aur_malware; check_pacman_db; return 0; }
 
 # ─── Main ────────────────────────────────────────────────
 bootstrap() {
