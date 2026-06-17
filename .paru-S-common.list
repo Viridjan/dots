@@ -40,7 +40,6 @@ fish
 fisher
 cups
 cups-pk-helper
-khal
 micro
 tree
 bitwarden
@@ -109,7 +108,6 @@ rofi-ykman-git
 chromium
 
 # Development
-jdk21-openjdk
 nodejs-lts-krypton
 npm
 git-filter-repo
@@ -140,7 +138,6 @@ glances
 fastfetch
 plocate
 pv
-translate-shell
 xdotool
 xorg-xwininfo
 yad
