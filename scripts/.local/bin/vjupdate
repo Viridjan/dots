@@ -473,7 +473,6 @@ enable_services() {
     _enable docker
 
     if [[ "$MACHINE" == desktop ]]; then
-        _enable libvirtd
         _enable ollama
         sudo systemctl daemon-reload 2>/dev/null || true
         sudo usermod -aG libvirt "$USER" 2>/dev/null || true
@@ -1116,68 +1115,6 @@ manage_kernels() {
     ok "kernel management done"
 }
 
-# ─── Package picker ──────────────────────────────────────
-add_package() {
-    local pkg_name="${1:-}"
-
-    if [[ -z "$pkg_name" ]]; then
-        read -rp "Package name to search: " pkg_name </dev/tty
-        [[ -z "$pkg_name" ]] && { warn "no package name given"; return; }
-    fi
-
-    echo ""
-    info "Searching pacman/AUR for '$pkg_name'..."
-    local pacman_results
-    pacman_results=$(paru -Ss "$pkg_name" 2>/dev/null | grep -E "^[^ ]" | head -20) || true
-    if [[ -n "$pacman_results" ]]; then
-        echo -e "${CYAN}Pacman/AUR:${NC}"
-        echo "$pacman_results"
-    else
-        echo "  (no pacman/AUR results)"
-    fi
-
-    echo ""
-    info "Searching flatpak for '$pkg_name'..."
-    local flatpak_results
-    flatpak_results=$(flatpak search "$pkg_name" 2>/dev/null | tail -n +2 | head -10) || true
-    if [[ -n "$flatpak_results" ]]; then
-        echo -e "${CYAN}Flatpak:${NC}"
-        echo "$flatpak_results"
-    else
-        echo "  (no flatpak results)"
-    fi
-
-    echo ""
-    read -rp "Exact package name to add (Enter to cancel): " exact_pkg </dev/tty
-    [[ -z "$exact_pkg" ]] && { warn "cancelled"; return; }
-
-    echo ""
-    echo "  1) .paru-S-common.list  — pacman/AUR, both machines"
-    echo "  2) .paru-S-desktop.list — pacman/AUR, desktop only"
-    echo "  3) .paru-S-surface.list — pacman/AUR, surface only"
-    echo "  4) .flatpak-S.list      — flatpak"
-    echo "  5) .paru-skip.list      — skip during install"
-    read -rp "List [1-5]: " list_choice </dev/tty
-
-    local list_file
-    case "$list_choice" in
-        1) list_file="$DOTS_DIR/.paru-S-common.list" ;;
-        2) list_file="$DOTS_DIR/.paru-S-desktop.list" ;;
-        3) list_file="$DOTS_DIR/.paru-S-surface.list" ;;
-        4) list_file="$DOTS_DIR/.flatpak-S.list" ;;
-        5) list_file="$DOTS_DIR/.paru-skip.list" ;;
-        *) warn "invalid choice"; return ;;
-    esac
-
-    if grep -qxF "$exact_pkg" "$list_file" 2>/dev/null; then
-        warn "already in list: $exact_pkg"
-        return
-    fi
-
-    echo "$exact_pkg" >> "$list_file"
-    ok "added to $(basename "$list_file"): $exact_pkg"
-}
-
 # ─── Maintenance: pacnew files ───────────────────────────
 check_pacnew() {
     info "Checking for pacnew files..."
@@ -1475,9 +1412,7 @@ _configure_items_multiselect() {
         "orphan-removal — Remove orphaned packages (audit)" \
         "python-rebuild — Rebuild Python packages needing rebuild (audit)" \
         ":── Gaming ──────────────────────────────────" \
-        "steam-launchers — Create .desktop launchers for all installed Steam games" \
-        ":── Packages ────────────────────────────────" \
-        "add-package — Search and add a package to an install list"
+        "steam-launchers — Create .desktop launchers for all installed Steam games"
 }
 
 _bootstrap_multiselect() {
@@ -1513,9 +1448,7 @@ _bootstrap_multiselect() {
         "vms — Pull VM Docker images (Windows)" \
         "matrix — Set up Matrix homeserver + bridges (gomuks)" \
         ":  Gaming ──────────────────────────────────" \
-        "steam-launchers — Create .desktop launchers for all installed Steam games" \
-        ":  Packages ────────────────────────────────" \
-        "add-package — Search and add a package to an install list"
+        "steam-launchers — Create .desktop launchers for all installed Steam games"
 }
 
 phase_configure() {
@@ -1554,7 +1487,7 @@ _sel "install-scripts" && run_install_scripts
     _sel "orphan-removal"  && AUDIT_ORPHAN_REMOVAL=true
     _sel "python-rebuild"  && AUDIT_PYTHON_REBUILD=true
     _sel "steam-launchers" && setup_steam_launchers
-    _sel "add-package"     && add_package
+
     return 0
 }
 phase_update()   { system_update; flatpak_update; clean_caches; }
@@ -1721,7 +1654,7 @@ usage() {
     echo "  --dms-export        Copy live ~/.config/niri/dms/*.kdl → repo (then commit)"
     echo "  --dms-import        Copy repo dms overrides → live (skips auto-generated files)"
     echo "  --steam-launchers   Create .desktop launchers for all installed Steam games"
-    echo "  --add-package [name]  Search and add a package to an install list"
+
     echo "  --help              Show this message"
 }
 
@@ -1736,7 +1669,7 @@ case "${1:-}" in
     --dms-export)        dms_export ;;
     --dms-import)        dms_import ;;
     --steam-launchers)   setup_steam_launchers ;;
-    --add-package)       detect_machine; add_package "${2:-}" ;;
+
     --help|-h)           usage ;;
     "")                  bootstrap ;;
     *)                   die "Unknown option: $1. Use --help." ;;
