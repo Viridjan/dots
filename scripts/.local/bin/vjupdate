@@ -797,9 +797,9 @@ setup_matrix() {
     info "Setting up Matrix data directory..."
     mkdir -p "$matrix_data"
     if [[ -d "$matrix_dir/data" && ! -L "$matrix_dir/data" ]]; then
-        # Docker creates data/ as root-owned — use sudo to migrate and replace with symlink
-        sudo mv "$matrix_dir/data"/. "$matrix_data"/ 2>/dev/null || true
-        sudo rmdir "$matrix_dir/data"
+        # Docker creates data/ as root-owned — migrate contents then replace with symlink
+        sudo cp -a "$matrix_dir/data/." "$matrix_data"/ 2>/dev/null || true
+        sudo rm -rf "$matrix_dir/data"
     fi
     if [[ ! -L "$matrix_dir/data" ]]; then
         ln -sfn "$matrix_data" "$matrix_dir/data"
@@ -918,13 +918,11 @@ setup_caveman_code() {
         && ok "installed: caveman-code" \
         || { warn "caveman-code npm install failed"; return; }
 
-    # ~/.local/bin is a stow symlink → npm's relative ../lib symlink breaks.
-    # Replace with absolute-path wrapper (already in dotfiles via stow).
-    local broken="$HOME/.local/bin/caveman-code"
-    if [[ -L "$broken" ]]; then
-        rm -f "$broken"
-        ok "removed: npm symlink (stow wrapper active)"
-    fi
+    local cli
+    cli="$(npm root -g 2>/dev/null)/@juliusbrussee/caveman-code/dist/cli.js"
+    ln -sfn "$cli" "$HOME/.local/bin/caveman-code"
+    ln -sfn "$cli" "$HOME/.local/bin/caveman"
+    ok "linked: caveman-code → $cli"
 }
 
 # ─── Phase 8: Projects ───────────────────────────────────

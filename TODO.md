@@ -9,15 +9,4 @@ Add `setup_ollama` surface branch once decided.
 
 No Flatpak: `alacritty` (terminal sandboxing issues), `btop`, `shelly`, `proton-mail-bin`.
 
-## caveman-code install
-
-`@juliusbrussee/caveman-code` npm package — install globally and add symlink to scripts stow package:
-
-```bash
-npm install -g @juliusbrussee/caveman-code
-# then add symlink to scripts/.local/bin/ pointing to the installed cli.js
-```
-
-Find install path with: `npm root -g`
-
 
