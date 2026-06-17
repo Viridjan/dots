@@ -900,6 +900,11 @@ setup_claude() {
     claude plugin install graphify --scope user 2>/dev/null \
         && ok "installed: graphify" \
         || warn "graphify plugin install failed — run manually: claude plugin marketplace add safishamsi/graphify && claude plugin install graphify --scope user"
+
+    claude plugin marketplace add DietrichGebert/ponytail 2>/dev/null || true
+    claude plugin install ponytail --scope user 2>/dev/null \
+        && ok "installed: ponytail" \
+        || warn "ponytail plugin install failed — run manually: claude plugin marketplace add DietrichGebert/ponytail && claude plugin install ponytail --scope user"
 }
 
 # ─── Phase 8b: caveman-code ──────────────────────────────

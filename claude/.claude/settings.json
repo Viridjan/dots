@@ -32,7 +32,8 @@
   "enabledPlugins": {
     "caveman@caveman": true,
     "superpowers@claude-plugins-official": true,
-    "graphify@graphify": true
+    "graphify@graphify": true,
+    "ponytail@ponytail": true
   },
   "extraKnownMarketplaces": {
     "caveman": {
@@ -46,8 +47,15 @@
         "source": "directory",
         "path": "/home/viridjan/.claude/skills/graphify"
       }
+    },
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
+      }
     }
   },
   "theme": "auto",
-  "skipAutoPermissionPrompt": true
+  "skipAutoPermissionPrompt": true,
+  "model": "opus"
 }

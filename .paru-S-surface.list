@@ -20,9 +20,6 @@ iio-sensor-proxy
 # Surface Pen (Wacom protocol)
 libwacom
 
-# Fingerprint reader
-fprintd
-
 # Power management
 tlp
 tlp-rdw
@@ -33,9 +30,6 @@ brightnessctl
 
 # NVMe management
 nvme-cli
-
-# Firmware updates (Microsoft ships Surface firmware via LVFS)
-fwupd
 
 # Intel Iris Xe GPU drivers
 vulkan-intel

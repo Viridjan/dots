@@ -13,13 +13,5 @@ vial-appimage
 # AI / local LLM
 ollama-rocm
 
-# Virtualisation
-virt-manager
-qemu-full
-libvirt
-edk2-ovmf
-swtpm
-spice-vdagent
-
 # VR (Pico 4 Ultra via ALVR)
 alvr-launcher-bin
