@@ -30,6 +30,9 @@ VSCodium/.config/VSCodium/Trust Tokens-journal
 windows/storage/
 macos/storage/
 
+# vjupdate audit logs (generated on each --check run)
+aur-check-*.log
+
 # Vesktop runtime state
 vesktop/.config/vesktop/Crashpad/
 vesktop/.config/vesktop/sessionData/

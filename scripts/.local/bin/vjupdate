@@ -38,7 +38,7 @@ done
 [[ -f "$LOG_FILE" ]] && mv "$LOG_FILE" "${LOG_FILE}.1"
 exec > >(tee "$LOG_FILE") 2>&1
 _TEE_PID=$!
-trap 'wait $_TEE_PID 2>/dev/null || true; rm -f "$_MS_RESULT"' EXIT
+trap 'exec 1>&- 2>&-; wait $_TEE_PID 2>/dev/null || true; rm -f "$_MS_RESULT"' EXIT
 
 # Pause tee before TUI (close pipe so tee flushes), resume after.
 _tui_start() {
@@ -1188,6 +1188,7 @@ check_aur_malware() {
     local repo_dir="$HOME/.local/share/aur-malware-check"
     info "Checking AUR malware (supply chain attack scan)..."
     if [[ -d "$repo_dir" ]]; then
+        git -C "$repo_dir" reset --hard HEAD --quiet 2>/dev/null || true
         git -C "$repo_dir" pull --quiet 2>/dev/null \
             || die "aur-malware-check: failed to update repo — cannot proceed without up-to-date definitions"
     else
@@ -1218,11 +1219,12 @@ check_firmware() {
 
 check_pacman_db() {
     info "Checking pacman database integrity..."
-    local errors
-    errors=$(sudo pacman -Dk 2>&1 | grep -v "^$") || true
-    if [[ -n "$errors" ]]; then
+    local output rc
+    output=$(sudo pacman -Dk 2>&1)
+    rc=$?
+    if [[ $rc -ne 0 ]]; then
         warn "pacman database has broken entries:"
-        echo "$errors" | while IFS= read -r line; do echo "    $line"; done
+        echo "$output" | grep -v "^$" | while IFS= read -r line; do echo "    $line"; done
         warn "fix: sudo pacman -Fy  OR  sudo pacman -Rdd <broken-pkg>"
     else
         ok "pacman database: clean"
