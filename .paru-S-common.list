@@ -111,6 +111,7 @@ chromium
 nodejs-lts-krypton
 npm
 git-filter-repo
+github-cli
 
 # Containers (Open Notebook)
 docker
