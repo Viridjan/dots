@@ -1,3 +1,6 @@
+# Fontconfig auto-generated cache ID (machine-specific)
+fonts/.local/share/fonts/.uuid
+
 # Fish runtime state
 fish/.config/fish/fish_history
 # Universal vars — tide writes a per-session prompt cache here; the prompt is
