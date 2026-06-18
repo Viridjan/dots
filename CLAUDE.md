@@ -228,6 +228,16 @@ sources → install → dotfiles → configure → audit
 
 Interactive mode (default, or `-i`) opens a built-in terminal TUI (no external deps) showing all phases and configure items in one screen. Defaults: `install` and `audit` are pre-selected; `sources` and `dotfiles` are opt-in; one-time configure items (services, greeter, fish, claude plugins, etc.) are opt-in. Keys: `↑↓` navigate, `space` toggle, `ctrl+a` select/deselect all, `enter` confirm, `q` abort. `update` and `audit` also run via `vjupdate --update` and `vjupdate --check`.
 
+## npm global prefix
+
+Set to `~/.local` so global installs don't require sudo:
+
+```bash
+npm config set prefix ~/.local
+```
+
+Binaries land in `~/.local/bin/` (already in PATH). Required for `caveman-code` and any other global npm tools installed by `vjupdate`.
+
 ## Current key values (as of last sync)
 
 | Setting | Value | Source |

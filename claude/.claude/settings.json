@@ -1,53 +1,15 @@
 {
-  "model": "opus",
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"/usr/bin/node\" \"/home/viridjan/.claude/hooks/caveman-activate.js\"",
-            "timeout": 5,
-            "statusMessage": "Loading caveman mode..."
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"/usr/bin/node\" \"/home/viridjan/.claude/hooks/caveman-mode-tracker.js\"",
-            "timeout": 5,
-            "statusMessage": "Tracking caveman mode..."
-          }
-        ]
-      }
-    ]
-  },
-  "statusLine": {
-    "type": "command",
-    "command": "bash \"/home/viridjan/.claude/hooks/caveman-statusline.sh\""
-  },
+  "model": "sonnet",
   "enabledPlugins": {
     "caveman@caveman": true,
     "superpowers@claude-plugins-official": true,
-    "graphify@graphify": true,
-    "ponytail@ponytail": true,
-    "vercel@claude-plugins-official": true
+    "ponytail@ponytail": true
   },
   "extraKnownMarketplaces": {
     "caveman": {
       "source": {
         "source": "github",
         "repo": "JuliusBrussee/caveman"
-      }
-    },
-    "graphify": {
-      "source": {
-        "source": "directory",
-        "path": "/home/viridjan/.claude/skills/graphify"
       }
     },
     "ponytail": {
@@ -57,6 +19,5 @@
       }
     }
   },
-  "theme": "auto",
-  "skipAutoPermissionPrompt": true
+  "theme": "dark"
 }
