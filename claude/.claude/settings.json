@@ -34,7 +34,8 @@
     "caveman@caveman": true,
     "superpowers@claude-plugins-official": true,
     "graphify@graphify": true,
-    "ponytail@ponytail": true
+    "ponytail@ponytail": true,
+    "vercel@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "caveman": {
