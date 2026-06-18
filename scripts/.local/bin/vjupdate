@@ -551,7 +551,7 @@ automount_disks() {
         return
     fi
 
-    local -a _fstab_entries=() _mount_points=() _entry_uuids=()
+    local -a _fstab_entries=() _mount_points=() _fstypes=() _entry_uuids=()
 
     for _entry in "${_candidates[@]}"; do
         IFS='|' read -r _name _fstype _label _uuid <<< "$_entry"
@@ -602,6 +602,7 @@ automount_disks() {
 
         _fstab_entries+=("$_fstab_line")
         _mount_points+=("$_mp")
+        _fstypes+=("$_fstype")
         _entry_uuids+=("$_uuid")
         echo ""
     done
@@ -640,6 +641,13 @@ automount_disks() {
     local _mnt_err
     if _mnt_err=$(sudo mount -a 2>&1); then
         ok "mounted: all entries"
+        for i in "${!_fstypes[@]}"; do
+            # ponytail: ext4 root is owned by root after mkfs; vfat/ntfs/exfat use uid= mount opts
+            if [[ "${_fstypes[$i]}" == ext4 ]]; then
+                sudo chown "$USER:$USER" "${_mount_points[$i]}"
+                ok "ownership: ${_mount_points[$i]} → $USER"
+            fi
+        done
     else
         warn "mount -a failed — check /etc/fstab"
         warn "Restore: sudo cp $_backup /etc/fstab"
@@ -785,6 +793,7 @@ setup_vms() {
 
     info "Setting up VM storage directories..."
     local win_storage=/mnt/data/windows-vm-storage
+    [[ -d /mnt/data && "$(stat -c '%U' /mnt/data)" != "$USER" ]] && sudo chown "$USER:$USER" /mnt/data
     mkdir -p "$win_storage"
     if [[ ! -L "$DOTS_DIR/windows/storage" ]]; then
         ln -sfn "$win_storage" "$DOTS_DIR/windows/storage"
@@ -808,6 +817,7 @@ setup_matrix() {
     local matrix_dir="$DOTS_DIR/matrix"
 
     info "Setting up Matrix data directory..."
+    [[ -d /mnt/data && "$(stat -c '%U' /mnt/data)" != "$USER" ]] && sudo chown "$USER:$USER" /mnt/data
     mkdir -p "$matrix_data"
     if [[ -d "$matrix_dir/data" && ! -L "$matrix_dir/data" ]]; then
         # Docker creates data/ as root-owned — migrate contents then replace with symlink
