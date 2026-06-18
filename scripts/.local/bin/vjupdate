@@ -522,16 +522,14 @@ automount_disks() {
 
     local -a _candidates=()
     while IFS= read -r _line; do
-        local _name _fstype _label _uuid
-        _name=$(echo   "$_line" | awk '{print $1}')
-        _fstype=$(echo "$_line" | awk '{print $2}')
-        _label=$(echo  "$_line" | awk '{print $3}')
-        _uuid=$(echo   "$_line" | awk '{print $4}')
+        local NAME="" FSTYPE="" LABEL="" UUID=""
+        eval "$_line"
+        local _name="$NAME" _fstype="$FSTYPE" _label="$LABEL" _uuid="$UUID"
 
         [[ -z "$_fstype" || -z "$_uuid" ]] && continue
 
         case "$_fstype" in
-            swap|zram*|tmpfs|squashfs|iso9660|vfat) continue ;;
+            swap|zram*|tmpfs|squashfs|iso9660) continue ;;
         esac
         [[ "$_name" == loop* ]] && continue
 
@@ -546,14 +544,14 @@ automount_disks() {
         fi
 
         _candidates+=("$_name|$_fstype|$_label|$_uuid")
-    done < <(lsblk -rno NAME,FSTYPE,LABEL,UUID)
+    done < <(lsblk -Pno NAME,FSTYPE,LABEL,UUID)
 
     if [[ ${#_candidates[@]} -eq 0 ]]; then
         ok "no eligible partitions"
         return
     fi
 
-    local -a _fstab_entries=() _mount_points=()
+    local -a _fstab_entries=() _mount_points=() _entry_uuids=()
 
     for _entry in "${_candidates[@]}"; do
         IFS='|' read -r _name _fstype _label _uuid <<< "$_entry"
@@ -588,7 +586,7 @@ automount_disks() {
             ntfs|ntfs-3g)
                 _opts="defaults,nofail,uid=1000,gid=1000,umask=022,x-systemd.device-timeout=5"
                 _pass=0 ;;
-            exfat)
+            exfat|vfat)
                 _opts="defaults,nofail,uid=1000,gid=1000,umask=022,x-systemd.device-timeout=5"
                 _pass=0 ;;
             *)
@@ -604,6 +602,7 @@ automount_disks() {
 
         _fstab_entries+=("$_fstab_line")
         _mount_points+=("$_mp")
+        _entry_uuids+=("$_uuid")
         echo ""
     done
 
@@ -618,12 +617,26 @@ automount_disks() {
     done
 
     printf '\n# Added by vjupdate --automount on %s\n' "$(date)" | sudo tee -a /etc/fstab > /dev/null
-    for _fstab_line in "${_fstab_entries[@]}"; do
-        echo "$_fstab_line" | sudo tee -a /etc/fstab > /dev/null
-        ok "added: $_fstab_line"
+    for i in "${!_fstab_entries[@]}"; do
+        echo "${_fstab_entries[$i]}" | sudo tee -a /etc/fstab > /dev/null
+        ok "added: ${_fstab_entries[$i]}"
+
+        # Also create /run/media/$USER/<UUID> bind mount so udisks path persists.
+        local _uuid="${_entry_uuids[$i]}"
+        local _mp="${_mount_points[$i]}"
+        local _media_path="/run/media/$USER/$_uuid"
+        local _tmpfiles="/etc/tmpfiles.d/media-${_uuid}.conf"
+        local _bind_line="$_mp\t$_media_path\tnone\tbind,nofail,x-systemd.requires-mounts-for=$_mp\t0\t0"
+
+        if ! grep -qs "$_media_path" /etc/fstab; then
+            printf "d %s 0755 %s %s -\n" "$_media_path" "$USER" "$USER" | sudo tee "$_tmpfiles" > /dev/null
+            printf '%b\n' "$_bind_line" | sudo tee -a /etc/fstab > /dev/null
+            ok "bind mount: $_mp → $_media_path"
+        fi
     done
 
     sudo systemctl daemon-reload
+    sudo systemd-tmpfiles --create /etc/tmpfiles.d/media-*.conf 2>/dev/null || true
     local _mnt_err
     if _mnt_err=$(sudo mount -a 2>&1); then
         ok "mounted: all entries"
@@ -904,6 +917,27 @@ setup_claude() {
     claude plugin install ponytail --scope user 2>/dev/null \
         && ok "installed: ponytail" \
         || warn "ponytail plugin install failed — run manually: claude plugin marketplace add DietrichGebert/ponytail && claude plugin install ponytail --scope user"
+
+    # Wire up statusline badges for caveman and ponytail (paths contain version hashes).
+    local _caveman_sl _ponytail_sl _settings
+    _caveman_sl=$(find "$HOME/.claude/plugins/cache/caveman" -name "caveman-statusline.sh" 2>/dev/null | head -1)
+    _ponytail_sl=$(find "$HOME/.claude/plugins/cache/ponytail" -name "ponytail-statusline.sh" 2>/dev/null | head -1)
+    _settings="$HOME/.claude/settings.json"
+
+    if [[ -n "$_caveman_sl" && -n "$_ponytail_sl" && -f "$_settings" ]]; then
+        local _cmd="bash \"$_caveman_sl\"; bash \"$_ponytail_sl\""
+        python3 -c "
+import json, sys
+with open('$_settings') as f: s = json.load(f)
+s['statusLine'] = {'type': 'command', 'command': sys.argv[1]}
+with open('$_settings', 'w') as f: json.dump(s, f, indent=2)
+print('')
+" "$_cmd" && ok "statusline: caveman + ponytail configured" \
+            || warn "statusline update failed"
+    else
+        [[ -z "$_caveman_sl" ]]  && warn "statusline: caveman-statusline.sh not found (plugin not installed?)"
+        [[ -z "$_ponytail_sl" ]] && warn "statusline: ponytail-statusline.sh not found (plugin not installed?)"
+    fi
 }
 
 # ─── Phase 8b: caveman-code ──────────────────────────────
