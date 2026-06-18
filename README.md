@@ -3,6 +3,10 @@
 GNU Stow dotfiles for CachyOS + niri.
 Supports two machines: **desktop** (tower, RX 6700 XT) and **surface** (Surface Pro 9).
 
+```bash
+bash ~/Projects/dots/scripts/.local/bin/vjupdate
+```
+
 ---
 
 ## Fresh install
