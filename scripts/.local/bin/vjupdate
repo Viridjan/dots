@@ -367,6 +367,7 @@ install_all() {
 COMMON_STOW_PKGS=(
     alacritty
     cave
+    caveman
     DankMaterialShell
     vesktop
     fish

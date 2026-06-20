@@ -109,11 +109,27 @@ window-rule {
 }
 
 // Steam games — all apps launched from Steam open on media workspace, fullscreen.
+// variable-refresh-rate reduces tearing/stutter under niri's compositor fullscreen (no exclusive mode).
+// Matches XWayland games (WM_CLASS = steam_app_NNNN). Native Wayland games set their
+// OWN app-id (the game name) and are matched in the rule below instead.
 window-rule {
 	match app-id="^steam_app_"
 	open-on-workspace "media"
 	open-focused true
 	open-fullscreen true
+	variable-refresh-rate true
+}
+
+// Native Wayland games — set their own app-id (game name), NOT steam_app_NNNN, so the
+// rule above never matches them. niri can't regex-detect "is a game" generically, so
+// list each one here. Find a game's app-id with: niri msg windows | grep -A1 Title
+// Universal fallback for anything not listed: focus the window, press Mod+Shift+F.
+window-rule {
+	match app-id="^Slay the Spire 2$"
+	open-on-workspace "media"
+	open-focused true
+	open-fullscreen true
+	variable-refresh-rate true
 }
 
 // LibreOffice — every component (writer/calc/impress/...) opens at 50% width.

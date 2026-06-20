@@ -193,6 +193,7 @@ bash scripts/.local/bin/vjupdate
 | `mimeapps` | `~/.config/mimeapps.list` |
 | `paru` | `~/.config/paru/paru.conf` |
 | `claude` | `~/.claude/settings.json` + `hooks/` (Claude Code + caveman plugin) |
+| `caveman` | `~/.config/caveman/config.json` — caveman plugin `defaultMode: ultra` |
 | `fonts` | `~/.local/share/fonts/` — user fonts (Luminari) |
 | `mpd` | `~/.config/mpd/mpd.conf` |
 | `spotify-player` | `~/.config/spotify-player/keymap.toml` |
