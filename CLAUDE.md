@@ -126,6 +126,10 @@ vjupdate --kernels
 # Detect internal partitions and add to /etc/fstab interactively
 vjupdate --automount
 
+# Apply CachyOS tuning (idempotent): CPU governor, disable NM-wait-online,
+# mask lvm2-monitor, rate-mirrors 2h delay, AMD GPU performance udev rule
+vjupdate --optimize
+
 # Add pam_gnome_keyring.so to /etc/pam.d/greetd (idempotent; fixes keyring unlock prompt)
 vjupdate --keyring-pam
 

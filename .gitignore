@@ -55,3 +55,7 @@ claude/.claude/.credentials.json
 # caveman-code — runtime state and credentials
 cave/.cave/agent/auth.json
 cave/.cave/agent/sessions/
+
+# caveman-code npm symlinks — machine-specific abs paths into ~/.local/lib (created by setup_caveman_code)
+scripts/.local/bin/caveman
+scripts/.local/bin/caveman-code

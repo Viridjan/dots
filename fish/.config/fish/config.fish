@@ -1,7 +1,5 @@
 source /usr/share/cachyos-fish-config/cachyos-config.fish
 
-# overwrite greeting
-# potentially disabling fastfetch
-#function fish_greeting
-#    # smth smth
-#end
+# overwrite greeting — disable CachyOS fastfetch logo on shell start
+function fish_greeting
+end

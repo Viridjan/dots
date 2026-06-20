@@ -19,6 +19,17 @@ section() { echo -e "\n${CYN}━━━━━━━━━━━━━━━━━
             echo -e "${CYN}  ▶  ${1^^}${NC}"; \
             echo -e "${CYN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; }
 
+# Prompt yes/no; returns 0 only on y/Y. Usage: _confirm "Question? [y/N]" && ...
+_confirm() { local _r; read -rp "$1 " _r; [[ "$_r" =~ ^[Yy]$ ]]; }
+
+# Print infected-package list (red, stderr) and abort. Usage: _die_infected "<header>" "${pkgs[@]}"
+_die_infected() {
+    local _hdr="$1"; shift
+    echo -e "${RED}[✗] MALWARE GATE: $_hdr:${NC}" >&2
+    for _p in "$@"; do echo -e "${RED}    - $_p${NC}" >&2; done
+    die "Remove infected packages from list files before proceeding"
+}
+
 WARNINGS=()
 
 DOTS_DIR="$HOME/Projects/dots"
@@ -189,9 +200,7 @@ _install_list() {
                 grep -qxF "$pkg" "$malware_list" && infected+=("$pkg")
             done
             if [[ ${#infected[@]} -gt 0 ]]; then
-                echo -e "${RED}[✗] MALWARE GATE: infected packages about to be installed:${NC}" >&2
-                for p in "${infected[@]}"; do echo -e "${RED}    - $p${NC}" >&2; done
-                die "Remove infected packages from list files before proceeding"
+                _die_infected "infected packages about to be installed" "${infected[@]}"
             fi
         fi
         paru -S --needed --noconfirm "${to_install[@]}"
@@ -225,9 +234,7 @@ _check_packages_against_malware() {
         done < <(_pkg_list "$list")
     done
     if [[ ${#infected[@]} -gt 0 ]]; then
-        echo -e "${RED}[✗] MALWARE GATE: infected packages in install lists:${NC}" >&2
-        for p in "${infected[@]}"; do echo -e "${RED}    - $p${NC}" >&2; done
-        die "Remove infected packages from list files before proceeding"
+        _die_infected "infected packages in install lists" "${infected[@]}"
     fi
     ok "malware gate: all packages clean"
 }
@@ -357,10 +364,7 @@ install_all() {
         flatpak update -y &>/dev/null && ok "flatpaks up to date" || warn "flatpak update had warnings"
     fi
 
-    info "Cleaning package caches..."
-    sudo paccache -rk2 &>/dev/null; sudo paccache -ruk0 &>/dev/null
-    rm -rf "$HOME/.cache/paru/clone" "$HOME/.cache/paru" "$HOME/.cache/yay"
-    ok "caches cleaned"
+    clean_caches
 }
 
 # ─── Phase 4: Dotfiles ───────────────────────────────────
@@ -563,8 +567,7 @@ automount_disks() {
         echo "  UUID   : $_uuid"
         echo ""
 
-        read -rp "  Automount /dev/$_name? [y/N] " _reply
-        [[ "${_reply,,}" == "y" ]] || { echo "  Skipped."; echo ""; continue; }
+        _confirm "  Automount /dev/$_name? [y/N]" || { echo "  Skipped."; echo ""; continue; }
 
         local _default_mp
         if [[ -n "$_label" ]]; then
@@ -598,8 +601,7 @@ automount_disks() {
         local _fstab_line="UUID=$_uuid  $_mp  $_fstype  $_opts  0  $_pass"
         echo ""
         echo "  Entry: $_fstab_line"
-        read -rp "  Confirm? [y/N] " _reply
-        [[ "${_reply,,}" == "y" ]] || { echo "  Skipped."; echo ""; continue; }
+        _confirm "  Confirm? [y/N]" || { echo "  Skipped."; echo ""; continue; }
 
         _fstab_entries+=("$_fstab_line")
         _mount_points+=("$_mp")
@@ -688,6 +690,87 @@ setup_keyring_pam() {
         | sudo tee -a "$pam" > /dev/null \
         && ok "configured: keyring PAM (/etc/pam.d/greetd)" \
         || warn "keyring PAM: failed — add manually to /etc/pam.d/greetd"
+}
+
+# ─── Phase 7e: System optimisations ──────────────────────
+# Idempotent CachyOS/Arch tuning — mirrors README §"System optimisations".
+# Safe to re-run; each step checks current state and skips if already applied.
+# Skips greetd autologin (conflicts with DMS greeter) and EFI cleanup (needs
+# manual review of efibootmgr output).
+optimize_system() {
+    section "system optimisations"
+
+    # 1. CPU governor → performance (desktop only; laptops want powersave on battery)
+    if [[ "$MACHINE" == desktop ]]; then
+        local _conf=/etc/default/cpupower-service.conf
+        if [[ -f "$_conf" ]] && ! grep -q "^GOVERNOR='performance'" "$_conf"; then
+            if grep -q "^#\?GOVERNOR=" "$_conf"; then
+                sudo sed -i "s/^#\?GOVERNOR=.*/GOVERNOR='performance'/" "$_conf"
+            else
+                echo "GOVERNOR='performance'" | sudo tee -a "$_conf" >/dev/null
+            fi
+            sudo systemctl restart cpupower.service 2>/dev/null || true
+            sudo cpupower frequency-set -g performance &>/dev/null || true
+            command -v powerprofilesctl &>/dev/null && powerprofilesctl set performance 2>/dev/null || true
+            ok "CPU governor → performance"
+        else
+            ok "CPU governor: already performance (or no cpupower conf)"
+        fi
+    fi
+
+    # 2. Disable NetworkManager-wait-online (delays boot waiting for network)
+    if systemctl is-enabled NetworkManager-wait-online.service &>/dev/null; then
+        sudo systemctl disable NetworkManager-wait-online.service &>/dev/null \
+            && ok "disabled: NetworkManager-wait-online"
+    else
+        ok "NetworkManager-wait-online: already disabled"
+    fi
+
+    # 3. Mask lvm2-monitor if no LVM volumes present
+    if ! lsblk -no FSTYPE 2>/dev/null | grep -q "LVM2_member"; then
+        if [[ "$(systemctl is-enabled lvm2-monitor.service 2>/dev/null)" != "masked" ]]; then
+            sudo systemctl mask lvm2-monitor.service &>/dev/null \
+                && ok "masked: lvm2-monitor (no LVM)"
+        else
+            ok "lvm2-monitor: already masked"
+        fi
+    fi
+
+    # 4. cachyos-rate-mirrors — delay post-boot run from 10min to 2h
+    if systemctl list-unit-files cachyos-rate-mirrors.timer &>/dev/null; then
+        local _ovr=/etc/systemd/system/cachyos-rate-mirrors.timer.d/override.conf
+        if [[ ! -f "$_ovr" ]]; then
+            sudo mkdir -p "$(dirname "$_ovr")"
+            printf '[Timer]\nOnBootSec=2h\n' | sudo tee "$_ovr" >/dev/null
+            sudo systemctl daemon-reload
+            ok "cachyos-rate-mirrors: OnBootSec → 2h"
+        else
+            ok "cachyos-rate-mirrors: override already present"
+        fi
+    fi
+
+    # 5. AMD GPU performance level (desktop only; persistent udev rule)
+    if [[ "$MACHINE" == desktop ]] && lspci 2>/dev/null | grep -qi "VGA.*AMD\|Display.*AMD\|VGA.*ATI"; then
+        local _rule=/etc/udev/rules.d/99-amdgpu-performance.rules
+        if [[ ! -f "$_rule" ]]; then
+            printf 'ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x1002", ATTR{class}=="0x030000", ATTR{power_dpm_force_performance_level}="high"\n' \
+                | sudo tee "$_rule" >/dev/null
+            sudo udevadm control --reload-rules && sudo udevadm trigger
+            ok "AMD GPU: performance level → high (udev rule)"
+        else
+            ok "AMD GPU: udev rule already present"
+        fi
+    fi
+
+    # 6. Compact pacman upgrade list — drop VerbosePkgLists (Net Change/Download cols)
+    if grep -q "^VerbosePkgLists" /etc/pacman.conf; then
+        sudo sed -i 's/^VerbosePkgLists/#VerbosePkgLists/' /etc/pacman.conf
+        ok "pacman: VerbosePkgLists disabled (compact upgrade list)"
+    else
+        ok "pacman: VerbosePkgLists already off"
+    fi
+
+    return 0
 }
 
 # ─── DMS config import/export ───────────────────────────
@@ -1103,7 +1186,8 @@ check_python_rebuilds() {
 
     warn "Packages needing Python rebuild: $unique_packages"
     if ! $AUDIT_PYTHON_REBUILD; then warn "Python rebuild skipped — enable via configure checklist"; return; fi
-    paru -S --noconfirm "$unique_packages"
+    # shellcheck disable=SC2086  # word-split intended: multiple package args
+    paru -S --noconfirm $unique_packages
     ok "python packages rebuilt"
 }
 
@@ -1136,14 +1220,13 @@ manage_kernels() {
         || echo "  (run 'pacman -Ss linux-cachyos' to see all)"
     echo ""
 
-    read -rp "Install a kernel? [y/N]: " ic
-    if [[ "$ic" =~ ^[Yy]$ ]]; then
+    if _confirm "Install a kernel? [y/N]:"; then
         read -rp "Package name (e.g. linux-cachyos-lts): " kernel_pkg
-        [[ -n "$kernel_pkg" ]] && sudo paru -S "$kernel_pkg" "${kernel_pkg}-headers"
+        # paru self-escalates; running it under sudo breaks makepkg (refuses root)
+        [[ -n "$kernel_pkg" ]] && paru -S "$kernel_pkg" "${kernel_pkg}-headers"
     fi
 
-    read -rp "Remove a kernel? [y/N]: " rc
-    if [[ "$rc" =~ ^[Yy]$ ]]; then
+    if _confirm "Remove a kernel? [y/N]:"; then
         read -rp "Package name to remove: " remove_pkg
         if [[ -n "$remove_pkg" ]]; then
             local running_kernel; running_kernel=$(uname -r)
@@ -1434,6 +1517,7 @@ _configure_items_multiselect() {
         "services — Enable system services (NetworkManager, bluetooth, etc.)" \
         "snapper — Configure btrfs snapshots" \
         "automount — Detect and add partitions to /etc/fstab" \
+        "optimize — Apply CachyOS tuning (governor, services, AMD GPU, mirrors)" \
         "keyboard — Set X11 keyboard layout (us intl)" \
         "keyring-pam — Configure gnome-keyring PAM integration" \
         "kernels — Interactively install or remove CachyOS kernels" \
@@ -1473,6 +1557,7 @@ _bootstrap_multiselect() {
         "services — Enable system services (NetworkManager, bluetooth, etc.)" \
         "snapper — Configure btrfs snapshots" \
         "automount — Detect and add partitions to /etc/fstab" \
+        "optimize — Apply CachyOS tuning (governor, services, AMD GPU, mirrors)" \
         "keyboard — Set X11 keyboard layout (us intl)" \
         "keyring-pam — Configure gnome-keyring PAM integration" \
         "kernels — Interactively install or remove CachyOS kernels" \
@@ -1513,6 +1598,7 @@ phase_configure() {
     _sel "services"        && enable_services
     _sel "snapper"         && setup_snapper
     _sel "automount"       && automount_disks
+    _sel "optimize"        && optimize_system
     _sel "keyboard"        && setup_keyboard
     _sel "kernels"         && manage_kernels
     _sel "greeter"         && setup_greeter
@@ -1564,7 +1650,10 @@ bootstrap() {
         # If orphan-removal or python-rebuild are selected but audit phase is not,
         # force-enable audit so those flags actually get used.
         if echo "${CONFIGURE_ITEMS:-}" | grep -qE "^(orphan-removal|python-rebuild) —"; then
+            # entries are stored as "audit " (no leading space); pad before replacing
+            SKIP_PHASES=" $SKIP_PHASES"
             SKIP_PHASES="${SKIP_PHASES/ audit / }"
+            SKIP_PHASES="${SKIP_PHASES# }"
         fi
     else
         detect_machine
@@ -1693,6 +1782,7 @@ usage() {
     echo "  --check, -c         Audit: orphans, rebuilds, pacnew, firmware"
     echo "  --kernels           Interactively install or remove CachyOS kernels"
     echo "  --automount         Detect internal partitions and add to /etc/fstab
+  --optimize          Apply CachyOS tuning: governor, services, AMD GPU, mirrors (idempotent)
   --keyring-pam       Add pam_gnome_keyring.so to /etc/pam.d/greetd (idempotent)"
     echo "  --dms-export        Copy live ~/.config/niri/dms/*.kdl → repo (then commit)"
     echo "  --dms-import        Copy repo dms overrides → live (skips auto-generated files)"
@@ -1708,6 +1798,7 @@ case "${1:-}" in
     --check|-c)          check ;;
     --kernels)           manage_kernels ;;
     --automount)         detect_machine; automount_disks ;;
+    --optimize)          detect_machine; optimize_system ;;
     --keyring-pam)       setup_keyring_pam ;;
     --dms-export)        dms_export ;;
     --dms-import)        dms_import ;;

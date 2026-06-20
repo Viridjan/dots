@@ -32,6 +32,15 @@ output "DP-1" {
 	scale 1
 
 	/*
+	Variable refresh rate (FreeSync/G-Sync). on-demand = VRR active only for
+	windows with `variable-refresh-rate true` (set on game window-rules in
+	cfg/rules.kdl). Cuts tearing/stutter under niri's compositor fullscreen.
+	NOTE: if DMS regenerates dms/outputs.kdl it sets its own output block which
+	overrides this; re-add there or via `dms config` if VRR stops working.
+	*/
+	variable-refresh-rate on-demand
+
+	/*
 	Transform allows to rotate the output counter-clockwise, valid values are:
 	normal, 90, 180, 270, flipped, flipped-90, flipped-180 and flipped-270.
 	*/

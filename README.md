@@ -288,7 +288,15 @@ cp /.snapshots/<N>/snapshot/path/to/file ~/restored-file
 
 ## System optimisations (CachyOS / Arch)
 
-Run these checks and apply what's relevant on each new install.
+Most of these are automated — run `vjupdate --optimize` (or tick **optimize** in
+the interactive menu). It applies steps 1–5 below idempotently: CPU governor,
+disabling NetworkManager-wait-online, masking lvm2-monitor, the rate-mirrors 2h
+delay, and the AMD GPU performance udev rule. Steps 7 (EFI cleanup) and 8 (greetd
+autologin) stay manual — EFI needs review, autologin conflicts with the DMS
+greeter. VRR is set in `desktop/.config/niri/cfg/display.kdl`
+(`variable-refresh-rate on-demand`) + the game window-rules.
+
+The sections below document what each step does, for manual application or review.
 
 ### 1. CPU governor
 
