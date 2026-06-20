@@ -406,7 +406,7 @@
     {
       "id": "default",
       "name": "Main Bar",
-      "enabled": true,
+      "enabled": false,
       "position": 3,
       "screenPreferences": [
         "all"
