@@ -1,61 +1,32 @@
-# Fontconfig auto-generated cache ID (machine-specific)
-fonts/.local/share/fonts/.uuid
+# ─────────────────────────────────────────────────────────
+# Secrets only. Everything else is tracked on purpose so a
+# fresh clone carries maximum config/state. Audited 2026-06-21:
+# no tokens/keys found in any other tracked file.
+# ─────────────────────────────────────────────────────────
 
-# Fish runtime state
-fish/.config/fish/fish_history
-# Universal vars — tide writes a per-session prompt cache here; the prompt is
-# reproduced by vjupdate's setup_fish instead. Don't track.
-fish/.config/fish/fish_variables*
+# Credentials / API keys
+claude/.claude/.credentials.json
+cave/.cave/agent/auth.json
 
+# Session / auth tokens
+cave/.cave/agent/sessions/
+gomuks/.config/gomuks/config.yaml
+vesktop/.config/vesktop/sessionData/
 
-# VSCodium — binary caches and Chromium session state (volatile, machine-specific)
-VSCodium/.config/VSCodium/Cache/
-VSCodium/.config/VSCodium/CachedData/
-VSCodium/.config/VSCodium/Code Cache/
-VSCodium/.config/VSCodium/Crashpad/
-VSCodium/.config/VSCodium/DawnGraphiteCache/
-VSCodium/.config/VSCodium/DawnWebGPUCache/
-VSCodium/.config/VSCodium/Dictionaries/
-VSCodium/.config/VSCodium/GPUCache/
-VSCodium/.config/VSCodium/Local Storage/
-VSCodium/.config/VSCodium/Session Storage/
-VSCodium/.config/VSCodium/Shared Dictionary/
+# VSCodium — cookie / token / web-storage stores (hold auth for logged-in webviews)
 VSCodium/.config/VSCodium/Cookies
 VSCodium/.config/VSCodium/Cookies-journal
-VSCodium/.config/VSCodium/DIPS
-VSCodium/.config/VSCodium/DIPS-wal
-VSCodium/.config/VSCodium/Network Persistent State
-VSCodium/.config/VSCodium/TransportSecurity
+VSCodium/.config/VSCodium/Local Storage/
+VSCodium/.config/VSCodium/Session Storage/
 VSCodium/.config/VSCodium/Trust Tokens
 VSCodium/.config/VSCodium/Trust Tokens-journal
 
-# VM storage (Docker volumes — disk images, not config)
-windows/storage/
-macos/storage/
+# Shell history — may contain secrets typed at the prompt
+fish/.config/fish/fish_history
 
-# vjupdate audit logs (generated on each --check run)
-aur-check-*.log
-
-# Vesktop runtime state
+# Crash dumps — can contain credentials lifted from process memory
 vesktop/.config/vesktop/Crashpad/
-vesktop/.config/vesktop/sessionData/
+VSCodium/.config/VSCodium/Crashpad/
+
+# Single-instance runtime lock (socket/symlink) — a stale copy breaks vesktop launch on clone
 vesktop/.config/vesktop/Singleton*
-vesktop/.config/vesktop/state.json
-vesktop/.config/vesktop/themes/
-
-# Ghostty backups
-ghostty/.config/ghostty/config.backup.*
-
-# graphify — knowledge graph output (generated, not config)
-graphify-out/
-
-# Claude Code — credentials only (never commit API keys)
-claude/.claude/.credentials.json
-
-# caveman-code — runtime state and credentials
-cave/.cave/agent/auth.json
-cave/.cave/agent/sessions/
-
-# caveman-code npm symlinks — machine-specific abs paths into ~/.local/lib (created by setup_caveman_code)
-scripts/.local/bin/caveman
-scripts/.local/bin/caveman-code

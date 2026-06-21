@@ -1,0 +1,30 @@
+Fetching infected package list...
+Updating /home/viridjan/.local/share/aur-malware-check/package_list.txt...
+============================================================
+ AUR Malware Check v2.3.3
+ Campaign: malicious npm packages (malicious_npm_packages.txt) infostealer + eBPF rootkit
+ Date window: 2026-06-09 to 2026-06-12
+ Packages checked: 1936
+============================================================
+
+--- [1] Currently installed foreign packages ---
+  Clean: no infected packages installed within campaign window.
+
+--- [2] Historical pacman logs ---
+  Clean: no historical log matches found.
+
+--- [3] Systemd persistence check ---
+  Clean: no suspicious systemd services found.
+
+--- [4] eBPF rootkit check ---
+  Clean: no eBPF rootkit traces detected.
+
+--- [5] npm cache check ---
+  Clean: no malicious packages in npm cache.
+
+--- [6] bun cache check ---
+  Clean: no malicious packages in bun cache.
+
+============================================================
+ RESULT: CLEAN - No indicators found.
+============================================================
