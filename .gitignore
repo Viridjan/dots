@@ -30,3 +30,6 @@ VSCodium/.config/VSCodium/Crashpad/
 
 # Single-instance runtime lock (socket/symlink) — a stale copy breaks vesktop launch on clone
 vesktop/.config/vesktop/Singleton*
+
+# Window bounds — churns every session, no clone value
+vesktop/.config/vesktop/state.json
