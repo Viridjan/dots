@@ -199,6 +199,18 @@ Package management uses flat text files (one package per line, `#` comments):
 | `.dms-plugins.list` | DankMaterialShell plugins |
 | `.install-scripts.list` | Scripts run during bootstrap |
 
+## .gitignore policy
+
+Ignore **secrets only** — everything else is tracked so a fresh clone carries maximum config/state (caches, machine-specific state, generated logs, themes, app settings all committed on purpose). Before adding an ignore entry, ask "is this a secret?"; if not, default to tracking.
+
+Currently ignored (audited 2026-06-21, no secrets found elsewhere):
+- Credentials: `claude/.claude/.credentials.json`, `cave/.cave/agent/auth.json`
+- Session/auth tokens: `cave/.cave/agent/sessions/`, `gomuks/.config/gomuks/config.yaml` (Matrix access_token), `vesktop/.config/vesktop/sessionData/` (Discord token)
+- VSCodium cookie/token/web-storage stores; `fish_history`; `Crashpad/` dirs (memory dumps)
+- Non-secret exceptions kept ignored: `vesktop/.config/vesktop/Singleton*` (stale single-instance lock breaks launch), `vesktop/.config/vesktop/state.json` (window-bounds churn)
+
+`gomuks.yaml` (settings) stays tracked; only `config.yaml` (auth) is ignored. **`.gitignore` does NOT support inline `#` comments after a path** — comments go on their own line.
+
 ## VM webapps
 
 `windows/` and `matrix/` are standalone Docker Compose projects, not stow packages. Launch via scripts:
@@ -261,3 +273,8 @@ Binaries land in `~/.local/bin/` (already in PATH). Required for `caveman-code` 
 | Screenshot path | ~/Pictures/Screenshots/ | cfg/misc.kdl |
 | Terminal keybind | Mod+Return | dms/binds.kdl |
 | Overview keybind | Mod+O (cfg), Mod+D (dms) | cfg/keybinds.kdl + dms/binds.kdl |
+| Power menu keybind | Mod+X (dms), Mod+Shift+Q (cfg) | dms/binds.kdl + cfg/keybinds.kdl |
+| Lock screen keybind | Mod+Alt+L | cfg/keybinds.kdl |
+| Fullscreen keybind | Mod+Shift+F (game-friendly); Mod+F = maximize-column | cfg/keybinds.kdl + dms/binds.kdl |
+
+DMS actions from keybinds spawn `dms ipc call <target> <fn>` — the `call` subcommand is required (e.g. `dms ipc call powermenu toggle`, `dms ipc call lock lock`). Omitting `call` silently no-ops.
