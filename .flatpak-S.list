@@ -7,7 +7,7 @@ com.spotify.Client
 ch.protonmail.protonmail-bridge
 com.bambulab.BambuStudio
 xyz.xclicker.xclicker
-# com.ktechpit.whatsie — removed, replaced by gomuks via mautrix-whatsapp bridge
+# com.ktechpit.whatsie — now installed via AUR (whatsie) instead
 org.nomacs.ImageLounge
 
 # Emulators

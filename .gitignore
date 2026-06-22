@@ -10,7 +10,6 @@ cave/.cave/agent/auth.json
 
 # Session / auth tokens
 cave/.cave/agent/sessions/
-gomuks/.config/gomuks/config.yaml
 vesktop/.config/vesktop/sessionData/
 
 # VSCodium — cookie / token / web-storage stores (hold auth for logged-in webviews)

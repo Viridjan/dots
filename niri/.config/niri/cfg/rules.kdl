@@ -95,12 +95,6 @@ window-rule {
 	default-column-width { proportion 0.3; }
 }
 
-// gomuks — Matrix TUI, slightly wider for chat readability.
-window-rule {
-	match app-id="Alacritty" title="^gomuks$"
-	default-column-width { proportion 0.4; }
-}
-
 // Vesktop — 40% width. Workspace placement still comes from the social rule above.
 window-rule {
 	match app-id="vesktop"

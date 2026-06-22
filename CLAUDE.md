@@ -38,12 +38,10 @@ dots/
   surface/        → ~/.config/niri/cfg/display.kdl + input.kdl + surface-layout.kdl  (Surface Pro 9 only)
   vesktop/        → ~/.config/vesktop/  (settings.json + settings/)
   VSCodium/       → ~/.config/VSCodium/
-  gomuks/         → ~/.config/gomuks/  (gomuks Matrix TUI client config)
   cave/           → ~/.cave/  (Cave AI agent config + ollama extension)
   caveman/        → ~/.config/caveman/  (caveman plugin defaultMode = ultra)
   ollama/         → /etc/systemd/system/ollama.service.d/  (ROCm drop-in; stow -t /)
   windows/        ← NOT a stow package — Docker Compose for Windows 11 VM (dockur/windows, port 8006)
-  matrix/         ← NOT a stow package — Docker Compose for Matrix homeserver + bridges (Synapse + mautrix-whatsapp + mautrix-telegram)
 ```
 
 `niri` uses **file-level symlinks** — the `cfg/` and `dms/` directories are real, but individual `.kdl` files are symlinked. All other packages use directory-level symlinks.
@@ -147,7 +145,7 @@ SKIP_PHASES="mirrors keyrings" vjupdate
 
 # Re-apply all packages at once
 cd ~/Projects/dots && stow --restow -t ~ alacritty cave caveman DankMaterialShell fish \
-    fonts gomuks gtk-3.0 gtk-4.0 micro mimeapps mpd paru qt5ct qt6ct spotify-player vesktop VSCodium scripts
+    fonts gtk-3.0 gtk-4.0 micro mimeapps mpd paru qt5ct qt6ct spotify-player vesktop VSCodium scripts
 stow --adopt --restow -t ~ claude
 stow --restow -t ~ desktop   # or: surface
 sudo stow --restow -t / ollama   # systemd drop-in; needs root target
@@ -205,19 +203,18 @@ Ignore **secrets only** — everything else is tracked so a fresh clone carries 
 
 Currently ignored (audited 2026-06-21, no secrets found elsewhere):
 - Credentials: `claude/.claude/.credentials.json`, `cave/.cave/agent/auth.json`
-- Session/auth tokens: `cave/.cave/agent/sessions/`, `gomuks/.config/gomuks/config.yaml` (Matrix access_token), `vesktop/.config/vesktop/sessionData/` (Discord token)
+- Session/auth tokens: `cave/.cave/agent/sessions/`, `vesktop/.config/vesktop/sessionData/` (Discord token)
 - VSCodium cookie/token/web-storage stores; `fish_history`; `Crashpad/` dirs (memory dumps)
 - Non-secret exceptions kept ignored: `vesktop/.config/vesktop/Singleton*` (stale single-instance lock breaks launch), `vesktop/.config/vesktop/state.json` (window-bounds churn)
 
-`gomuks.yaml` (settings) stays tracked; only `config.yaml` (auth) is ignored. **`.gitignore` does NOT support inline `#` comments after a path** — comments go on their own line.
+**`.gitignore` does NOT support inline `#` comments after a path** — comments go on their own line.
 
 ## VM webapps
 
-`windows/` and `matrix/` are standalone Docker Compose projects, not stow packages. Launch via scripts:
+`windows/` is a standalone Docker Compose project, not a stow package. Launch via script:
 
 ```bash
 start-windows   # starts Windows 11 VM, opens noVNC at http://localhost:8006
-start-matrix    # starts Matrix stack (Synapse + bridges), opens gomuks in Alacritty
 ```
 
 Opens Chromium `--app` at 75% of screen size (100% on Surface). Window size is machine-aware via `hostname`.
@@ -227,8 +224,6 @@ Opens Chromium `--app` at 75% of screen size (100% on Surface). Window size is m
 **Windows shared folder**: `~/Shared` on host is mounted into the VM via Samba. Inside Windows, map `\\host.lan\Data` as a network drive (This PC → Map network drive).
 
 Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
-
-**Matrix storage**: data at `/mnt/data/matrix-data/` (symlinked as `matrix/data`). First-run: generate Synapse config, register user, configure bridges — see `vjupdate → matrix` for instructions. Telegram and WhatsApp are bridged into Matrix; gomuks is the single TUI client for both.
 
 ## vjupdate bootstrap phases
 
