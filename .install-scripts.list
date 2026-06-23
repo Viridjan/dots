@@ -2,3 +2,4 @@
 # Feed to vjupdate: run_install_scripts()
 
 curl -fsSL https://raw.githubusercontent.com/JuliusBrussee/caveman/main/install.sh | bash
+curl -fsSL https://chatgpt.com/codex/install.sh | sh
