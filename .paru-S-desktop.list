@@ -13,5 +13,9 @@ vial-appimage
 # AI / local LLM
 ollama-rocm
 
+# Electronics design (KiCad EDA)
+kicad
+kicad-library
+
 # VR (Pico 4 Ultra via ALVR)
 alvr-launcher-bin
