@@ -1,10 +1,10 @@
-// Main workspace
-spawn-at-startup "thunderbird"
-
 // Social workspace
-spawn-sh-at-startup "steam"
+spawn-at-startup "thunderbird"
+spawn-at-startup "whatsie"
+spawn-at-startup "Telegram"
 
 // Media workspace
+spawn-sh-at-startup "steam"
 spawn-at-startup "kitty" "--title" "dgop-monitor" "-e" "dgop"
 spawn-at-startup "kitty" "--title" "spotify-player" "-e" "spotify_player"
 

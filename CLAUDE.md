@@ -94,7 +94,7 @@ Later includes override earlier ones for the same property. `dms/binds.kdl` is l
 
 - **User settings** (layout, keybinds, rules, animations): edit files under `cfg/`. Changes go directly into the repo via symlinks.
 - **Machine-specific niri overrides**: both `desktop/` and `surface/` packages provide identically-named `.kdl` files under `cfg/`. `vjupdate` symlinks the active machine's version into `~/.config/niri/cfg/`. `config.kdl` includes them unconditionally — the machine-specific content differs, or one side is empty. Current files:
-  - `autostart-machine.kdl` — desktop has `spawn-at-startup` entries (steam, spotify-player TUI, dgop monitor, whatsie, Telegram, daemons); surface is empty (no autorun). Vesktop launches via XDG autostart (`~/.config/autostart/vesktop.desktop`), not here.
+  - `autostart-machine.kdl` — desktop has `spawn-at-startup` entries (thunderbird, whatsie, Telegram, steam, spotify-player TUI, dgop monitor, daemons); surface is empty (no autorun). Vesktop launches via XDG autostart (`~/.config/autostart/vesktop.desktop`), not here.
   - `surface-layout.kdl` — surface has `window-rule { default-column-width { proportion 0.5; } }`; desktop is empty
   - To add a new machine-specific override: create the `.kdl` in both `desktop/` and `surface/` packages, add `include "cfg/<name>.kdl"` to `config.kdl`, and add `<name>` to the `for f in ...` loop in `vjupdate`'s `_stow_niri_cfg`.
   - Content common to both machines but that needs to differ slightly: put shared parts in `config.kdl` or `cfg/` (niri pkg), machine-specific delta in the per-machine file.
