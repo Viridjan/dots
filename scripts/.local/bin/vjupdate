@@ -173,24 +173,46 @@ EOF
 
 # ─── Phase 3: Packages ───────────────────────────────────
 _pkg_list() {
-    grep -v '^#' "$1" | grep -v '^$'
+    awk 'NF && $1 !~ /^#/' "$1"
+}
+
+# Build these indexes once instead of spawning grep/pacman for every package.
+declare -A _INSTALLED_PKGS=()
+declare -A _SKIPPED_PKGS=()
+_PKG_INDEX_READY=false
+
+_init_pkg_index() {
+    $_PKG_INDEX_READY && return
+
+    local pkg
+    while IFS= read -r pkg; do
+        [[ -n "$pkg" ]] && _INSTALLED_PKGS["$pkg"]=1
+    done < <(pacman -Qq)
+
+    if [[ -f "$DOTS_DIR/.paru-skip.list" ]]; then
+        while IFS= read -r pkg; do
+            [[ -n "$pkg" ]] && _SKIPPED_PKGS["$pkg"]=1
+        done < <(_pkg_list "$DOTS_DIR/.paru-skip.list")
+    fi
+
+    _PKG_INDEX_READY=true
 }
 
 # Returns true if $1 is in the skip list
 _pkg_skipped() {
-    local pkg="$1"
-    [[ -f "$DOTS_DIR/.paru-skip.list" ]] || return 1
-    grep -qxF "$pkg" <(grep -v '^#' "$DOTS_DIR/.paru-skip.list" | grep -v '^$')
+    _init_pkg_index
+    [[ -v _SKIPPED_PKGS["$1"] ]]
 }
 
 _install_list() {
     local list="$1" to_install=()
+    _init_pkg_index
     while IFS= read -r pkg; do
         if _pkg_skipped "$pkg"; then
             ok "skipped (skip list): $pkg"
             continue
         fi
-        pacman -Qi "$pkg" &>/dev/null || to_install+=("$pkg")
+        [[ -v _INSTALLED_PKGS["$pkg"] ]] || to_install+=("$pkg")
     done < <(_pkg_list "$list")
     if [[ ${#to_install[@]} -gt 0 ]]; then
         local malware_list="$HOME/.local/share/aur-malware-check/package_list.txt"
@@ -204,6 +226,9 @@ _install_list() {
             fi
         fi
         paru -S --needed --noconfirm "${to_install[@]}"
+        for pkg in "${to_install[@]}"; do
+            _INSTALLED_PKGS["$pkg"]=1
+        done
     fi
 }
 

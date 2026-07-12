@@ -152,9 +152,9 @@ overview {
     }
 }
 
+workspace "social"
 workspace "media"
 workspace "main"
-workspace "social"
 
 environment {
     XDG_CURRENT_DESKTOP "niri"
