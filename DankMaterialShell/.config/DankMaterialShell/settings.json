@@ -358,7 +358,24 @@
   "notificationHistorySaveLow": true,
   "notificationHistorySaveNormal": true,
   "notificationHistorySaveCritical": true,
-  "notificationRules": [],
+  "notificationRules": [
+    {
+      "enabled": true,
+      "field": "desktopEntry",
+      "pattern": "com.ktechpit.whatsie",
+      "matchType": "exact",
+      "action": "ignore",
+      "urgency": "default"
+    },
+    {
+      "enabled": true,
+      "field": "appName",
+      "pattern": "^(WhatSie|WhatsApp)$",
+      "matchType": "regex",
+      "action": "ignore",
+      "urgency": "default"
+    }
+  ],
   "osdAlwaysShowValue": false,
   "osdPosition": 5,
   "osdVolumeEnabled": true,
