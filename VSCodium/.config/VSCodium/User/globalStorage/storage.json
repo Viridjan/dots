@@ -1,7 +1,7 @@
 {
     "telemetry.sqmId": "",
     "telemetry.machineId": "80239a94059defeb86b0edcaa865a977fe4b3a2125a9776d2fecdd9524aef361",
-    "telemetry.devDeviceId": "81c2f84a-4867-4445-8799-3e52f6865aa7",
+    "telemetry.devDeviceId": "4ed71011-9b04-4d40-91ca-e549025267fa",
     "backupWorkspaces": {
         "workspaces": [],
         "folders": [],
@@ -15,9 +15,6 @@
     "profileAssociations": {
         "workspaces": {},
         "emptyWindows": {
-            "1779581592563": "__default__profile__",
-            "1779630046039": "__default__profile__",
-            "1779630072537": "__default__profile__",
             "1780325608446": "__default__profile__"
         }
     },
@@ -45,7 +42,7 @@
             "editorPartMinWidth": 220,
             "titleBarHeight": 35,
             "activityBarWidth": 48,
-            "sideBarWidth": 0,
+            "sideBarWidth": 296,
             "auxiliaryBarWidth": 0,
             "statusBarHeight": 22,
             "windowBorder": false
@@ -56,10 +53,10 @@
             "backupPath": "/home/viridjan/.config/VSCodium/Backups/1780325608446",
             "uiState": {
                 "mode": 1,
-                "x": 0,
-                "y": 0,
-                "width": 1200,
-                "height": 1432
+                "x": 10,
+                "y": 10,
+                "width": 1224,
+                "height": 858
             }
         },
         "openedWindows": []

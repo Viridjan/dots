@@ -235,8 +235,8 @@ _install_list() {
 # Pre-install malware gate: check all AUR package lists against malware definitions
 _check_packages_against_malware() {
     local repo_dir="$HOME/.local/share/aur-malware-check"
-    local malware_list="$repo_dir/package_list.txt"
-    if [[ ! -f "$malware_list" ]]; then
+    local campaign_pkgs=("$repo_dir"/data/campaigns/*/packages*.txt)
+    if [[ ! -e "${campaign_pkgs[0]}" ]]; then
         info "malware definitions not found — fetching..."
         if [[ -d "$repo_dir" ]]; then
             git -C "$repo_dir" pull --quiet 2>/dev/null \
@@ -245,7 +245,8 @@ _check_packages_against_malware() {
             git clone --quiet https://github.com/lenucksi/aur-malware-check.git "$repo_dir" 2>/dev/null \
                 || die "malware gate: failed to fetch definitions — aborting install"
         fi
-        [[ -f "$malware_list" ]] || die "malware gate: definitions missing after fetch — aborting install"
+        campaign_pkgs=("$repo_dir"/data/campaigns/*/packages*.txt)
+        [[ -e "${campaign_pkgs[0]}" ]] || die "malware gate: definitions missing after fetch — aborting install"
     fi
     info "Pre-install malware gate: scanning package lists..."
     local infected=()
@@ -253,7 +254,7 @@ _check_packages_against_malware() {
     for list in "${lists[@]}"; do
         [[ -f "$list" ]] || continue
         while IFS= read -r pkg; do
-            if grep -qxF "$pkg" "$malware_list"; then
+            if grep -qxF "$pkg" "${campaign_pkgs[@]}" 2>/dev/null; then
                 infected+=("$pkg")
             fi
         done < <(_pkg_list "$list")
@@ -1250,10 +1251,9 @@ check_aur_malware() {
         git clone --quiet https://github.com/lenucksi/aur-malware-check.git "$repo_dir" 2>/dev/null \
             || die "aur-malware-check: failed to clone repo — cannot proceed without definitions"
     fi
-    chmod +x "$repo_dir/aur_check-v2.sh"
     local result
-    result=$("$repo_dir/aur_check-v2.sh" --full --refresh 2>/dev/null)
-    if echo "$result" | grep -q "RESULT: CLEAN"; then
+    result=$(cd "$repo_dir" && python -m aur_check --full --refresh --json 2>/dev/null)
+    if [[ -n "$result" ]] && python3 -c "import json,sys; sys.exit(0 if json.loads(sys.argv[1])['exit_code'] == 0 else 1)" "$result" 2>/dev/null; then
         ok "aur malware check: clean"
     else
         echo "$result"

@@ -205,7 +205,7 @@ Currently ignored (audited 2026-06-21, no secrets found elsewhere):
 - Credentials: `claude/.claude/.credentials.json`, `cave/.cave/agent/auth.json`
 - Session/auth tokens: `cave/.cave/agent/sessions/`, `vesktop/.config/vesktop/sessionData/` (Discord token)
 - VSCodium cookie/token/web-storage stores; `fish_history`; `Crashpad/` dirs (memory dumps)
-- Non-secret exceptions kept ignored: `vesktop/.config/vesktop/Singleton*` (stale single-instance lock breaks launch), `vesktop/.config/vesktop/state.json` (window-bounds churn)
+- Non-secret exceptions kept ignored: `vesktop/.config/vesktop/Singleton*` (stale single-instance lock breaks launch), `vesktop/.config/vesktop/state.json` (window-bounds churn), `scripts/.local/bin/{uv,uvx,claude-science}` (large vendored binaries with their own installer/updater — permanent repo bloat, no clone value)
 
 **`.gitignore` does NOT support inline `#` comments after a path** — comments go on their own line.
 

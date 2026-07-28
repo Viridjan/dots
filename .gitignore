@@ -32,3 +32,9 @@ vesktop/.config/vesktop/Singleton*
 
 # Window bounds — churns every session, no clone value
 vesktop/.config/vesktop/state.json
+
+# Large vendored binaries — installed by their own installer/updater, not
+# tracked in git (bloats history permanently for no clone value)
+scripts/.local/bin/uv
+scripts/.local/bin/uvx
+scripts/.local/bin/claude-science

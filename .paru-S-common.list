@@ -147,3 +147,17 @@ libdvdcss
 ufw
 ufw-extras
 networkmanager-openvpn
+
+# Editors
+sublime-text
+geany
+
+# Graphics
+kolourpaint
+freecad
+
+# Browsers
+brave-origin-bin
+
+# ML
+unsloth

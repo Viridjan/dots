@@ -293,6 +293,7 @@ window-rule {
 window-rule {
     match title="Spotify"
     match app-id=r#"^steam$"#
+    match app-id=r#"^steam_app_\d+$"#
     match title="Dota 2"
     open-on-workspace "media"
     open-focused false
@@ -300,7 +301,6 @@ window-rule {
 
 // Open dms windows as floating by default
 window-rule {
-    match app-id=r#"org.quickshell$"#
     match app-id=r#"com.danklinux.dms$"#
     open-floating true
 }

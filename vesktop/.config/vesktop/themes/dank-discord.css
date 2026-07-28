@@ -48,7 +48,7 @@
 	/* background and dark colors */
     --bg-1: #49454e;                             /* dark buttons when clicked */
 	--bg-2: #2b292f;              /* dark buttons */
-	--bg-3: #141218;               /* spacing, secondary elements */
+	--bg-3: #1d1b20;               /* spacing, secondary elements */
 	--bg-4: #141218;                             /* main background color */
 	--hover: #36343a;                     /* channels and buttons when hovered */
 	--active: #36343a;                    /* channels and buttons when clicked or selected */
