@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────
 # Secrets only. Everything else is tracked on purpose so a
-# fresh clone carries maximum config/state. Audited 2026-06-21:
-# no tokens/keys found in any other tracked file.
+# fresh clone carries maximum config/state. Audited 2026-07-28
+# after an OpenVSX token leaked via workspaceStorage/state.vscdb.
 # ─────────────────────────────────────────────────────────
 
 # Credentials / API keys
@@ -19,6 +19,10 @@ VSCodium/.config/VSCodium/Local Storage/
 VSCodium/.config/VSCodium/Session Storage/
 VSCodium/.config/VSCodium/Trust Tokens
 VSCodium/.config/VSCodium/Trust Tokens-journal
+
+# VSCodium — per-workspace SQLite state; extensions (e.g. OpenVSX marketplace)
+# store access tokens in here (caused a leaked-secret incident 2026-07-28)
+VSCodium/.config/VSCodium/User/workspaceStorage/
 
 # Shell history — may contain secrets typed at the prompt
 fish/.config/fish/fish_history
