@@ -591,9 +591,13 @@ automount_disks() {
 
     local -a _candidates=()
     while IFS= read -r _line; do
-        local NAME="" FSTYPE="" LABEL="" UUID=""
-        eval "$_line"
-        local _name="$NAME" _fstype="$FSTYPE" _label="$LABEL" _uuid="$UUID"
+        # ponytail: regex capture, not eval — a malicious FS label (e.g. "$(rm -rf ~)")
+        # must never reach a shell-execution context.
+        local _name="" _fstype="" _label="" _uuid=""
+        [[ "$_line" =~ NAME=\"([^\"]*)\" ]] && _name="${BASH_REMATCH[1]}"
+        [[ "$_line" =~ FSTYPE=\"([^\"]*)\" ]] && _fstype="${BASH_REMATCH[1]}"
+        [[ "$_line" =~ LABEL=\"([^\"]*)\" ]] && _label="${BASH_REMATCH[1]}"
+        [[ "$_line" =~ UUID=\"([^\"]*)\" ]] && _uuid="${BASH_REMATCH[1]}"
 
         [[ -z "$_fstype" || -z "$_uuid" ]] && continue
 
