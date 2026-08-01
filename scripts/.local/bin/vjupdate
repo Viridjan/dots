@@ -1564,7 +1564,7 @@ _configure_items_multiselect() {
         "orphan-removal — Remove orphaned packages (audit)" \
         "python-rebuild — Rebuild Python packages needing rebuild (audit)" \
         ":── Gaming ──────────────────────────────────" \
-        "steam-launchers — Create .desktop launchers for all installed Steam games"
+        "+steam-launchers — Create .desktop launchers for all installed Steam games"
 }
 
 _bootstrap_multiselect() {
@@ -1600,7 +1600,7 @@ _bootstrap_multiselect() {
         "ollama — Pull ollama AI model (desktop only)" \
         "vms — Pull VM Docker images (Windows)" \
         ":  Gaming ──────────────────────────────────" \
-        "steam-launchers — Create .desktop launchers for all installed Steam games"
+        "+steam-launchers — Create .desktop launchers for all installed Steam games"
 }
 
 phase_configure() {
