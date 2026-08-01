@@ -152,6 +152,45 @@ reset_keyrings() {
     ok "reset: keyrings"
 }
 
+# ─── Known third-party repo signing keys ────────────────
+# Fixes "signature from ... is unknown trust" pacman errors by
+# importing + locally signing the offending repo's key, then retrying.
+declare -A _REPO_KEYS=(
+    [sublime-text]=8A8F901A
+)
+
+_fix_untrusted_keys() {
+    local out="$1" pkg key fixed=1
+    while IFS= read -r pkg; do
+        key="${_REPO_KEYS[$pkg]:-}"
+        if [[ -z "$key" ]]; then
+            warn "no known key for $pkg — fix manually"
+            continue
+        fi
+        info "Trusting $pkg signing key ($key)..."
+        sudo pacman-key --recv-keys "$key" --keyserver keyserver.ubuntu.com \
+            && sudo pacman-key --lsign-key "$key" \
+            && fixed=0
+    done < <(echo "$out" | grep -oP 'error: \K[^:]+(?=: signature from .* is unknown trust)' | sort -u)
+    return "$fixed"
+}
+
+# paru -Syuu wrapper: auto-recovers from untrusted-signature errors once.
+_syuu() {
+    local logfile; logfile=$(mktemp)
+    if paru -Syuu --noconfirm 2>&1 | tee "$logfile"; then
+        rm -f "$logfile"
+        return 0
+    fi
+    local out; out=$(<"$logfile"); rm -f "$logfile"
+    if echo "$out" | grep -q "is unknown trust" && _fix_untrusted_keys "$out"; then
+        info "Retrying upgrade..."
+        paru -Syuu --noconfirm
+        return $?
+    fi
+    return 1
+}
+
 # ─── Phase 2c: linux-surface repo ───────────────────────
 setup_linux_surface_repo() {
     [[ "${MACHINE:-}" != "surface" ]] && return
@@ -358,7 +397,7 @@ install_all() {
     fi
 
     info "Upgrading existing packages..."
-    paru -Syuu --noconfirm || warn "Full upgrade had warnings — continuing"
+    _syuu || warn "Full upgrade had warnings — continuing"
     ok "upgraded: system"
 
     _do_install() {
@@ -1079,7 +1118,7 @@ system_update() {
     refresh_mirrors
 
     info "Updating all packages..."
-    paru -Syuu --noconfirm
+    _syuu
     ok "system up to date"
 }
 
