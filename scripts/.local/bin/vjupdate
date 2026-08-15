@@ -1066,26 +1066,10 @@ setup_claude() {
         && ok "installed: ponytail" \
         || warn "ponytail plugin install failed — run manually: claude plugin marketplace add DietrichGebert/ponytail && claude plugin install ponytail --scope user"
 
-    # Wire up statusline badges for caveman and ponytail (paths contain version hashes).
-    local _caveman_sl _ponytail_sl _settings
-    _caveman_sl=$(find "$HOME/.claude/plugins/cache/caveman" -name "caveman-statusline.sh" 2>/dev/null | head -1)
-    _ponytail_sl=$(find "$HOME/.claude/plugins/cache/ponytail" -name "ponytail-statusline.sh" 2>/dev/null | head -1)
-    _settings="$HOME/.claude/settings.json"
-
-    if [[ -n "$_caveman_sl" && -n "$_ponytail_sl" && -f "$_settings" ]]; then
-        local _cmd="bash \"$_caveman_sl\"; bash \"$_ponytail_sl\""
-        python3 -c "
-import json, sys
-with open('$_settings') as f: s = json.load(f)
-s['statusLine'] = {'type': 'command', 'command': sys.argv[1]}
-with open('$_settings', 'w') as f: json.dump(s, f, indent=2)
-print('')
-" "$_cmd" && ok "statusline: caveman + ponytail configured" \
-            || warn "statusline update failed"
-    else
-        [[ -z "$_caveman_sl" ]]  && warn "statusline: caveman-statusline.sh not found (plugin not installed?)"
-        [[ -z "$_ponytail_sl" ]] && warn "statusline: ponytail-statusline.sh not found (plugin not installed?)"
-    fi
+    # No statusline wiring here on purpose. settings.json is stowed and points at
+    # ~/.claude/statusline.sh, which globs the version-hashed plugin paths at
+    # runtime — so nothing needs regenerating after a plugin update, and this
+    # function can no longer clobber a hand-edited statusline.
 }
 
 # ─── Phase 8b: caveman-code ──────────────────────────────

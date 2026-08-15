@@ -1,7 +1,7 @@
 {
   "statusLine": {
     "type": "command",
-    "command": "INPUT=$(cat); printf '%s' \"$INPUT\" | bash \"/home/viridjan/.claude/plugins/cache/caveman/caveman/25d22f864ad6/src/hooks/caveman-statusline.sh\"; printf '%s' \"$INPUT\" | bash \"/home/viridjan/.claude/plugins/cache/ponytail/ponytail/4.7.0/hooks/ponytail-statusline.sh\"; printf '%s' \"$INPUT\" | bash \"/home/viridjan/.claude/model-statusline.sh\""
+    "command": "bash \"$HOME/.claude/statusline.sh\""
   },
   "enabledPlugins": {
     "caveman@caveman": true,
