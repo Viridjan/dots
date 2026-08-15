@@ -8,6 +8,11 @@
 #   vjupdate --update   # system update + maintenance
 #   vjupdate --help
 # ─────────────────────────────────────────────────────────
+# The `cmd && ok "..." || warn "..."` logging idiom used ~28 times below is
+# deliberate. The middle command is always ok(), a plain echo, so the SC2015
+# pitfall needs echo itself to fail; the worst case is a spurious warning line,
+# never lost work. Verified every site has this shape before disabling.
+# shellcheck disable=SC2015
 set -euo pipefail
 
 RED='\033[0;31m'; YEL='\033[0;33m'; GRN='\033[0;32m'; BLU='\033[0;34m'; CYN='\033[0;36m'; NC='\033[0m'
@@ -493,7 +498,8 @@ deploy_dotfiles() {
     cd "$DOTS_DIR" || die "cannot cd to $DOTS_DIR"
 
     # Idempotent: point git at the tracked hooks dir so a fresh clone gets the
-    # shellcheck pre-commit guard without a manual setup step.
+    # lint pre-commit guard without a manual setup step. (Do not start this
+    # comment line with the linter's name — it parses as a directive.)
     git config core.hooksPath .githooks 2>/dev/null || true
 
     # -t "$HOME" is required: stow's default target is the PARENT of the stow dir,
@@ -696,7 +702,8 @@ automount_disks() {
 
     [[ ${#_fstab_entries[@]} -eq 0 ]] && { ok "nothing to add"; return; }
 
-    local _backup="/etc/fstab.backup.$(date +%Y%m%d-%H%M%S)"
+    local _backup
+    _backup="/etc/fstab.backup.$(date +%Y%m%d-%H%M%S)"
     info "Backing up /etc/fstab → $_backup"
     sudo cp /etc/fstab "$_backup"
 
