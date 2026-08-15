@@ -42,3 +42,15 @@ vesktop/.config/vesktop/state.json
 scripts/.local/bin/uv
 scripts/.local/bin/uvx
 scripts/.local/bin/claude-science
+
+# VSCodium Chromium/Electron caches — regenerated on every launch, so they
+# rewrote 24 files per commit and grew history forever (41.5MB of ~60MB, 68%).
+# Not config: User/ keeps settings, keybindings, snippets and globalStorage.
+VSCodium/.config/VSCodium/Cache/
+VSCodium/.config/VSCodium/CachedData/
+VSCodium/.config/VSCodium/CachedProfilesData/
+VSCodium/.config/VSCodium/CachedExtensionVSIXs/
+VSCodium/.config/VSCodium/GPUCache/
+VSCodium/.config/VSCodium/DawnGraphiteCache/
+VSCodium/.config/VSCodium/DawnWebGPUCache/
+VSCodium/.config/VSCodium/Code Cache/
