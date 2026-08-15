@@ -227,7 +227,7 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
 
 ## vjupdate bootstrap phases
 
-Phases use stamps in `~/.local/state/dots/` — heavy phases (mirrors, keyrings) skip automatically if run within 48h.
+Phases use stamps in `~/.local/state/dots/` — heavy phases skip automatically if run recently: keyrings within 48h, mirror ranking within 30 days. A mirror run that fails on both arch and CachyOS is not stamped, so it retries next run.
 
 ```
 sources → install → dotfiles → configure → audit

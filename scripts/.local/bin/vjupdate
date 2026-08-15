@@ -44,7 +44,7 @@ mkdir -p "$STAMP_DIR"
 # ─── Logging ─────────────────────────────────────────────
 LOG_FILE="$STAMP_DIR/vjupdate.log"
 for _i in 2 1; do
-    [[ -f "${LOG_FILE}.$_i" ]] && mv "${LOG_FILE}.$_i" "${LOG_FILE}$((_i+1))"
+    [[ -f "${LOG_FILE}.$_i" ]] && mv "${LOG_FILE}.$_i" "${LOG_FILE}.$((_i+1))"
 done
 [[ -f "$LOG_FILE" ]] && mv "$LOG_FILE" "${LOG_FILE}.1"
 exec > >(tee "$LOG_FILE") 2>&1
@@ -95,7 +95,7 @@ _mark_done() { touch "$STAMP_DIR/$1"; }
 
 # ─── Phase 1: Machine detection ──────────────────────────
 detect_machine() {
-    local h; h=$(hostname)
+    local h="${HOSTNAME:-$(uname -n)}"
     if [[ "$h" == *desktop* ]]; then
         MACHINE="desktop"
     elif [[ "$h" == *surface* ]]; then
@@ -332,18 +332,21 @@ refresh_mirrors() {
         RATE_MIRRORS_COUNTRY_TEST_MIRRORS_PER_COUNTRY=50
     )
 
-    local tmp_arch tmp_cachyos
-    tmp_arch=$(mktemp); tmp_cachyos=$(mktemp)
+    local tmp_arch tmp_cachyos rm_log
+    tmp_arch=$(mktemp); tmp_cachyos=$(mktemp); rm_log=$(mktemp)
 
+    # rate-mirrors progress goes to its own temp file, not $LOG_FILE — the tee
+    # from the top of the script holds an offset on $LOG_FILE and would clobber
+    # anything appended behind its back.
     info "Rating arch + CachyOS mirrors in parallel..."
     env "${_rm_env[@]}" rate-mirrors \
         --per-mirror-timeout 1500 --max-mirrors-to-output 5 \
-        --save "$tmp_arch" arch >>"$LOG_FILE" 2>&1 &
+        --save "$tmp_arch" arch >>"$rm_log" 2>&1 &
     local pid_arch=$!
 
     env "${_rm_env[@]}" rate-mirrors \
         --per-mirror-timeout 1500 --max-mirrors-to-output 5 \
-        --save "$tmp_cachyos" cachyos >>"$LOG_FILE" 2>&1 &
+        --save "$tmp_cachyos" cachyos >>"$rm_log" 2>&1 &
     local pid_cachyos=$!
 
     local rc_arch=0 rc_cachyos=0
@@ -370,7 +373,16 @@ refresh_mirrors() {
         warn "CachyOS mirror refresh failed — keeping existing"
     fi
 
-    rm -f "$tmp_arch" "$tmp_cachyos"
+    if (( rc_arch != 0 && rc_cachyos != 0 )); then
+        cat "$rm_log"
+        rm -f "$tmp_arch" "$tmp_cachyos" "$rm_log"
+        # No stamp on total failure — otherwise one bad network run pins stale
+        # mirrors for the full 30-day window.
+        warn "mirror refresh failed entirely — not stamping, will retry next run"
+        return
+    fi
+
+    rm -f "$tmp_arch" "$tmp_cachyos" "$rm_log"
     sudo pacman -Syy
     _mark_done mirrors
     ok "refreshed: mirrors"
@@ -478,7 +490,7 @@ _stow_niri_cfg() {
 
 deploy_dotfiles() {
     info "Deploying dotfiles via stow..."
-    cd "$DOTS_DIR"
+    cd "$DOTS_DIR" || die "cannot cd to $DOTS_DIR"
 
     # -t "$HOME" is required: stow's default target is the PARENT of the stow dir,
     # which here is $HOME/Projects (DOTS_DIR=$HOME/Projects/dots), not $HOME.
@@ -890,7 +902,7 @@ install_dms_plugins() {
 
     info "Installing DMS plugins..."
     local installed
-    installed=$(dms plugins list 2>/dev/null)
+    installed=$(dms plugins list 2>/dev/null) || true
 
     while IFS= read -r plugin; do
         [[ -z "$plugin" || "$plugin" == \#* ]] && continue
@@ -952,10 +964,10 @@ setup_vms() {
     fi
     ok "VM storage dirs ready"
 
-    info "Pulling VM images (background)..."
-    docker pull dockurr/windows &>/dev/null &
-    wait
-    ok "pulled: VM images"
+    info "Pulling VM images..."
+    docker pull dockurr/windows &>/dev/null \
+        && ok "pulled: VM images" \
+        || warn "docker pull dockurr/windows failed"
 }
 
 # ─── Phase 7e: Fish plugins (tide prompt) ────────────────
@@ -1116,14 +1128,14 @@ _swap_pkg() {
 # ─── Maintenance: system update ──────────────────────────
 system_update() {
     info "Swapping known broken/replaced packages..."
-    _swap_pkg spotify            spotify-launcher
     _swap_pkg libreoffice-fresh  libreoffice-still
 
     refresh_mirrors
 
     info "Updating all packages..."
-    _syuu
-    ok "system up to date"
+    # Match install_all: a failed upgrade must not abort the run before
+    # clean_caches and print_recap get to report what happened.
+    _syuu && ok "system up to date" || warn "Full upgrade failed — see log"
 }
 
 # ─── Maintenance: flatpak update ─────────────────────────
@@ -1152,8 +1164,15 @@ check_flatpak_orphans() {
 # ─── Maintenance: cache cleanup ──────────────────────────
 clean_caches() {
     info "Cleaning package caches..."
-    sudo paccache -rk2
-    sudo paccache -ruk0
+    # Guarded like check_pacnew/check_rebuilds: paccache ships in pacman-contrib,
+    # which may not be installed yet if a fresh bootstrap failed mid-install.
+    # Unguarded, it would abort the run before print_recap.
+    if command -v paccache &>/dev/null; then
+        sudo paccache -rk2  || warn "paccache -rk2 failed"
+        sudo paccache -ruk0 || warn "paccache -ruk0 failed"
+    else
+        warn "paccache not found — install pacman-contrib"
+    fi
     rm -rf "$HOME/.cache/paru/clone" "$HOME/.cache/paru" "$HOME/.cache/yay"
     ok "caches cleaned"
 }
@@ -1190,8 +1209,12 @@ check_python_rebuilds() {
     local current_version
     current_version=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
 
-    local old_dirs
-    old_dirs=$(ls -d /usr/lib/python3.* 2>/dev/null | grep -v "python${current_version}" || true)
+    local old_dirs="" d
+    for d in /usr/lib/python3.*/; do
+        d="${d%/}"
+        [[ -d "$d" && "$d" != "/usr/lib/python${current_version}" ]] && old_dirs+="$d"$'\n'
+    done
+    old_dirs="${old_dirs%$'\n'}"
     if [[ -z "$old_dirs" ]]; then
         ok "no stale python dirs"
         return
@@ -1295,7 +1318,10 @@ check_aur_malware() {
             || die "aur-malware-check: failed to clone repo — cannot proceed without definitions"
     fi
     local result
-    result=$(cd "$repo_dir" && python -m aur_check --full --refresh --json 2>/dev/null)
+    # || true is load-bearing: aur_check exits non-zero exactly when it finds
+    # something, and set -e would kill the script here before the die() below
+    # ever printed why.
+    result=$(cd "$repo_dir" && python -m aur_check --full --refresh --json 2>/dev/null) || true
     if [[ -n "$result" ]] && python3 -c "import json,sys; sys.exit(0 if json.loads(sys.argv[1])['exit_code'] == 0 else 1)" "$result" 2>/dev/null; then
         ok "aur malware check: clean"
     else
@@ -1317,9 +1343,12 @@ check_firmware() {
 
 check_pacman_db() {
     info "Checking pacman database integrity..."
-    local output rc
-    output=$(sudo pacman -Dk 2>&1)
-    rc=$?
+    local output rc=0
+    # Same set -e trap as check_aur_malware: pacman -Dk exits non-zero on the
+    # broken-entry case this function exists to report.
+    # No sudo: -Dk is read-only, and requiring a password made a failed prompt
+    # look identical to a corrupt database.
+    output=$(pacman -Dk 2>&1) || rc=$?
     if [[ $rc -ne 0 ]]; then
         warn "pacman database has broken entries:"
         echo "$output" | grep -v "^$" | while IFS= read -r line; do echo "    $line"; done
@@ -1541,36 +1570,6 @@ _multiselect() {
     _tui_end
 }
 
-_configure_items_multiselect() {
-    _multiselect "additional configuration" \
-        ":── System ──────────────────────────────────" \
-        "services — Enable system services (NetworkManager, bluetooth, etc.)" \
-        "snapper — Configure btrfs snapshots" \
-        "automount — Detect and add partitions to /etc/fstab" \
-        "optimize — Apply CachyOS tuning (governor, services, AMD GPU, mirrors)" \
-        "keyboard — Set X11 keyboard layout (us intl)" \
-        "keyring-pam — Configure gnome-keyring PAM integration" \
-        "kernels — Interactively install or remove CachyOS kernels" \
-        ":── DMS ─────────────────────────────────────" \
-        "greeter — Configure DMS greeter (greetd)" \
-        "dms-plugins — Install DMS plugins" \
-        "dms-export — Copy live DMS config → repo (for committing)" \
-        "dms-import — Copy repo DMS overrides → live" \
-        ":── Shell & tools ───────────────────────────" \
-        "fish — Set up fish shell and tide theme" \
-        "install-scripts — Run custom install scripts" \
-        "claude — Install Claude Code plugins" \
-        "caveman-code — Install caveman-code npm tool" \
-        ":── AI & VMs ────────────────────────────────" \
-        "ollama — Pull ollama AI model (desktop only)" \
-        "vms — Pull VM Docker images (Windows)" \
-        ":── Maintenance ─────────────────────────────" \
-        "orphan-removal — Remove orphaned packages (audit)" \
-        "python-rebuild — Rebuild Python packages needing rebuild (audit)" \
-        ":── Gaming ──────────────────────────────────" \
-        "+steam-launchers — Create .desktop launchers for all installed Steam games"
-}
-
 _bootstrap_multiselect() {
     _multiselect "vjupdate — CachyOS setup" \
         ":── Essentials ──────────────────────────────" \
@@ -1610,15 +1609,14 @@ _bootstrap_multiselect() {
 phase_configure() {
     local _selected
 
+    # Interactive runs always populate CONFIGURE_ITEMS in bootstrap() (or skip
+    # this phase outright), so the only other case is --yes.
     if $CONFIGURE_PROMPTED; then
         _selected="$CONFIGURE_ITEMS"
-    elif ! $INTERACTIVE; then
+    else
         run_install_scripts
         setup_fish
         return
-    else
-        _configure_items_multiselect || { warn "cancelled: configure"; return; }
-        _selected=$(cat "$_MS_RESULT")
     fi
 
     _sel() { echo "$_selected" | grep -q "^$1 —"; }
@@ -1631,7 +1629,7 @@ phase_configure() {
     _sel "kernels"         && manage_kernels
     _sel "greeter"         && setup_greeter
     _sel "keyring-pam"     && setup_keyring_pam
-_sel "install-scripts" && run_install_scripts
+    _sel "install-scripts" && run_install_scripts
     _sel "fish"            && setup_fish
     _sel "dms-plugins"     && install_dms_plugins
     _sel "dms-export"      && dms_export
@@ -1705,6 +1703,9 @@ update() {
     echo ""
 
     detect_machine
+    # --update runs paru -Syuu, which rebuilds AUR packages from upstream
+    # PKGBUILDs. Gate it the same way bootstrap does, before anything is pulled.
+    check_aur_malware
     system_update
     flatpak_update
     check_flatpak_orphans
@@ -1808,13 +1809,12 @@ usage() {
     echo "  --update, -u        Update packages + clean caches"
     echo "  --check, -c         Audit: orphans, rebuilds, pacnew, firmware"
     echo "  --kernels           Interactively install or remove CachyOS kernels"
-    echo "  --automount         Detect internal partitions and add to /etc/fstab
-  --optimize          Apply CachyOS tuning: governor, services, AMD GPU, mirrors (idempotent)
-  --keyring-pam       Add pam_gnome_keyring.so to /etc/pam.d/greetd (idempotent)"
+    echo "  --automount         Detect internal partitions and add to /etc/fstab"
+    echo "  --optimize          Apply CachyOS tuning: governor, services, AMD GPU, mirrors"
+    echo "  --keyring-pam       Add pam_gnome_keyring.so to /etc/pam.d/greetd (idempotent)"
     echo "  --dms-export        Copy live ~/.config/niri/dms/*.kdl → repo (then commit)"
     echo "  --dms-import        Copy repo dms overrides → live (skips auto-generated files)"
     echo "  --steam-launchers   Create .desktop launchers for all installed Steam games"
-
     echo "  --help              Show this message"
 }
 
