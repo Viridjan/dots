@@ -42,3 +42,7 @@ vesktop/.config/vesktop/state.json
 scripts/.local/bin/uv
 scripts/.local/bin/uvx
 scripts/.local/bin/claude-science
+
+# Vendored browser-extension cache (React DevTools, ~3MB) — vesktop redownloads
+# it on demand; same rationale as the vendored binaries above
+vesktop/.config/vesktop/ExtensionCache/

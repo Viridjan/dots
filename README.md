@@ -88,6 +88,29 @@ and memory won't load.
 
 When working on dots inside a Claude session, just `cd ~/Projects/dots` from within it.
 
+### Statusline
+
+The statusline is assembled by `~/.claude/statusline.sh`, which runs each segment
+script (caveman, ponytail, model) and glues the output together. Plugin paths are
+resolved at runtime, so a plugin update never requires touching `settings.json`.
+
+To add a segment, add one line to `statusline.sh` — nothing else needs changing.
+
+---
+
+## Contributing to this repo
+
+A `pre-commit` hook runs `shellcheck` on staged shell scripts and blocks the commit if
+it finds errors. It is registered automatically by `vjupdate` (via `core.hooksPath`),
+or by hand:
+
+```bash
+git -C ~/Projects/dots config core.hooksPath .githooks
+```
+
+Warnings are advisory; only errors block. If `shellcheck` isn't installed the hook
+does nothing, so commits still work on a fresh clone.
+
 ---
 
 ## Re-applying dotfiles (existing machine)
@@ -192,7 +215,7 @@ bash scripts/.local/bin/vjupdate
 | `vesktop` | `~/.config/vesktop/` — settings.json + settings/ (Vencord config + quickCss) |
 | `mimeapps` | `~/.config/mimeapps.list` |
 | `paru` | `~/.config/paru/paru.conf` |
-| `claude` | `~/.claude/settings.json` + `hooks/` (Claude Code + caveman plugin) |
+| `claude` | `~/.claude/settings.json` + `hooks/` + `statusline.sh` (Claude Code + caveman plugin) |
 | `caveman` | `~/.config/caveman/config.json` — caveman plugin `defaultMode: ultra` |
 | `fonts` | `~/.local/share/fonts/` — user fonts (Luminari) |
 | `mpd` | `~/.config/mpd/mpd.conf` |

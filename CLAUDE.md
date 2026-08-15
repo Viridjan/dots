@@ -20,7 +20,7 @@ Memory and project context are scoped to the working directory at launch. Openin
 ```
 dots/
   alacritty/      → ~/.config/alacritty/
-  claude/         → ~/.claude/  (settings.json, hooks/, keybindings.json)
+  claude/         → ~/.claude/  (settings.json, hooks/, keybindings.json, statusline.sh)
   DankMaterialShell/ → ~/.config/DankMaterialShell/
   desktop/        → ~/.config/niri/cfg/display.kdl + input.kdl + surface-layout.kdl  (tower only)
   fish/           → ~/.config/fish/
@@ -42,6 +42,7 @@ dots/
   caveman/        → ~/.config/caveman/  (caveman plugin defaultMode = ultra)
   ollama/         → /etc/systemd/system/ollama.service.d/  (ROCm drop-in; stow -t /)
   windows/        ← NOT a stow package — Docker Compose for Windows 11 VM (dockur/windows, port 8006)
+  .githooks/      ← NOT a stow package — git hooks; registered via core.hooksPath
 ```
 
 `niri` uses **file-level symlinks** — the `cfg/` and `dms/` directories are real, but individual `.kdl` files are symlinked. All other packages use directory-level symlinks.
@@ -242,6 +243,40 @@ sources → install → dotfiles → configure → audit
 | `audit` | orphan packages, flatpak cleanup, rebuild check, pacnew files, firmware updates |
 
 Interactive mode (default, or `-i`) opens a built-in terminal TUI (no external deps) showing all phases and configure items in one screen. Defaults: `install` and `audit` are pre-selected; `sources` and `dotfiles` are opt-in; one-time configure items (services, greeter, fish, claude plugins, etc.) are opt-in. Keys: `↑↓` navigate, `space` toggle, `ctrl+a` select/deselect all, `enter` confirm, `q` abort. `update` and `audit` also run via `vjupdate --update` and `vjupdate --check`.
+
+## Shell script linting
+
+`.githooks/pre-commit` runs `shellcheck -S error` on staged shell scripts and blocks
+the commit on errors. It selects files by **shebang, not path** — `scripts/.local/bin/`
+also holds large vendored binaries (`uv`, `uvx`, `claude-science`) that must never be
+scanned. It no-ops when shellcheck is absent, so a fresh clone can still commit.
+
+`deploy_dotfiles` runs `git config core.hooksPath .githooks`, so a clone self-registers.
+To register by hand: `git -C ~/Projects/dots config core.hooksPath .githooks`
+
+Gotchas when linting these scripts:
+
+- **A comment line starting with `# shellcheck ` parses as a directive.** It caused
+  SC1072/SC1073 and made shellcheck skip all 1840 lines of `vjupdate` while still
+  looking like it ran. If output is only SC1072/SC1073, nothing was checked.
+- `vjupdate` carries a file-level `# shellcheck disable=SC2015` with justification: all
+  ~28 sites are the `cmd && ok "..." || warn "..."` logging idiom where the middle
+  command is a plain `echo`.
+- The scripts are `set -euo pipefail`, so `var=$(cmd)` **exits before** any `rc=$?` or
+  error branch below it. Where the failure is the signal (`pacman -Dk`, `aur_check`),
+  guard with `|| true` or `|| rc=$?` — otherwise the handling code is unreachable.
+
+## Claude Code statusline
+
+`~/.claude/statusline.sh` aggregates the segment scripts (caveman, ponytail, model) and
+gives each its own copy of stdin — piping them in sequence lets the first consume the
+input and starve the rest.
+
+It **globs the plugin paths at runtime**, because the cache dirs carry version hashes
+(`caveman/25d22f864ad6`, `ponytail/4.7.0`). So `settings.json` stays a static committed
+one-liner and nothing needs regenerating after a plugin update. `setup_claude`
+deliberately contains no statusline wiring. Add a segment by adding one line to
+`statusline.sh`.
 
 ## npm global prefix
 
