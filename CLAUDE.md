@@ -200,13 +200,18 @@ Package management uses flat text files (one package per line, `#` comments):
 
 ## .gitignore policy
 
-Ignore **secrets only** — everything else is tracked so a fresh clone carries maximum config/state (caches, machine-specific state, generated logs, themes, app settings all committed on purpose). Before adding an ignore entry, ask "is this a secret?"; if not, default to tracking.
+Ignore **secrets**, plus **artifacts that regenerate continuously**. Everything else is tracked so a fresh clone carries maximum config/state (machine-specific state, generated logs, themes, app settings all committed on purpose). Before adding an ignore entry, ask "is this a secret, or does it rewrite itself every session?"; if neither, default to tracking.
 
-Currently ignored (audited 2026-06-21, no secrets found elsewhere):
+The second test is about **churn rate, not size** — a payload written once is fine to track however big, but anything an app rewrites on each launch grows history forever. Concretely: `vesktop/ExtensionCache/` (3MB of React DevTools, written once) is **tracked**, while VSCodium's Chromium caches (same order of size, rewritten every launch) are **ignored**. They reached 41.5MB of 60MB of history — 68% — and dirtied 24 files on every commit before being purged 2026-08-15.
+
+Currently ignored (secrets audited 2026-06-21, no secrets found elsewhere):
 - Credentials: `claude/.claude/.credentials.json`, `cave/.cave/agent/auth.json`
 - Session/auth tokens: `cave/.cave/agent/sessions/`, `vesktop/.config/vesktop/sessionData/` (Discord token)
 - VSCodium cookie/token/web-storage stores; `fish_history`; `Crashpad/` dirs (memory dumps)
+- Continuously regenerated: `VSCodium/.config/VSCodium/{Cache,CachedData,CachedProfilesData,CachedExtensionVSIXs,GPUCache,DawnGraphiteCache,DawnWebGPUCache,Code Cache}/` — VSCodium rebuilds them on first start; `User/` keeps the real config
 - Non-secret exceptions kept ignored: `vesktop/.config/vesktop/Singleton*` (stale single-instance lock breaks launch), `vesktop/.config/vesktop/state.json` (window-bounds churn), `scripts/.local/bin/{uv,uvx,claude-science}` (large vendored binaries with their own installer/updater — permanent repo bloat, no clone value)
+
+If tracked bloat is ever found again, the two-step fix is `git rm -r --cached` + ignore (stops growth), then `git filter-repo --invert-paths` to purge history. The second step rewrites every SHA and needs a force-push — **take a `git bundle create ... --all` backup first, and the other machine then needs `git fetch && git reset --hard origin/main`.**
 
 **`.gitignore` does NOT support inline `#` comments after a path** — comments go on their own line.
 
