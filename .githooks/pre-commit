@@ -8,8 +8,9 @@ while IFS= read -r f; do
     [[ -f "$f" ]] || continue
     # Match by shebang, not path: scripts/.local/bin/ also holds large vendored
     # binaries (uv, uvx, claude-science) that must never be fed to shellcheck.
-    # head -c bounds the read so a multi-MB binary is never slurped.
-    case "$(head -c 64 "$f" 2>/dev/null | head -1)" in
+    # head -c bounds the read so a multi-MB binary is never slurped; tr strips
+    # NULs so command substitution doesn't warn on every binary file staged.
+    case "$(head -c 64 "$f" 2>/dev/null | tr -d '\0' | head -1)" in
         '#!'*bash*|'#!'*sh) files+=("$f") ;;
     esac
 done < <(git diff --cached --name-only --diff-filter=ACM)
