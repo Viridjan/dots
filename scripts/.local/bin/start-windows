@@ -4,7 +4,7 @@ set -euo pipefail
 
 COMPOSE_DIR="$HOME/Projects/dots/windows"
 
-cd "$COMPOSE_DIR"
+cd "$COMPOSE_DIR" || { echo "ERROR: $COMPOSE_DIR not found" >&2; exit 1; }
 docker compose up -d
 
 # Wait for web UI to be ready (max 30s)
@@ -12,7 +12,7 @@ echo "Waiting for Windows VM web UI..."
 timeout 30 bash -c 'until curl -sf http://localhost:8006 > /dev/null 2>&1; do sleep 1; done' \
     || echo "Web UI not ready yet — opening anyway"
 
-case "$(hostname)" in
+case "${HOSTNAME:-$(uname -n)}" in
     *desktop*) WIN_W=2580; WIN_H=1080 ;;  # 75% of 3440×1440
     *surface*) WIN_W=2880; WIN_H=1920 ;;  # 100% of 2880×1920
     *)         WIN_W=1440; WIN_H=810  ;;  # 75% of 1920×1080

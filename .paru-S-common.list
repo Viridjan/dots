@@ -53,6 +53,7 @@ intel-lpmd
 openssh
 pacman-contrib
 rebuild-detector
+shellcheck
 rsync
 smartmontools
 ffmpegthumbnailer

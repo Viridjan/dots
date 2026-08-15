@@ -492,6 +492,10 @@ deploy_dotfiles() {
     info "Deploying dotfiles via stow..."
     cd "$DOTS_DIR" || die "cannot cd to $DOTS_DIR"
 
+    # Idempotent: point git at the tracked hooks dir so a fresh clone gets the
+    # shellcheck pre-commit guard without a manual setup step.
+    git config core.hooksPath .githooks 2>/dev/null || true
+
     # -t "$HOME" is required: stow's default target is the PARENT of the stow dir,
     # which here is $HOME/Projects (DOTS_DIR=$HOME/Projects/dots), not $HOME.
     # Without it, symlinks land in ~/Projects/.config instead of ~/.config.
