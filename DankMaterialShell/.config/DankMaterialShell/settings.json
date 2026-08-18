@@ -16,7 +16,7 @@
   "controlCenterTileColorMode": "primary",
   "buttonColorMode": "primary",
   "cornerRadius": 12,
-  "niriLayoutGapsOverride": -2,
+  "niriLayoutGapsOverride": -1,
   "niriLayoutRadiusOverride": -1,
   "niriLayoutBorderSize": -1,
   "hyprlandLayoutGapsOverride": -1,
@@ -156,12 +156,12 @@
       "width": 50
     }
   ],
-  "showWorkspaceIndex": true,
+  "showWorkspaceIndex": false,
   "showWorkspaceName": false,
   "showWorkspacePadding": false,
   "workspaceScrolling": false,
-  "showWorkspaceApps": true,
-  "workspaceDragReorder": true,
+  "showWorkspaceApps": false,
+  "workspaceDragReorder": false,
   "maxWorkspaceIcons": 3,
   "workspaceAppIconSizeOffset": 0,
   "groupWorkspaceApps": true,
@@ -200,9 +200,9 @@
   "waveProgressEnabled": true,
   "scrollTitleEnabled": true,
   "mediaAdaptiveWidthEnabled": true,
-  "audioVisualizerEnabled": true,
+  "audioVisualizerEnabled": false,
   "mediaUseAlbumArtAccent": false,
-  "audioScrollMode": "volume",
+  "audioScrollMode": "nothing",
   "audioWheelScrollAmount": 5,
   "audioDeviceScrollVolumeEnabled": false,
   "mediaExcludePlayers": [],
@@ -282,7 +282,7 @@
   "dankLauncherV2IncludeFoldersInAll": false,
   "launcherUseOverlayLayer": true,
   "launcherStyle": "spotlight",
-  "spotlightBarShowModeChips": false,
+  "spotlightBarShowModeChips": true,
   "keybindsFloatingWindow": false,
   "useAutoLocation": false,
   "weatherEnabled": true,
@@ -394,7 +394,7 @@
   "gtkThemingEnabled": false,
   "qtThemingEnabled": false,
   "syncModeWithPortal": true,
-  "terminalsAlwaysDark": false,
+  "terminalsAlwaysDark": true,
   "muxType": "tmux",
   "muxUseCustomCommand": false,
   "muxCustomCommand": "",
@@ -506,7 +506,7 @@
   "notificationPopupPosition": 0,
   "notificationAnimationSpeed": 1,
   "notificationCustomAnimationDuration": 400,
-  "notificationHistoryEnabled": true,
+  "notificationHistoryEnabled": false,
   "notificationHistoryMaxCount": 50,
   "notificationHistoryMaxAgeDays": 7,
   "notificationHistorySaveLow": true,
@@ -530,7 +530,7 @@
       "urgency": "default"
     }
   ],
-  "notificationFocusedMonitor": false,
+  "notificationFocusedMonitor": true,
   "osdAlwaysShowValue": false,
   "osdPosition": 5,
   "osdVolumeEnabled": true,
@@ -570,13 +570,23 @@
   "updaterAllowAUR": true,
   "updaterIgnoredPackages": [],
   "displayNameMode": "system",
-  "screenPreferences": {},
-  "showOnLastDisplay": {},
-  "niriOutputSettings": {},
+  "screenPreferences": {
+    "notifications": []
+  },
+  "showOnLastDisplay": {
+    "notifications": true
+  },
+  "niriOutputSettings": {
+    "DP-1": {
+      "focusAtStartup": true
+    }
+  },
   "hyprlandOutputSettings": {},
   "displayProfiles": {},
-  "activeDisplayProfile": {},
-  "displayProfileAutoSelect": false,
+  "activeDisplayProfile": {
+    "niri": "auto_201b30"
+  },
+  "displayProfileAutoSelect": true,
   "displayShowDisconnected": false,
   "displaySnapToEdge": true,
   "connectedFrameBarStyleBackups": {},
@@ -613,9 +623,9 @@
       "squareCorners": false,
       "noBackground": false,
       "maximizeWidgetIcons": false,
-      "maximizeWidgetText": true,
+      "maximizeWidgetText": false,
       "removeWidgetPadding": false,
-      "widgetPadding": 8,
+      "widgetPadding": 10,
       "gothCornersEnabled": false,
       "gothCornerRadiusOverride": false,
       "gothCornerRadiusValue": 12,
@@ -627,7 +637,7 @@
       "widgetOutlineColor": "primary",
       "widgetOutlineOpacity": 0.3,
       "widgetOutlineThickness": 2,
-      "fontScale": 1,
+      "fontScale": 1.4,
       "iconScale": 1,
       "autoHide": false,
       "autoHideDelay": 250,
@@ -645,7 +655,8 @@
       "shadowColorMode": "text",
       "shadowCustomColor": "#000000",
       "clickThrough": false,
-      "barInsetPadding": 10
+      "barInsetPadding": 10,
+      "useOverlayLayer": false
     }
   ],
   "desktopClockEnabled": false,

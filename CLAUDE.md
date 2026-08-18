@@ -326,7 +326,11 @@ Binaries land in `~/.local/bin/` (already in PATH). Required for `caveman-code` 
 | Lock screen keybind | Mod+Alt+L | cfg/keybinds.kdl |
 | Fullscreen keybind | Mod+Shift+F (game-friendly); Mod+F = maximize-column | cfg/keybinds.kdl + dms/binds.kdl |
 | Media keys (Play/Pause/Next/Prev) | `playerctl --player=spotify` (bypasses DMS's generic mpris picker so it doesn't hand control to Brave/other players) | cfg/keybinds.kdl + dms/binds.kdl |
+| Keybinds cheatsheet | Mod+K | dms/binds.kdl |
+| Toggle bar | Mod+Shift+Space | dms/binds.kdl |
 
 DMS actions from keybinds spawn `dms ipc call <target> <fn>` — the `call` subcommand is required (e.g. `dms ipc call powermenu toggle`, `dms ipc call lock lock`). Omitting `call` silently no-ops.
 
-DMS bar and settings-panel state live in `~/.config/DankMaterialShell/settings.json` (stow-symlinked, `DankMaterialShell` package) — e.g. `barConfigs[0].enabled` toggles the top bar. `dms ipc call settings set <key> <value>` only supports scalar top-level keys (`SETTINGS_SET_FAILURE`/`Setting Objects and Arrays not supported` for anything nested); array/object fields like `barConfigs` must be hand-edited in `settings.json` directly. Stop `systemctl --user stop dms.service` before editing, then start it again — editing live risks the running shell overwriting your edit on its own next write.
+DMS bar and settings-panel state live in `~/.config/DankMaterialShell/settings.json` (stow-symlinked, `DankMaterialShell` package) — e.g. `barConfigs[0].enabled` toggles the top bar (bound to Mod+Shift+Space, so this shouldn't need hand-editing again — see below). `dms ipc call settings set <key> <value>` only supports scalar top-level keys (`SETTINGS_SET_FAILURE`/`Setting Objects and Arrays not supported` for anything nested); array/object fields like `barConfigs` must be hand-edited in `settings.json` directly. Stop `systemctl --user stop dms.service` before editing, then start it again — editing live risks the running shell overwriting your edit on its own next write.
+
+The `bar` IPC target's `selector` arg is a type keyword, not the target itself: it must be literally `"id"`, `"name"`, or `"index"`, with the actual match value as the next arg (e.g. `dms ipc call bar toggle "id" "default"` — passing an output name like `"DP-1"` as the selector gives `BAR_INVALID_SELECTOR`).
