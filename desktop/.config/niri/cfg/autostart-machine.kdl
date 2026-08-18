@@ -5,8 +5,8 @@ spawn-at-startup "Telegram"
 
 // Media workspace
 spawn-sh-at-startup "steam"
-spawn-at-startup "kitty" "--title" "dgop-monitor" "-e" "dgop"
-spawn-at-startup "kitty" "--title" "spotify-player" "-e" "spotify_player"
+spawn-at-startup "alacritty" "--title" "dgop-monitor" "-e" "dgop"
+spawn-sh-at-startup "flatpak run com.spotify.Client"
 
 // Background daemons
 spawn-at-startup "/usr/lib/polkit-kde-authentication-agent-1"

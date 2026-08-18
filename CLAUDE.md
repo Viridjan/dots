@@ -95,7 +95,7 @@ Later includes override earlier ones for the same property. `dms/binds.kdl` is l
 
 - **User settings** (layout, keybinds, rules, animations): edit files under `cfg/`. Changes go directly into the repo via symlinks.
 - **Machine-specific niri overrides**: both `desktop/` and `surface/` packages provide identically-named `.kdl` files under `cfg/`. `vjupdate` symlinks the active machine's version into `~/.config/niri/cfg/`. `config.kdl` includes them unconditionally — the machine-specific content differs, or one side is empty. Current files:
-  - `autostart-machine.kdl` — desktop has `spawn-at-startup` entries (thunderbird, whatsie, Telegram, steam, spotify-player TUI, dgop monitor, daemons); surface is empty (no autorun). Vesktop launches via XDG autostart (`~/.config/autostart/vesktop.desktop`), not here.
+  - `autostart-machine.kdl` — desktop has `spawn-at-startup` entries (thunderbird, whatsie, Telegram, steam, alacritty-hosted dgop monitor, daemons) plus `flatpak run com.spotify.Client` for real Spotify; surface is empty (no autorun). Vesktop launches via XDG autostart (`~/.config/autostart/vesktop.desktop`), not here. Terminal for spawned TUIs is `alacritty` — `kitty` is not installed, so entries hardcoding it silently no-op.
   - `surface-layout.kdl` — surface has `window-rule { default-column-width { proportion 0.5; } }`; desktop is empty
   - To add a new machine-specific override: create the `.kdl` in both `desktop/` and `surface/` packages, add `include "cfg/<name>.kdl"` to `config.kdl`, and add `<name>` to the `for f in ...` loop in `vjupdate`'s `_stow_niri_cfg`.
   - Content common to both machines but that needs to differ slightly: put shared parts in `config.kdl` or `cfg/` (niri pkg), machine-specific delta in the per-machine file.
@@ -325,5 +325,8 @@ Binaries land in `~/.local/bin/` (already in PATH). Required for `caveman-code` 
 | Power menu keybind | Mod+X (dms), Mod+Shift+Q (cfg) | dms/binds.kdl + cfg/keybinds.kdl |
 | Lock screen keybind | Mod+Alt+L | cfg/keybinds.kdl |
 | Fullscreen keybind | Mod+Shift+F (game-friendly); Mod+F = maximize-column | cfg/keybinds.kdl + dms/binds.kdl |
+| Media keys (Play/Pause/Next/Prev) | `playerctl --player=spotify` (bypasses DMS's generic mpris picker so it doesn't hand control to Brave/other players) | cfg/keybinds.kdl + dms/binds.kdl |
 
 DMS actions from keybinds spawn `dms ipc call <target> <fn>` — the `call` subcommand is required (e.g. `dms ipc call powermenu toggle`, `dms ipc call lock lock`). Omitting `call` silently no-ops.
+
+DMS bar and settings-panel state live in `~/.config/DankMaterialShell/settings.json` (stow-symlinked, `DankMaterialShell` package) — e.g. `barConfigs[0].enabled` toggles the top bar. `dms ipc call settings set <key> <value>` only supports scalar top-level keys (`SETTINGS_SET_FAILURE`/`Setting Objects and Arrays not supported` for anything nested); array/object fields like `barConfigs` must be hand-edited in `settings.json` directly. Stop `systemctl --user stop dms.service` before editing, then start it again — editing live risks the running shell overwriting your edit on its own next write.

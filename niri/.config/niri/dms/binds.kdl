@@ -44,17 +44,18 @@ binds {
     XF86AudioMicMute allow-when-locked=true {
         spawn "dms" "ipc" "call" "audio" "micmute";
     }
+		/* playerctl targets spotify directly so DMS can't hand media keys to Brave/other players. */
 		XF86AudioPause allow-when-locked=true {
-		    spawn "dms" "ipc" "call" "mpris" "playPause";
+		    spawn "playerctl" "--player=spotify" "play-pause";
 		}
 		XF86AudioPlay allow-when-locked=true {
-		    spawn "dms" "ipc" "call" "mpris" "playPause";
+		    spawn "playerctl" "--player=spotify" "play-pause";
 		}
 		XF86AudioPrev allow-when-locked=true {
-		    spawn "dms" "ipc" "call" "mpris" "previous";
+		    spawn "playerctl" "--player=spotify" "previous";
 		}
 		XF86AudioNext allow-when-locked=true {
-		    spawn "dms" "ipc" "call" "mpris" "next";
+		    spawn "playerctl" "--player=spotify" "next";
 		}
         Ctrl+XF86AudioRaiseVolume allow-when-locked=true {
             spawn "dms" "ipc" "call" "mpris" "increment" "3";

@@ -188,11 +188,11 @@ binds {
 	XF86AudioMute				allow-when-locked=true { spawn "dms" "ipc" "audio" "mute"; }
 	XF86AudioMicMute			allow-when-locked=true { spawn "dms" "ipc" "audio" "micmute"; }
 
-	/* playerctl targets spotify_player directly to avoid DMS picking Brave/WhatSie when paused. */
-	XF86AudioNext				allow-when-locked=true { spawn "playerctl" "--player=spotify_player" "next"; }
-	XF86AudioPrev				allow-when-locked=true { spawn "playerctl" "--player=spotify_player" "previous"; }
-	XF86AudioPlay				allow-when-locked=true { spawn "playerctl" "--player=spotify_player" "play-pause"; }
-	XF86AudioPause				allow-when-locked=true { spawn "playerctl" "--player=spotify_player" "play-pause"; }
+	/* playerctl targets spotify directly to avoid DMS picking Brave/WhatSie when paused. */
+	XF86AudioNext				allow-when-locked=true { spawn "playerctl" "--player=spotify" "next"; }
+	XF86AudioPrev				allow-when-locked=true { spawn "playerctl" "--player=spotify" "previous"; }
+	XF86AudioPlay				allow-when-locked=true { spawn "playerctl" "--player=spotify" "play-pause"; }
+	XF86AudioPause				allow-when-locked=true { spawn "playerctl" "--player=spotify" "play-pause"; }
 
 	// ─── Brightness Controls ───
 	/* `dms ipc brightness` adjusts backlight via DMS (uses brightnessctl or similar). */

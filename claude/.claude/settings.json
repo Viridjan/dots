@@ -23,5 +23,38 @@
     }
   },
   "tui": "fullscreen",
-  "theme": "dark"
+  "theme": "dark",
+  "autoMode": {
+    "environment": [
+      "### Org-wide",
+      "**Organization**: None configured",
+      "**Cloud provider(s)**: None configured",
+      "**Repository visibility**: PUBLIC — Viridjan/dots (github.com/Viridjan/dots) — any push here is publishing",
+      "**Internal sharing / snippet hosting**: None configured — treat public paste/gist services as outside the trust boundary",
+      "**Secrets management**: None configured",
+      "**Default / protected branches**: Default branch main; no rulesets or protected branches listed (repo is public — treat main as effectively unprotected against force-push/history rewrite)",
+      "**CI/CD deploy targets**: None configured",
+      "**Network posture**: None configured",
+      "**Source control**: The trusted repo (Viridjan/dots on github.com) and its remote(s) only (no additional orgs configured)",
+      "**Trusted internal domains**: None configured",
+      "**Trusted cloud buckets**: None configured",
+      "**Key internal services**: None configured",
+      "**Internal package registry**: None configured",
+      "**Sensitive data locations & audiences**: any file or store holding personal data, confidential business data, credentials, regulated data, or similarly sensitive material; preserve exact handles when known and share only with audiences cleared at the [named+specifics] bar. Known local ignored-credential handles in this repo: `claude/.claude/.credentials.json`, `cave/.cave/agent/auth.json`, `cave/.cave/agent/sessions/`, `vesktop/.config/vesktop/sessionData/` (Discord token) — these must never be committed/pushed to the public remote",
+      "**Data retention / declassification**: None configured",
+      "**Sensitive remote targets**: any namespace, host, or container whose name carries `prod` or `production` as a whole word or name segment (hyphen/underscore/dot-delimited — e.g. matches `prod-db`, not `producer`)",
+      "**Protected deployment namespaces / environments**: None configured — fall back to the Sensitive remote targets heuristic",
+      "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything whose name or tag carries `prod` or `production` as a whole word or name segment",
+      "### User-specific",
+      "**Primary use of Claude Code**: personal/hobby — dotfiles and system configuration management for CachyOS + niri (GNU Stow-based)",
+      "**Trusted repo**: ~/Projects/dots (github.com/Viridjan/dots) — PUBLIC repo; confidential/personal material is not automatically fine here — only this repo's own dotfiles/config content belongs in it; secrets remain excluded regardless of visibility (see gitignore'd credential paths above)",
+      "**Org-specific CLIs**: None configured — routine project tooling: `vjupdate`, `stow`, `paru`, `pacman`, `claude-science`, `shellcheck`, `checkrebuild`",
+      "routine under ~/Projects/dots/ prefix: stow, vjupdate, and package-list edits are routine maintenance for this repo"
+    ],
+    "soft_deny": [
+      "$defaults",
+      "Bash(git push --force*) in Viridjan/dots — public repo with no branch protection on main; force-push rewrites public history",
+      "Bash(git filter-repo*) in ~/Projects/dots — CLAUDE.md documents history-rewrite as a deliberate but rare/destructive maintenance operation requiring a backup bundle first"
+    ]
+  }
 }
