@@ -23,6 +23,5 @@
     }
   },
   "tui": "fullscreen",
-  "theme": "dark",
-  "model": "opus"
+  "theme": "dark"
 }

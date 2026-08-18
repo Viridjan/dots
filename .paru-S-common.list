@@ -54,6 +54,11 @@ openssh
 pacman-contrib
 rebuild-detector
 shellcheck
+git
+cmake
+gparted
+# gperf: makedepend for lib32-libid3tag (AUR), pulled in when rebuilding lib32-imlib2
+gperf
 rsync
 smartmontools
 ffmpegthumbnailer
@@ -79,6 +84,7 @@ playerctl
 # Applications
 brave-origin
 thunderbird
+nicotine+
 vlc
 vlc-plugins-all
 qbittorrent
@@ -148,6 +154,7 @@ libdvdcss
 ufw
 ufw-extras
 networkmanager-openvpn
+samba
 
 # Editors
 sublime-text
@@ -159,6 +166,7 @@ freecad
 
 # Browsers
 brave-origin-bin
+firefox
 
 # ML
 unsloth

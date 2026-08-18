@@ -141,6 +141,12 @@ vjupdate --dms-import
 # Create .desktop launchers for all installed Steam games
 vjupdate --steam-launchers
 
+# Rebuild packages flagged by rebuild-detector
+vjupdate --rebuild
+
+# Remove stale non-Steam app launchers, report apps not mirrored locally
+vjupdate --app-launchers
+
 # Skip specific bootstrap phases (space-separated phase names)
 SKIP_PHASES="mirrors keyrings" vjupdate
 
@@ -270,6 +276,14 @@ Gotchas when linting these scripts:
 - The scripts are `set -euo pipefail`, so `var=$(cmd)` **exits before** any `rc=$?` or
   error branch below it. Where the failure is the signal (`pacman -Dk`, `aur_check`),
   guard with `|| true` or `|| rc=$?` — otherwise the handling code is unreachable.
+- `warn()` only captures its own `$*` into the `WARNINGS[]` recap array — anything
+  `echo`'d on a separate line after it is printed live but silently dropped from the
+  end-of-run summary. Fold detail into the `warn` call itself (`warn "... : $detail"`),
+  don't `warn` a header then `echo` the payload.
+- `checkrebuild`'s output is `<repo>\tpkgname` per line (`repo` is `foreign` for
+  AUR-installed packages). `check_rebuilds` extracts column 2 with
+  `awk -F'\t' '{print $2}'` — don't flatten the raw line into the package list, the
+  first column isn't a valid pacman target.
 
 ## Claude Code statusline
 

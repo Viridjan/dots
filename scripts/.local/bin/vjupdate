@@ -44,6 +44,7 @@ CONFIGURE_ITEMS=""
 CONFIGURE_PROMPTED=false
 AUDIT_ORPHAN_REMOVAL=false
 AUDIT_PYTHON_REBUILD=false
+AUDIT_REBUILD=false
 mkdir -p "$STAMP_DIR"
 
 # ─── Logging ─────────────────────────────────────────────
@@ -1251,10 +1252,15 @@ check_rebuilds() {
     out=$(checkrebuild 2>/dev/null || true)
     if [[ -z "$out" ]]; then
         ok "no rebuilds needed"
-    else
-        warn "Packages needing rebuild:"
-        echo "$out"
+        return
     fi
+    local packages
+    packages=$(awk -F'\t' '{print $2}' <<<"$out" | tr '\n' ' ' | xargs)
+    warn "Packages needing rebuild: $packages"
+    if ! $AUDIT_REBUILD; then warn "Rebuild skipped — enable via configure checklist"; return; fi
+    # shellcheck disable=SC2086  # word-split intended: multiple package args
+    paru -S --noconfirm $packages
+    ok "packages rebuilt"
 }
 
 # ─── Maintenance: kernel management ─────────────────────
@@ -1574,6 +1580,7 @@ _bootstrap_multiselect() {
         "+audit — orphan pkgs · flatpak cleanup · rebuild check · pacnew · firmware" \
         "+orphan-removal — Remove orphaned packages (audit)" \
         "+python-rebuild — Rebuild Python packages needing rebuild (audit)" \
+        "+rebuild — Rebuild packages flagged by rebuild-detector (audit)" \
         ":── One-time configs ────────────────────────" \
         "manual-steps — Show post-install checklist (git, SSH, DMS, Bitwarden, etc.)" \
         ":  System ─────────────────────────────────" \
@@ -1597,8 +1604,9 @@ _bootstrap_multiselect() {
         ":  AI & VMs ────────────────────────────────" \
         "ollama — Pull ollama AI model (desktop only)" \
         "vms — Pull VM Docker images (Windows)" \
-        ":  Gaming ──────────────────────────────────" \
-        "+steam-launchers — Create .desktop launchers for all installed Steam games"
+        ":  Launchers ───────────────────────────────" \
+        "+steam-launchers — Create .desktop launchers for all installed Steam games" \
+        "+app-launchers — Remove stale non-Steam app launchers, report unmirrored apps"
 }
 
 phase_configure() {
@@ -1635,7 +1643,9 @@ phase_configure() {
     _sel "vms"             && setup_vms
     _sel "orphan-removal"  && AUDIT_ORPHAN_REMOVAL=true
     _sel "python-rebuild"  && AUDIT_PYTHON_REBUILD=true
+    _sel "rebuild"         && AUDIT_REBUILD=true
     _sel "steam-launchers" && setup_steam_launchers
+    _sel "app-launchers"   && check_app_launchers
 
     return 0
 }
@@ -1769,15 +1779,13 @@ setup_steam_launchers() {
             [[ -z "$appid" || -z "$name" ]] && continue
 
             # Skip Proton, redistributables, Steam Linux Runtime, and tools
-            if echo "$name" | grep -qiE '(^Proton |^Steam Linux Runtime|Steamworks Common Redistributables|^Steam VR|^Pressure Vessel)'; then
+            if echo "$name" | grep -qiE '(^Proton |^Steam Linux Runtime|Steamworks Common Redistributables|^Steam ?VR|^Pressure Vessel)'; then
                 (( skipped++ )) || true
                 continue
             fi
 
             local desktop="$apps_dir/steam_app_${appid}.desktop"
-            local icon="$steam_root/appcache/librarycache/${appid}_icon.jpg"
-            local icon_entry="steam"
-            [[ -f "$icon" ]] && icon_entry="$icon"
+            local icon_entry="steam_icon_${appid}"
 
             cat > "$desktop" <<EOF
 [Desktop Entry]
@@ -1792,7 +1800,68 @@ EOF
         done
     done
 
-    ok "created: $count Steam game launchers ($skipped tools/runtimes skipped)"
+    # Remove launchers for games no longer installed (appmanifest gone)
+    local removed=0
+    for desktop in "$apps_dir"/steam_app_*.desktop; do
+        [[ -f "$desktop" ]] || continue
+        local id="${desktop##*/steam_app_}"
+        id="${id%.desktop}"
+        local found=false
+        for lib in "${library_paths[@]}"; do
+            [[ -f "$lib/appmanifest_${id}.acf" ]] && { found=true; break; }
+        done
+        $found || { rm -f "$desktop"; (( removed++ )) || true; }
+    done
+
+    ok "created: $count Steam game launchers ($skipped tools/runtimes skipped, $removed stale removed)"
+}
+
+# ─── Maintenance: non-Steam app launcher hygiene ─────────
+# Extracts the executable token from a .desktop Exec= line (handles a
+# quoted path, ignores trailing %f/%U field codes and arguments).
+_desktop_exec_bin() {
+    local s="$1"
+    s="${s#"${s%%[![:space:]]*}"}"
+    if [[ "$s" == \"* ]]; then
+        s="${s#\"}"
+        printf '%s' "${s%%\"*}"
+    else
+        printf '%s' "${s%% *}"
+    fi
+}
+
+check_app_launchers() {
+    local apps_dir="$HOME/.local/share/applications"
+    local f base exec_line bin removed=0
+
+    for f in "$apps_dir"/*.desktop; do
+        [[ -f "$f" ]] || continue
+        base="$(basename "$f")"
+        [[ "$base" == steam_app_* ]] && continue
+
+        exec_line=$(grep -m1 '^Exec=' "$f" | cut -d= -f2-)
+        [[ -z "$exec_line" ]] && continue
+
+        bin=$(_desktop_exec_bin "$exec_line")
+        [[ "$bin" == steam* ]] && continue
+
+        if [[ "$bin" == /* ]]; then
+            [[ -e "$bin" ]] && continue
+        else
+            command -v "$bin" &>/dev/null && continue
+        fi
+
+        rm -f "$f"
+        (( removed++ )) || true
+    done
+    ok "removed: $removed stale (non-Steam) app launcher(s)"
+
+    local missing=0
+    for f in /usr/share/applications/*.desktop; do
+        [[ -f "$f" ]] || continue
+        [[ -e "$apps_dir/$(basename "$f")" ]] || (( missing++ )) || true
+    done
+    ok "$missing installed app(s) not mirrored in ~/.local/share/applications (already visible via /usr/share/applications, informational only)"
 }
 
 usage() {
@@ -1810,6 +1879,8 @@ usage() {
     echo "  --dms-export        Copy live ~/.config/niri/dms/*.kdl → repo (then commit)"
     echo "  --dms-import        Copy repo dms overrides → live (skips auto-generated files)"
     echo "  --steam-launchers   Create .desktop launchers for all installed Steam games"
+    echo "  --app-launchers     Remove stale non-Steam app launchers, report unmirrored apps"
+    echo "  --rebuild           Rebuild packages flagged by rebuild-detector"
     echo "  --help              Show this message"
 }
 
@@ -1825,6 +1896,8 @@ case "${1:-}" in
     --dms-export)        dms_export ;;
     --dms-import)        dms_import ;;
     --steam-launchers)   setup_steam_launchers ;;
+    --app-launchers)     check_app_launchers ;;
+    --rebuild)           AUDIT_REBUILD=true; check_rebuilds ;;
 
     --help|-h)           usage ;;
     "")                  bootstrap ;;
