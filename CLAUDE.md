@@ -326,7 +326,7 @@ Binaries land in `~/.local/bin/` (already in PATH). Required for `caveman-code` 
 | Lock screen keybind | Mod+Alt+L | cfg/keybinds.kdl |
 | Fullscreen keybind | Mod+Shift+F (game-friendly); Mod+F = maximize-column | cfg/keybinds.kdl + dms/binds.kdl |
 | Media keys (Play/Pause/Next/Prev) | `playerctl --player=spotify` (bypasses DMS's generic mpris picker so it doesn't hand control to Brave/other players) | cfg/keybinds.kdl + dms/binds.kdl |
-| Keybinds cheatsheet | Mod+Shift+Slash | dms/binds.kdl |
+| Keybinds cheatsheet | Mod+G | dms/binds.kdl |
 | Toggle bar | Mod+Shift+Space | dms/binds.kdl |
 
 DMS actions from keybinds spawn `dms ipc call <target> <fn>` — the `call` subcommand is required (e.g. `dms ipc call powermenu toggle`, `dms ipc call lock lock`). Omitting `call` silently no-ops.

@@ -24,7 +24,7 @@ binds {
     }
     Mod+N hotkey-overlay-title="Notification Center" { spawn "dms" "ipc" "call" "notifications" "toggle"; }
     Mod+Shift+N hotkey-overlay-title="Notepad" { spawn "dms" "ipc" "call" "notepad" "toggle"; }
-    Mod+Shift+Slash hotkey-overlay-title="Keybinds Cheatsheet" { spawn "dms" "ipc" "call" "keybinds" "toggle" "niri"; }
+    Mod+G hotkey-overlay-title="Keybinds Cheatsheet" { spawn "dms" "ipc" "call" "keybinds" "toggle" "niri"; }
     Mod+Shift+Space hotkey-overlay-title="Toggle Bar" { spawn "dms" "ipc" "call" "bar" "toggle" "id" "default"; }
 
     // === Security ===
