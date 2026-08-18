@@ -320,14 +320,14 @@ Binaries land in `~/.local/bin/` (already in PATH). Required for `caveman-code` 
 | Shadow color | #0d3320CC (forest green) | dms/colors.kdl (manual override) |
 | Keyboard layout | us intl | cfg/input.kdl |
 | Screenshot path | ~/Pictures/Screenshots/ | cfg/misc.kdl |
-| Terminal keybind | Mod+Return | dms/binds.kdl |
-| Overview keybind | Mod+O (cfg), Mod+D (dms) | cfg/keybinds.kdl + dms/binds.kdl |
-| Power menu keybind | Mod+X (dms), Mod+Shift+Q (cfg) | dms/binds.kdl + cfg/keybinds.kdl |
-| Lock screen keybind | Mod+Alt+L | cfg/keybinds.kdl |
-| Fullscreen keybind | Mod+Shift+F (game-friendly); Mod+F = maximize-column | cfg/keybinds.kdl + dms/binds.kdl |
+| Terminal keybind | ⌘⏎ | dms/binds.kdl |
+| Overview keybind | ⌘O (cfg), ⌘D (dms) | cfg/keybinds.kdl + dms/binds.kdl |
+| Power menu keybind | ⌘X (dms), ⌘⇧Q (cfg) | dms/binds.kdl + cfg/keybinds.kdl |
+| Lock screen keybind | ⌘⌥L | cfg/keybinds.kdl |
+| Fullscreen keybind | ⌘⇧F (game-friendly); ⌘F = maximize-column | cfg/keybinds.kdl + dms/binds.kdl |
 | Media keys (Play/Pause/Next/Prev) | `playerctl --player=spotify` (bypasses DMS's generic mpris picker so it doesn't hand control to Brave/other players) | cfg/keybinds.kdl + dms/binds.kdl |
-| Keybinds cheatsheet | Mod+G | dms/binds.kdl |
-| Toggle bar | Mod+Shift+Space | dms/binds.kdl |
+| Keybinds cheatsheet | ⌘G | dms/binds.kdl |
+| Toggle bar | ⌘⇧Space | dms/binds.kdl |
 
 DMS actions from keybinds spawn `dms ipc call <target> <fn>` — the `call` subcommand is required (e.g. `dms ipc call powermenu toggle`, `dms ipc call lock lock`). Omitting `call` silently no-ops.
 
