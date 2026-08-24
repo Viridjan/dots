@@ -484,10 +484,6 @@ _stow_niri_cfg() {
 
     ln -sf "$src/config.kdl" "$dst/config.kdl"
 
-    for f in animation autostart keybinds layout misc rules; do
-        [[ -f "$src/cfg/${f}.kdl" ]] && ln -sf "$src/cfg/${f}.kdl" "$dst/cfg/${f}.kdl"
-    done
-
     for f in display input autostart-machine surface-layout; do
         [[ -f "$mach_src/cfg/${f}.kdl" ]] && ln -sf "$mach_src/cfg/${f}.kdl" "$dst/cfg/${f}.kdl"
     done

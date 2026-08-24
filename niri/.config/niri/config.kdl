@@ -282,11 +282,22 @@ window-rule {
     match app-id="kitty"
     default-column-width { proportion 0.5; }
 }
+window-rule {
+    match app-id="vesktop"
+    match title="Vesktop"
+    default-column-width { proportion 0.4; }
+}
+window-rule {
+    match app-id="libreoffice"
+    default-column-width { proportion 0.5; }
+}
 
 // Workspace assignments
 window-rule {
     match app-id="discord"
-    match title="Ferdium"
+    match app-id="thunderbird"
+    match app-id="whatsie"
+    match app-id="TelegramDesktop"
     open-on-workspace "social"
     open-focused false
 }
@@ -295,8 +306,31 @@ window-rule {
     match app-id=r#"^steam$"#
     match app-id=r#"^steam_app_\d+$"#
     match title="Dota 2"
+    match app-id="BambuStudio"
     open-on-workspace "media"
     open-focused false
+}
+// dgop system monitor — media workspace, 75% width (restored from orphaned cfg/rules.kdl, 2026-08-24)
+window-rule {
+    match title="dgop-monitor"
+    open-on-workspace "media"
+    open-focused false
+    default-column-width { proportion 0.75; }
+}
+// spotify-player TUI — media workspace, 50% width
+window-rule {
+    match title="spotify-player"
+    open-on-workspace "media"
+    open-focused false
+    default-column-width { proportion 0.5; }
+}
+// Steam games — fullscreen + VRR under niri's compositor fullscreen (no exclusive mode).
+// Matches XWayland games (WM_CLASS = steam_app_NNNN). Native Wayland games set their
+// OWN app-id and need a per-game rule instead — see README gaming section.
+window-rule {
+    match app-id="^steam_app_"
+    open-fullscreen true
+    variable-refresh-rate true
 }
 
 // Open dms windows as floating by default
@@ -321,6 +355,7 @@ recent-windows {
 // Machine-specific overrides (surface vs desktop)
 include "cfg/autostart-machine.kdl"
 include "cfg/surface-layout.kdl"
+include "cfg/input.kdl"
 
 // Include dms files
 include "dms/colors.kdl"

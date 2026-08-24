@@ -2,9 +2,12 @@ binds {
     // === System & Overview ===
     Mod+D repeat=false { toggle-overview; }
     Mod+Shift+Escape { show-hotkey-overlay; }
+    Mod+TAB { focus-workspace-previous; }
 
     // === Application Launchers ===
     Mod+Return hotkey-overlay-title="Open Terminal" { spawn "alacritty"; }
+    Mod+E hotkey-overlay-title="File Manager" { spawn "dolphin"; }
+    Mod+B hotkey-overlay-title="Open Browser" { spawn "brave-browser"; }
     Mod+Space hotkey-overlay-title="Application Launcher" {
         spawn "dms" "ipc" "call" "spotlight" "toggle";
     }
