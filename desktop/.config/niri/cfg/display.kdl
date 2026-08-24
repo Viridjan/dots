@@ -7,10 +7,17 @@ Find more information on the wiki:
 https://niri-wm.github.io/niri/Configuration:-Outputs
 Remember to uncomment the node by removing "/-"!
 
-NOTE: This file is included but effectively overridden by dms/outputs.kdl,
-which DMS auto-generates and sets the full 165Hz + VRR config.
-Edit dms/outputs.kdl via `dms config` instead, or disable the DMS include
-in config.kdl if you want to manage outputs manually here.
+NOTE: This file is included AFTER dms/outputs.kdl in config.kdl, so it
+intentionally OVERRIDES DMS's auto-generated output block. DMS's auto-detect
+picks 3440x1440@165.001 + unconditional VRR on this monitor, which caused
+intermittent striped/corrupted display after login (2026-08-24) — reproduces
+maybe 1 in 2-3 boots, consistent with marginal DP link training at 165Hz.
+144Hz (a genuine "preferred" mode per `niri msg outputs`, not an interpolated
+timing) + on-demand-only VRR has been stable. Editing dms/outputs.kdl directly
+does NOT work as a fix: DMS overwrites it within seconds of every session
+start regardless of content, so any override has to live here instead, in a
+git-tracked file DMS never touches. If you want to try 165Hz again, edit here
+(not dms/outputs.kdl) and watch for recurrence over a handful of boots.
 */
 
 output "DP-1" {
@@ -26,7 +33,7 @@ output "DP-1" {
 	If the mode is omitted altogether or is invalid, niri will pick one automatically.
 	Run `niri msg outputs` while inside a niri instance to list all outputs and their modes.
 	*/
-	mode "3440x1440@60"
+	mode "3440x1440@144"
 
 	/* You can use integer or fractional scale, for example use 1.5 for 150% scale. */
 	scale 1
@@ -35,10 +42,8 @@ output "DP-1" {
 	Variable refresh rate (FreeSync/G-Sync). on-demand = VRR active only for
 	windows with `variable-refresh-rate true` (set on game window-rules in
 	cfg/rules.kdl). Cuts tearing/stutter under niri's compositor fullscreen.
-	NOTE: if DMS regenerates dms/outputs.kdl it sets its own output block which
-	overrides this; re-add there or via `dms config` if VRR stops working.
 	*/
-	variable-refresh-rate on-demand
+	variable-refresh-rate on-demand=true
 
 	/*
 	Transform allows to rotate the output counter-clockwise, valid values are:
