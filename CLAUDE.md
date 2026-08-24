@@ -83,24 +83,26 @@ niri/.config/niri/
 ### Include order in config.kdl
 
 ```
-cfg/autostart → cfg/keybinds → cfg/input → cfg/layout → cfg/rules → cfg/misc
-→ cfg/surface-layout  (machine-specific; comes from desktop/ or surface/ pkg)
-→ dms/colors → dms/layout → dms/alttab → dms/outputs → dms/cursor
-→ dms/windowrules → dms/binds
+cfg/autostart-machine → cfg/surface-layout  (machine-specific; comes from desktop/ or surface/ pkg)
+→ dms/colors → dms/layout → dms/alttab → dms/binds → dms/outputs → dms/cursor
+→ cfg/display  (overrides dms/outputs — see below)
 ```
 
-Later includes override earlier ones for the same property. `dms/binds.kdl` is loaded last so DMS keybinds take precedence.
+Later includes override earlier ones for the same property/block (verified for `output` blocks specifically via `niri validate` + live `niri msg outputs`, not just documented behavior — see `[[niri-gaming]]` memory).
+
+**KNOWN DRIFT (found 2026-08-24, not yet resolved):** `cfg/animation.kdl`, `cfg/autostart.kdl`, `cfg/keybinds.kdl`, `cfg/layout.kdl`, `cfg/misc.kdl`, `cfg/rules.kdl`, and machine-pkg `cfg/input.kdl` are all real files, correctly symlinked live by `_stow_niri_cfg` in vjupdate (`ln -sf` into `~/.config/niri/cfg/`) — but **none of them are `include`d in `config.kdl`**, so niri never reads them. `input {}`, `layout {}`, `animations {}`, and `screenshot-path` are instead defined **inline in `config.kdl` itself**, and window rules/keybinds live only in the inline blocks + `dms/binds.kdl`. Editing `cfg/keybinds.kdl` (204 lines) or `cfg/rules.kdl` (209 lines) currently does **nothing** — content wasn't diffed against the inline equivalents to confirm whether it's a stale duplicate or contains something no longer active anywhere. Needs a deliberate pass: diff each orphaned file against its inline counterpart, then either re-add the `include` or delete the dead file. Until that's done, treat `cfg/` as **not** the live source for layout/keybinds/rules/animations/misc — `config.kdl`'s inline blocks and `dms/binds.kdl` are.
 
 ### What to edit
 
-- **User settings** (layout, keybinds, rules, animations): edit files under `cfg/`. Changes go directly into the repo via symlinks.
+- **Output config** (resolution, refresh rate, VRR): edit `cfg/display.kdl` (desktop/surface pkg) directly — it's included last and wins over DMS's auto-generated `dms/outputs.kdl`. Reload live without a relogin: `niri msg output <name> mode "<mode>"` / `niri msg output <name> vrr [--on-demand] on|off` (temporary, not saved to file) — a plain `niri msg action load-config-file` reloads the config but does **not** force a live modeset on an already-connected output. Validate syntax first with `niri validate -c ~/.config/niri/config.kdl` (works without a running session).
+- **Layout/keybinds/rules/animations/misc**: see the KNOWN DRIFT note above — the `cfg/` files for these are currently inert; the real source is inline in `config.kdl` plus `dms/binds.kdl`.
 - **Machine-specific niri overrides**: both `desktop/` and `surface/` packages provide identically-named `.kdl` files under `cfg/`. `vjupdate` symlinks the active machine's version into `~/.config/niri/cfg/`. `config.kdl` includes them unconditionally — the machine-specific content differs, or one side is empty. Current files:
   - `autostart-machine.kdl` — desktop has `spawn-at-startup` entries (thunderbird, whatsie, Telegram, steam, alacritty-hosted dgop monitor, daemons) plus `flatpak run com.spotify.Client` for real Spotify; surface is empty (no autorun). Vesktop launches via XDG autostart (`~/.config/autostart/vesktop.desktop`), not here. Terminal for spawned TUIs is `alacritty` — `kitty` is not installed, so entries hardcoding it silently no-op.
   - `surface-layout.kdl` — surface has `window-rule { default-column-width { proportion 0.5; } }`; desktop is empty
   - To add a new machine-specific override: create the `.kdl` in both `desktop/` and `surface/` packages, add `include "cfg/<name>.kdl"` to `config.kdl`, and add `<name>` to the `for f in ...` loop in `vjupdate`'s `_stow_niri_cfg`.
   - Content common to both machines but that needs to differ slightly: put shared parts in `config.kdl` or `cfg/` (niri pkg), machine-specific delta in the per-machine file.
 - **DMS overrides** (colors, layout values, binds): edit files under `~/.config/niri/dms/`, then run `vjupdate --dms-export` to copy to `dots/niri/.config/niri/dms/` and commit. Reload: `niri msg action load-config-file`
-- **Do not** rely on `dms/colors.kdl` or `dms/outputs.kdl` being hand-editable — DMS regenerates them on theme/display changes. Exception: `dms/colors.kdl` in the repo has manual overrides for focus-ring (`#4caf50` green) and shadow color (`#0d3320CC`). After any DMS color regeneration, re-apply: `cp ~/Projects/dots/niri/.config/niri/dms/colors.kdl ~/.config/niri/dms/colors.kdl && niri msg action load-config-file`
+- **Do not** rely on `dms/colors.kdl` or `dms/outputs.kdl` being hand-editable — DMS rewrites them within seconds of every session start, regardless of content, not just on theme/display changes. `dms/colors.kdl` exception: manual overrides for focus-ring (`#4caf50` green) and shadow color (`#0d3320CC`); after any DMS color regeneration, re-apply: `cp ~/Projects/dots/niri/.config/niri/dms/colors.kdl ~/.config/niri/dms/colors.kdl && niri msg action load-config-file`. `dms/outputs.kdl` needs no such manual reapply — `cfg/display.kdl` is included after it in `config.kdl` and permanently overrides it (see Include order above), so DMS is free to keep rewriting `dms/outputs.kdl` without effect.
 
 ## Stow operations
 
@@ -308,6 +310,8 @@ npm config set prefix ~/.local
 Binaries land in `~/.local/bin/` (already in PATH). Required for `caveman-code` and any other global npm tools installed by `vjupdate`.
 
 ## Current key values (as of last sync)
+
+**Caveat:** several "Source" cells below cite `cfg/layout.kdl`, `cfg/input.kdl`, `cfg/misc.kdl`, `cfg/keybinds.kdl` — per the KNOWN DRIFT note above, those files aren't actually included by `config.kdl`. The *values* are still accurate (verified live), but the cited source file for the layout/shadow rows is likely wrong (probably `dms/layout.kdl`, which loads after the inline `config.kdl` block and wins) — not re-audited row by row yet.
 
 | Setting | Value | Source |
 |---|---|---|

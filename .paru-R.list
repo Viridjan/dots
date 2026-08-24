@@ -14,6 +14,7 @@ brave-bin
 gomuks
 gomuks-web-bin
 proton-cachyos
+proton-cachyos-native
 electron37
 xorg-server
 xf86-input-libinput

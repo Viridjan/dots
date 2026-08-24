@@ -12,7 +12,6 @@ mangohud
 steam
 wqy-zenhei
 wine-cachyos
-proton-cachyos-native
 
 # Graphics (CachyOS repo mesa is already optimized)
 mesa

@@ -54,3 +54,6 @@ VSCodium/.config/VSCodium/GPUCache/
 VSCodium/.config/VSCodium/DawnGraphiteCache/
 VSCodium/.config/VSCodium/DawnWebGPUCache/
 VSCodium/.config/VSCodium/Code Cache/
+
+# vesktop — same Electron/Chromium V8 code cache, rewritten every launch
+vesktop/.config/vesktop/Code Cache/
