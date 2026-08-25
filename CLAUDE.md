@@ -319,6 +319,7 @@ Binaries land in `~/.local/bin/` (already in PATH). Required for `caveman-code` 
 
 | Setting | Value | Source |
 |---|---|---|
+| Display mode (desktop) | 3440x1440@165, VRR on-demand only | cfg/display.kdl (native monitor mode; dropped to 144Hz 2026-08-24 to chase striping, restored to 165Hz 2026-08-25 after striping recurred at 144Hz too — mode wasn't the trigger, see file header comment) |
 | Gaps | 4px | dms/layout.kdl (auto-generated; user deliberately kept this over cfg/layout.kdl's 13px, 2026-08-24) |
 | Focus-ring width | 2px | dms/layout.kdl |
 | Focus-ring color | #4caf50 (green) | dms/colors.kdl (manual override) |
