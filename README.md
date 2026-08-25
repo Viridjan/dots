@@ -332,14 +332,19 @@ disabling NetworkManager-wait-online, masking lvm2-monitor, the rate-mirrors 2h
 delay, and the AMD GPU performance udev rule. Steps 7 (EFI cleanup) and 8 (greetd
 autologin) stay manual — EFI needs review, autologin conflicts with the DMS
 greeter. Output mode/VRR is set in `desktop/.config/niri/cfg/display.kdl`
-(`mode "3440x1440@165"`, VRR omitted entirely = off) — this file is included
-last in `config.kdl` specifically to override DankMaterialShell's
-auto-detected `dms/outputs.kdl`. 165Hz is the monitor's real native mode
-(never the trigger); VRR itself causes luminosity/brightness flicker on this
+(`mode "3440x1440@165"`, VRR omitted entirely = off), which is the **only**
+`output` block in the config tree — DankMaterialShell's auto-detected
+`dms/outputs.kdl` is deliberately **not** included. Include order does not
+save you here: for keyed nodes like `output "NAME"`, niri takes the *first*
+occurrence, so re-adding that include ahead of this file would silently make
+every edit to it inert (this cost days of misdiagnosis in Aug 2026 — see
+CLAUDE.md "Merge semantics"). 165Hz is the monitor's real native mode and was
+never the problem; VRR itself causes luminosity/brightness flicker on this
 panel, even on-demand, so it's disabled outright (2026-08-25) — the
-steam_app game window-rule no longer requests VRR either. Editing
-`dms/outputs.kdl` directly doesn't stick — DMS rewrites it within seconds of
-every login.
+steam_app game window-rule no longer requests VRR either, and
+`cfg/autostart-machine.kdl` re-asserts `vrr off` at session start. Editing
+`dms/outputs.kdl` directly is pointless twice over — it isn't included, and
+DMS rewrites it within seconds of every login anyway.
 
 The sections below document what each step does, for manual application or review.
 
