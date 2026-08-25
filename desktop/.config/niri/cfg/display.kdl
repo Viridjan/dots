@@ -41,8 +41,11 @@ now off entirely here (property omitted). Tradeoff accepted: no VRR
 smoothing for fullscreen games — see steam_app window-rule in config.kdl,
 its `variable-refresh-rate true` is now a no-op.
 
-`dms/outputs.kdl` itself is left alone (DMS still writes it, unused now
-that it's not included) — don't hand-edit it, it has zero effect either way.
+`dms/outputs.kdl` was DELETED outright on 2026-08-25, not merely
+un-included. Leaving it would have left a file that reads as the
+authoritative output config, making "just re-add the include" the obvious
+fix for anyone hitting a display problem — which silently recreates this
+exact bug. If DMS ever regenerates it, ignore it: nothing includes it.
 */
 
 output "DP-1" {

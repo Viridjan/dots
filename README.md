@@ -342,9 +342,10 @@ CLAUDE.md "Merge semantics"). 165Hz is the monitor's real native mode and was
 never the problem; VRR itself causes luminosity/brightness flicker on this
 panel, even on-demand, so it's disabled outright (2026-08-25) — the
 steam_app game window-rule no longer requests VRR either, and
-`cfg/autostart-machine.kdl` re-asserts `vrr off` at session start. Editing
-`dms/outputs.kdl` directly is pointless twice over — it isn't included, and
-DMS rewrites it within seconds of every login anyway.
+`cfg/autostart-machine.kdl` re-asserts `vrr off` at session start.
+`dms/outputs.kdl` was deleted outright rather than just un-included, so it
+can't tempt anyone into re-adding the include and silently reintroducing the
+bug. If DMS regenerates it, it stays inert — nothing includes it.
 
 The sections below document what each step does, for manual application or review.
 
