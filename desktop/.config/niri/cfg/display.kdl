@@ -41,11 +41,23 @@ now off entirely here (property omitted). Tradeoff accepted: no VRR
 smoothing for fullscreen games — see steam_app window-rule in config.kdl,
 its `variable-refresh-rate true` is now a no-op.
 
-`dms/outputs.kdl` was DELETED outright on 2026-08-25, not merely
-un-included. Leaving it would have left a file that reads as the
-authoritative output config, making "just re-add the include" the obvious
-fix for anyone hitting a display problem — which silently recreates this
-exact bug. If DMS ever regenerates it, ignore it: nothing includes it.
+`dms/outputs.kdl` was DELETED on 2026-08-25 and its include removed.
+Verified behaviour (source-read + dms.service restart, same day):
+  - DMS recreates it at every start, but **as a 0-byte empty file** — the
+    harmful `output "DP-1" { ... variable-refresh-rate }` block does NOT
+    come back on its own. An empty file is harmless even if included.
+  - Real content is only written when display settings are applied through
+    DMS's Display panel (every caller of `backendWriteOutputsConfig` lives
+    in Modules/Settings/DisplayConfig/).
+
+⚠ THE ONE-CLICK TRAP: with the include gone, DMS's Settings → Display shows
+a "First Time Setup" box — "Click 'Setup' to create the outputs config and
+add include to your compositor config." That button runs
+`fixOutputsInclude()`, which re-adds `include "dms/outputs.kdl"` to
+config.kdl AND regenerates a full output block. Because keyed nodes take
+the FIRST occurrence, that include lands before this file and silently
+makes everything here inert again — i.e. one click restores the flicker
+bug. Do not press it. If it is ever pressed, remove the include again.
 */
 
 output "DP-1" {
