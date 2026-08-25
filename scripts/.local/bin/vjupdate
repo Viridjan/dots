@@ -457,7 +457,6 @@ COMMON_STOW_PKGS=(
     caveman
     DankMaterialShell
     vesktop
-    fastfetch
     fish
     fonts
     gtk-3.0

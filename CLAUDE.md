@@ -23,8 +23,7 @@ dots/
   claude/         → ~/.claude/  (settings.json, hooks/, keybindings.json, statusline.sh)
   DankMaterialShell/ → ~/.config/DankMaterialShell/
   desktop/        → ~/.config/niri/cfg/display.kdl + input.kdl + surface-layout.kdl  (tower only)
-  fastfetch/      → ~/.config/fastfetch/  (logo override — Arch instead of CachyOS default)
-  fish/           → ~/.config/fish/
+  fish/           → ~/.config/fish/  (Arch logo override for fastfetch — see fish_greeting in config.fish)
   gtk-3.0/        → ~/.config/gtk-3.0/
   gtk-4.0/        → ~/.config/gtk-4.0/
   micro/          → ~/.config/micro/
@@ -160,7 +159,7 @@ vjupdate --app-launchers
 SKIP_PHASES="mirrors keyrings" vjupdate
 
 # Re-apply all packages at once
-cd ~/Projects/dots && stow --restow -t ~ alacritty cave caveman DankMaterialShell fastfetch fish \
+cd ~/Projects/dots && stow --restow -t ~ alacritty cave caveman DankMaterialShell fish \
     fonts gtk-3.0 gtk-4.0 micro mimeapps mpd paru qt5ct qt6ct spotify-player vesktop VSCodium scripts
 stow --adopt --restow -t ~ claude
 stow --restow -t ~ desktop   # or: surface
