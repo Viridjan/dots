@@ -264,6 +264,9 @@ window-rule {
 // Per-app column widths
 window-rule {
     match app-id="Alacritty"
+    default-column-width { proportion 0.33; }
+}
+window-rule {
     match app-id="com.ktechpit.whatsie"
     match app-id="org.telegram.desktop"
     default-column-width { proportion 0.3; }
