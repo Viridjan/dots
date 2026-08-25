@@ -25,6 +25,11 @@
   "tui": "fullscreen",
   "theme": "dark",
   "autoMode": {
+    "soft_deny": [
+      "$defaults",
+      "Bash(git push --force*) in Viridjan/dots — public repo with no branch protection on main; force-push rewrites public history",
+      "Bash(git filter-repo*) in ~/Projects/dots — CLAUDE.md documents history-rewrite as a deliberate but rare/destructive maintenance operation requiring a backup bundle first"
+    ],
     "environment": [
       "### Org-wide",
       "**Organization**: None configured",
@@ -50,11 +55,7 @@
       "**Trusted repo**: ~/Projects/dots (github.com/Viridjan/dots) — PUBLIC repo; confidential/personal material is not automatically fine here — only this repo's own dotfiles/config content belongs in it; secrets remain excluded regardless of visibility (see gitignore'd credential paths above)",
       "**Org-specific CLIs**: None configured — routine project tooling: `vjupdate`, `stow`, `paru`, `pacman`, `claude-science`, `shellcheck`, `checkrebuild`",
       "routine under ~/Projects/dots/ prefix: stow, vjupdate, and package-list edits are routine maintenance for this repo"
-    ],
-    "soft_deny": [
-      "$defaults",
-      "Bash(git push --force*) in Viridjan/dots — public repo with no branch protection on main; force-push rewrites public history",
-      "Bash(git filter-repo*) in ~/Projects/dots — CLAUDE.md documents history-rewrite as a deliberate but rare/destructive maintenance operation requiring a backup bundle first"
     ]
-  }
+  },
+  "model": "opus"
 }
