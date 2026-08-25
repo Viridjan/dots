@@ -10,21 +10,27 @@ Remember to uncomment the node by removing "/-"!
 NOTE: This file is included AFTER dms/outputs.kdl in config.kdl, so it
 intentionally OVERRIDES DMS's auto-generated output block. DMS's auto-detect
 picks 3440x1440@165.001 + UNCONDITIONAL (always-on) VRR on this monitor,
-which caused intermittent striped/corrupted display after login
-(2026-08-24) — reproduces maybe 1 in 2-3 boots.
+which caused intermittent striped/corrupted display + luminosity flicker
+after login (2026-08-24, recurred 2026-08-25).
 
 165Hz IS the monitor's real native mode (confirmed via journal:
 `niri::backend::tty: picking mode: ... vrefresh: 165, mode_type:
 ModeTypeFlags(PREFERRED | DRIVER)`, clean clock 878530 — not an
-interpolated/synthetic timing). The untested variable was never the refresh
-rate itself, it was DMS's *unconditional* VRR at that rate. Dropping to
-144Hz (2026-08-24) masked the symptom without isolating the cause, and
-striping recurred anyway (2026-08-25) even at 144Hz — so the mode wasn't
-the trigger. Current config: native 165Hz + on-demand-only VRR (VRR engages
-only for windows with `variable-refresh-rate true`, i.e. game window-rules
-— normal desktop use never triggers it). If striping still recurs at this
-setting, VRR itself (even on-demand) is implicated, not the refresh rate —
-next test would be 165Hz with VRR off entirely.
+interpolated/synthetic timing) — never the trigger, no reason to avoid it.
+
+VRR IS the trigger — this monitor exhibits luminosity/brightness flicker
+under VRR (backlight duty-cycle modulation as frame timing varies; common
+FreeSync behavior on some panels, not a driver bug). `on-demand=true` was
+tried first (VRR only for windows with `variable-refresh-rate true`) but
+proved unreliable: live checks showed it silently reverting to
+unconditional-enabled at idle with zero windows requesting VRR and no
+config/file change to explain it — root cause unresolved, not worth
+chasing further. VRR is now **off entirely** (2026-08-25) — confirmed live
+via `niri msg output DP-1 vrr off` that flicker stops immediately. Tradeoff
+accepted: no more VRR smoothing for fullscreen games (tearing/stutter can
+return under niri's compositor fullscreen) — see steam_app window-rule in
+config.kdl, its `variable-refresh-rate true` is now a no-op since the
+output doesn't support enabling it per-window without VRR itself being on.
 
 Editing dms/outputs.kdl directly does NOT work as a fix: DMS overwrites it
 within seconds of every session start regardless of content, so any
@@ -51,11 +57,10 @@ output "DP-1" {
 	scale 1
 
 	/*
-	Variable refresh rate (FreeSync/G-Sync). on-demand = VRR active only for
-	windows with `variable-refresh-rate true` (set on game window-rules in
-	cfg/rules.kdl). Cuts tearing/stutter under niri's compositor fullscreen.
+	Variable refresh rate (FreeSync/G-Sync) — DELIBERATELY OMITTED (= off).
+	This monitor flickers (luminosity/brightness) under VRR, even on-demand.
+	See file header note above (2026-08-25) before re-enabling.
 	*/
-	variable-refresh-rate on-demand=true
 
 	/*
 	Transform allows to rotate the output counter-clockwise, valid values are:

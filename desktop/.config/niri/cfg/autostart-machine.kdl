@@ -13,14 +13,11 @@ spawn-at-startup "/usr/lib/polkit-kde-authentication-agent-1"
 spawn-sh-at-startup "wl-paste --watch cliphist store"
 spawn-at-startup "udiskie"
 
-// Force on-demand VRR explicitly at session start. cfg/display.kdl's
-// `variable-refresh-rate on-demand=true` output-block property is included
-// after dms/outputs.kdl and validates clean, but `niri msg action
-// load-config-file` cannot re-apply VRR mode on a live output (same
-// limitation as modeset — see CLAUDE.md), so it can't be verified whether
-// the file setting is actually honored at cold session start vs falling
-// back to plain unconditional-enabled. Confirmed live: unconditional VRR
-// at 165Hz causes flicker; `niri msg output DP-1 vrr --on-demand on`
-// reliably fixes it (2026-08-25). Belt-and-suspenders — guarantees correct
-// state regardless of KDL merge timing.
-spawn-sh-at-startup "sleep 2 && niri msg output DP-1 vrr --on-demand on"
+// Force VRR off explicitly at session start. cfg/display.kdl omits the
+// variable-refresh-rate node entirely (should default to off), but DMS's
+// NiriService can push its own `niri msg output ... vrr ...` IPC commands
+// independent of any KDL file (see NiriService.qml ~line 1403) — so this
+// is belt-and-suspenders against anything re-enabling it live. This
+// monitor flickers under VRR even on-demand — see cfg/display.kdl,
+// 2026-08-25.
+spawn-sh-at-startup "sleep 2 && niri msg output DP-1 vrr off"

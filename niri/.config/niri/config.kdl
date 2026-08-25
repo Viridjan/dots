@@ -327,13 +327,13 @@ window-rule {
     open-focused false
     default-column-width { proportion 0.5; }
 }
-// Steam games — fullscreen + VRR under niri's compositor fullscreen (no exclusive mode).
+// Steam games — fullscreen under niri's compositor fullscreen (no exclusive mode).
 // Matches XWayland games (WM_CLASS = steam_app_NNNN). Native Wayland games set their
 // OWN app-id and need a per-game rule instead — see README gaming section.
+// No VRR here: monitor flickers under VRR (even on-demand) — see cfg/display.kdl note, 2026-08-25.
 window-rule {
     match app-id="^steam_app_"
     open-fullscreen true
-    variable-refresh-rate true
 }
 
 // Open dms windows as floating by default
