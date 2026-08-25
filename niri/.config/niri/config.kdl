@@ -366,6 +366,11 @@ include "dms/layout.kdl"
 include "dms/alttab.kdl"
 include "dms/binds.kdl"
 include "dms/cursor.kdl"
+// Wallpaper-blur backdrop layer-rule. `layer-rule` is a repeatable node, so
+// this coexists with the inline quickshell layer-rule above (no duplicate-node
+// conflict). Was tracked + imported by vjupdate but never included until
+// 2026-08-25, so DMS's blurred wallpaper had no backdrop effect.
+include "dms/wpblur.kdl"
 // dms/outputs.kdl deliberately NOT included — niri takes the FIRST duplicate
 // output block, not the last, so including it here would make it win over
 // cfg/display.kdl below despite include order (see NOTE in cfg/display.kdl,
