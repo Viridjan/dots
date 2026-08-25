@@ -365,9 +365,10 @@ include "dms/colors.kdl"
 include "dms/layout.kdl"
 include "dms/alttab.kdl"
 include "dms/binds.kdl"
-include "dms/outputs.kdl"
 include "dms/cursor.kdl"
+// dms/outputs.kdl deliberately NOT included — niri takes the FIRST duplicate
+// output block, not the last, so including it here would make it win over
+// cfg/display.kdl below despite include order (see NOTE in cfg/display.kdl,
+// corrected 2026-08-25). cfg/display.kdl is the sole output source for DP-1.
 
-// Overrides DMS's auto-detected output config — see NOTE in cfg/display.kdl
-// (DMS's 165Hz auto-mode caused intermittent striped display, 2026-08-24)
 include "cfg/display.kdl"

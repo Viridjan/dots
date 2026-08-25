@@ -7,11 +7,23 @@ Find more information on the wiki:
 https://niri-wm.github.io/niri/Configuration:-Outputs
 Remember to uncomment the node by removing "/-"!
 
-NOTE: This file is included AFTER dms/outputs.kdl in config.kdl, so it
-intentionally OVERRIDES DMS's auto-generated output block. DMS's auto-detect
-picks 3440x1440@165.001 + UNCONDITIONAL (always-on) VRR on this monitor,
-which caused intermittent striped/corrupted display + luminosity flicker
-after login (2026-08-24, recurred 2026-08-25).
+IMPORTANT (corrected 2026-08-25): `config.kdl` does NOT include
+`dms/outputs.kdl` at all — this file is the ONLY output source for DP-1.
+Earlier docs (2026-08-24) claimed niri does "last-include-wins" merging for
+duplicate `output "DP-1" { }` blocks across includes, with this file
+(included after dms/outputs.kdl) overriding it. That was WRONG — directly
+disproved 2026-08-25 by setting a distinct mode here and confirming via
+live `niri msg outputs` that dms/outputs.kdl's value was still what was
+actually running. niri appears to take the FIRST occurrence of a duplicate
+output block, not the last — so as long as dms/outputs.kdl was included
+before this file, everything written here was silently inert, for days,
+across multiple "fixes." The only reason changes ever appeared to work
+was live `niri msg output ...` CLI overrides (transient, not from this
+file) or coincidental mode overlap (165 here happened to match DMS's
+165.001, same underlying driver mode). Real fix: removed the
+`include "dms/outputs.kdl"` line from config.kdl entirely, so there's no
+duplicate block and no merge-order question — this file is unconditionally
+authoritative.
 
 165Hz IS the monitor's real native mode (confirmed via journal:
 `niri::backend::tty: picking mode: ... vrefresh: 165, mode_type:
@@ -22,20 +34,15 @@ VRR IS the trigger — this monitor exhibits luminosity/brightness flicker
 under VRR (backlight duty-cycle modulation as frame timing varies; common
 FreeSync behavior on some panels, not a driver bug). `on-demand=true` was
 tried first (VRR only for windows with `variable-refresh-rate true`) but
-proved unreliable: live checks showed it silently reverting to
-unconditional-enabled at idle with zero windows requesting VRR and no
-config/file change to explain it — root cause unresolved, not worth
-chasing further. VRR is now **off entirely** (2026-08-25) — confirmed live
-via `niri msg output DP-1 vrr off` that flicker stops immediately. Tradeoff
-accepted: no more VRR smoothing for fullscreen games (tearing/stutter can
-return under niri's compositor fullscreen) — see steam_app window-rule in
-config.kdl, its `variable-refresh-rate true` is now a no-op since the
-output doesn't support enabling it per-window without VRR itself being on.
+appeared to revert to unconditional-enabled on its own — now explained:
+that was just dms/outputs.kdl's bare unconditional VRR being what actually
+ran the whole time, this file's `on-demand=true` never took effect. VRR is
+now off entirely here (property omitted). Tradeoff accepted: no VRR
+smoothing for fullscreen games — see steam_app window-rule in config.kdl,
+its `variable-refresh-rate true` is now a no-op.
 
-Editing dms/outputs.kdl directly does NOT work as a fix: DMS overwrites it
-within seconds of every session start regardless of content, so any
-override has to live here instead, in a git-tracked file DMS never
-touches.
+`dms/outputs.kdl` itself is left alone (DMS still writes it, unused now
+that it's not included) — don't hand-edit it, it has zero effect either way.
 */
 
 output "DP-1" {
@@ -80,4 +87,6 @@ output "DP-1" {
 	automatically.
 	*/
     position x=0 y=0
+
+    focus-at-startup
 }
