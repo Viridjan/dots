@@ -334,6 +334,9 @@ window-rule {
 window-rule {
     match app-id="^steam_app_"
     open-fullscreen true
+    // Unity games in windowed mode set min==max size hints; niri floats those.
+    // Force tiled so a windowed-mode game can't escape the fullscreen rule.
+    open-floating false
 }
 
 // Open dms windows as floating by default
