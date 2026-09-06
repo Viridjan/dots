@@ -43,6 +43,7 @@ scripts/.local/bin/uv
 scripts/.local/bin/uvx
 scripts/.local/bin/claude-science
 scripts/.local/bin/cliamp
+scripts/.local/bin/mtgatool
 
 # VSCodium Chromium/Electron caches — regenerated on every launch, so they
 # rewrote 24 files per commit and grew history forever (41.5MB of ~60MB, 68%).

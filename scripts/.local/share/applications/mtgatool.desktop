@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=MTG Arena Tool
+Comment=Deck tracker and collection manager for MTG Arena
+Exec=mtgatool --no-sandbox %U
+Icon=mtgatool
+Terminal=false
+Type=Application
+StartupWMClass=mtgatool-desktop
+Categories=Utility;
+Keywords=mtg;arena;magic;tracker;

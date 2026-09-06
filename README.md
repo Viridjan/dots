@@ -255,6 +255,33 @@ vjupdate --app-launchers
 
 Also checked by default under "Launchers" in the interactive menu.
 
+### MTG Arena Tool
+
+Deck tracker / collection manager for MTG Arena. Not in any repo, AUR or Flathub —
+upstream ships an AppImage that self-updates, so it is installed to `~/.local/bin/`
+and gitignored (167MB). Only the `.desktop` entry and icon are tracked.
+
+```bash
+curl -fL -o ~/.local/bin/mtgatool \
+  "$(curl -sL https://api.github.com/repos/mtgatool/mtgatool-desktop/releases/latest \
+     | grep -o 'https://[^"]*\.AppImage')"
+chmod +x ~/.local/bin/mtgatool
+```
+
+Arena runs under Proton (Steam app `2141910`), so the tool cannot auto-detect the
+log. Point its **Settings → Logs** at:
+
+```
+/mnt/data/steam library/steamapps/compatdata/2141910/pfx/drive_c/users/steamuser/AppData/LocalLow/Wizards Of The Coast/MTGA/Player.log
+```
+
+Arena also needs **Options → Account → Detailed Logs (Plugin Support)** enabled, or
+the tool sees almost nothing. Launch with `mtgatool` or from the app menu.
+
+Note: `vjupdate --app-launchers` deletes any `.desktop` whose target binary is
+missing — on a fresh clone, download the AppImage before running it, or the
+launcher symlink gets removed (restow `scripts` to bring it back).
+
 ### Keyboard shortcut pass-through
 
 `Mod+Escape` toggles keyboard shortcut inhibition — when active, all keys pass through to the focused app (useful in games where niri intercepts shortcuts like `Mod+F`). Press `Mod+Escape` again to restore normal keybinds.

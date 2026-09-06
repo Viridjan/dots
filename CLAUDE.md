@@ -258,7 +258,7 @@ Currently ignored (secrets audited 2026-06-21, no secrets found elsewhere):
 - Session/auth tokens: `cave/.cave/agent/sessions/`, `vesktop/.config/vesktop/sessionData/` (Discord token)
 - VSCodium cookie/token/web-storage stores; `fish_history`; `Crashpad/` dirs (memory dumps)
 - Continuously regenerated: `VSCodium/.config/VSCodium/{Cache,CachedData,CachedProfilesData,CachedExtensionVSIXs,GPUCache,DawnGraphiteCache,DawnWebGPUCache,Code Cache}/` — VSCodium rebuilds them on first start; `User/` keeps the real config
-- Non-secret exceptions kept ignored: `vesktop/.config/vesktop/Singleton*` (stale single-instance lock breaks launch), `vesktop/.config/vesktop/state.json` (window-bounds churn), `scripts/.local/bin/{uv,uvx,claude-science,cliamp}` (large vendored binaries with their own installer/updater — permanent repo bloat, no clone value)
+- Non-secret exceptions kept ignored: `vesktop/.config/vesktop/Singleton*` (stale single-instance lock breaks launch), `vesktop/.config/vesktop/state.json` (window-bounds churn), `scripts/.local/bin/{uv,uvx,claude-science,cliamp,mtgatool}` (large vendored binaries with their own installer/updater — permanent repo bloat, no clone value)
 
 If tracked bloat is ever found again, the two-step fix is `git rm -r --cached` + ignore (stops growth), then `git filter-repo --invert-paths` to purge history. The second step rewrites every SHA and needs a force-push — **take a `git bundle create ... --all` backup first, and the other machine then needs `git fetch && git reset --hard origin/main`.**
 
@@ -302,7 +302,7 @@ Interactive mode (default, or `-i`) opens a built-in terminal TUI (no external d
 
 `.githooks/pre-commit` runs `shellcheck -S error` on staged shell scripts and blocks
 the commit on errors. It selects files by **shebang, not path** — `scripts/.local/bin/`
-also holds large vendored binaries (`uv`, `uvx`, `claude-science`, `cliamp`) that must never be
+also holds large vendored binaries (`uv`, `uvx`, `claude-science`, `cliamp`, `mtgatool`) that must never be
 scanned. It no-ops when shellcheck is absent, so a fresh clone can still commit.
 
 `deploy_dotfiles` runs `git config core.hooksPath .githooks`, so a clone self-registers.
