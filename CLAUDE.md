@@ -187,6 +187,9 @@ vjupdate --steam-launchers
 # Rebuild packages flagged by rebuild-detector
 vjupdate --rebuild
 
+# Interactively merge .pacnew files (pacdiff; overwrites keep a .bak)
+vjupdate --pacnew
+
 # Remove stale non-Steam app launchers, report apps not mirrored locally
 vjupdate --app-launchers
 

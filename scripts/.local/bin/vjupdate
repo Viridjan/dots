@@ -45,6 +45,7 @@ CONFIGURE_PROMPTED=false
 AUDIT_ORPHAN_REMOVAL=false
 AUDIT_PYTHON_REBUILD=false
 AUDIT_REBUILD=false
+AUDIT_PACNEW=false
 mkdir -p "$STAMP_DIR"
 
 # ─── Logging ─────────────────────────────────────────────
@@ -1313,11 +1314,24 @@ manage_kernels() {
 # ─── Maintenance: pacnew files ───────────────────────────
 check_pacnew() {
     info "Checking for pacnew files..."
-    if command -v pacdiff &>/dev/null; then
-        pacdiff -o || true
-    else
+    if ! command -v pacdiff &>/dev/null; then
         warn "pacdiff not found — install pacman-contrib"
+        return
     fi
+    pacdiff -o || true
+    $AUDIT_PACNEW || return
+    # pacdiff prompts per file and opens $DIFFPROG (default 'vim -d'), so it
+    # needs a terminal — a --yes run would block on stdin forever.
+    if ! $INTERACTIVE; then
+        warn "pacnew merge skipped — needs a terminal, run: vjupdate --pacnew"
+        return
+    fi
+    # -s: pacdiff does its own sudo/sudoedit, so this stays unprivileged.
+    # -b: overwrites keep a .bak, since most of these configs are hand-tuned
+    #     (pacman.conf's cachyos repos, rate-mirrors lists, locale.gen).
+    info "Merging pacnew files (per file: v=view d=diff s=skip r=remove o=overwrite q=quit)"
+    pacdiff -s -b || true
+    ok "pacnew merge done"
 }
 
 # ─── Security: AUR malware check ─────────────────────────
@@ -1595,6 +1609,7 @@ _bootstrap_multiselect() {
         "+orphan-removal — Remove orphaned packages (audit)" \
         "+python-rebuild — Rebuild Python packages needing rebuild (audit)" \
         "+rebuild — Rebuild packages flagged by rebuild-detector (audit)" \
+        "pacnew-merge — Interactively merge .pacnew files with pacdiff (audit)" \
         ":── One-time configs ────────────────────────" \
         "manual-steps — Show post-install checklist (git, SSH, DMS, Bitwarden, etc.)" \
         ":  System ─────────────────────────────────" \
@@ -1658,6 +1673,7 @@ phase_configure() {
     _sel "orphan-removal"  && AUDIT_ORPHAN_REMOVAL=true
     _sel "python-rebuild"  && AUDIT_PYTHON_REBUILD=true
     _sel "rebuild"         && AUDIT_REBUILD=true
+    _sel "pacnew-merge"    && AUDIT_PACNEW=true
     _sel "steam-launchers" && setup_steam_launchers
     _sel "app-launchers"   && check_app_launchers
 
@@ -1894,6 +1910,7 @@ usage() {
     echo "  --dms-import        Copy repo dms overrides → live (skips auto-generated files)"
     echo "  --steam-launchers   Create .desktop launchers for all installed Steam games"
     echo "  --app-launchers     Remove stale non-Steam app launchers, report unmirrored apps"
+    echo "  --pacnew            Interactively merge .pacnew files with pacdiff"
     echo "  --rebuild           Rebuild packages flagged by rebuild-detector"
     echo "  --help              Show this message"
 }
@@ -1912,6 +1929,7 @@ case "${1:-}" in
     --steam-launchers)   setup_steam_launchers ;;
     --app-launchers)     check_app_launchers ;;
     --rebuild)           AUDIT_REBUILD=true; check_rebuilds ;;
+    --pacnew)            AUDIT_PACNEW=true; check_pacnew ;;
 
     --help|-h)           usage ;;
     "")                  bootstrap ;;
