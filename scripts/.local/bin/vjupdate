@@ -652,12 +652,9 @@ deploy_dotfiles() {
     # which here is $HOME/Projects (DOTS_DIR=$HOME/Projects/dots), not $HOME.
     # Without it, symlinks land in ~/Projects/.config instead of ~/.config.
 
-    # Unstow first to handle moved files between packages (e.g. display.kdl, input.kdl).
-    # Only removes symlinks stow owns — real dirs/files are left untouched.
-    for pkg in "${COMMON_STOW_PKGS[@]}"; do
-        [[ -d "$pkg" ]] && stow -D -t "$HOME" "$pkg" 2>/dev/null || true
-    done
-    stow -D -t "$HOME" claude 2>/dev/null || true
+    # Restow each package in one invocation. Stow checks its complete plan for
+    # conflicts before executing it; a separate -D would remove working links
+    # even when the subsequent install cannot proceed.
 
     # BEHAVIOUR CHANGE (deliberate): routine deployment no longer passes
     # --adopt. --adopt silently MOVES whatever real file is already at the
@@ -690,14 +687,14 @@ deploy_dotfiles() {
     }
 
     for pkg in "${COMMON_STOW_PKGS[@]}"; do
-        [[ -d "$pkg" ]] && _deploy_pkg -t "$HOME" "$pkg" "$pkg" || true
+        [[ -d "$pkg" ]] && _deploy_pkg --restow -t "$HOME" "$pkg" "$pkg" || true
     done
 
     _stow_niri_cfg
     _stowed+=("niri")
 
     _deploy_pkg --restow -t "$HOME" claude claude || true
-    [[ -d bkg ]] && { _deploy_pkg -t "$HOME" bkg bkg || true; }
+    [[ -d bkg ]] && { _deploy_pkg --restow -t "$HOME" bkg bkg || true; }
 
     # ollama targets / (root) not ~HOME — stow systemd drop-in for ROCm GPU support
     if [[ -d ollama ]]; then
@@ -1194,7 +1191,15 @@ run_install_scripts() {
     while IFS= read -r cmd; do
         [[ -z "$cmd" || "$cmd" == \#* ]] && continue
         info "Running: $cmd"
-        bash -c "$cmd" && ok "done: $cmd" || warn "failed: $cmd"
+        # Child shells do not inherit pipefail: a failed download piped into a
+        # successful empty installer must still fail the action.
+        if bash -o pipefail -c "$cmd"; then
+            _record "installer:$cmd" ok
+            ok "done: $cmd"
+        else
+            _record "installer:$cmd" fail "installer command failed"
+            warn "failed: $cmd"
+        fi
     done < "$list"
 }
 
@@ -1422,13 +1427,15 @@ check_flatpak_orphans() {
 # ─── Maintenance: cache cleanup ──────────────────────────
 clean_caches() {
     info "Cleaning package caches..."
+    local _cache_ok=true
     # Guarded like check_pacnew/check_rebuilds: paccache ships in pacman-contrib,
     # which may not be installed yet if a fresh bootstrap failed mid-install.
     # Unguarded, it would abort the run before print_recap.
     if command -v paccache &>/dev/null; then
-        _mutate sudo paccache -rk2  || warn "paccache -rk2 failed"
-        _mutate sudo paccache -ruk0 || warn "paccache -ruk0 failed"
+        _mutate sudo paccache -rk2  || { _cache_ok=false; warn "paccache -rk2 failed"; }
+        _mutate sudo paccache -ruk0 || { _cache_ok=false; warn "paccache -ruk0 failed"; }
     else
+        _cache_ok=false
         warn "paccache not found — install pacman-contrib"
     fi
 
@@ -1437,17 +1444,25 @@ clean_caches() {
     # forces a full re-clone and rebuild of every AUR package on the next run,
     # which is what made AUR upgrades slow after every maintenance pass. Only
     # built artefacts are pruned, and only with --clean-aggressive.
-    local _paru_cache="$HOME/.cache/paru"
+    local _paru_cache="$HOME/.cache/paru" _summary="pacman only; AUR sources preserved"
     if $CLEAN_AGGRESSIVE; then
-        _mutate rm -rf "$_paru_cache" "$HOME/.cache/yay"
-        ok "caches cleaned (aggressive: AUR sources removed, next build re-clones)"
+        _mutate rm -rf "$_paru_cache" "$HOME/.cache/yay" \
+            || { _cache_ok=false; warn "AUR cache removal failed"; }
+        _summary="aggressive: AUR sources removed, next build re-clones"
     else
         if [[ -d "$_paru_cache" ]]; then
             local _sz; _sz=$(du -sh "$_paru_cache" 2>/dev/null | cut -f1 || echo '?')
             ok "kept: AUR build cache ($_sz in $_paru_cache) — use --clean-aggressive to remove"
         fi
-        ok "caches cleaned (pacman only; AUR sources preserved)"
     fi
+    if $_cache_ok; then
+        _record "cache-cleanup" ok
+        ok "caches cleaned ($_summary)"
+    else
+        _record "cache-cleanup" fail "one or more cleanup operations failed"
+    fi
+    # Failure is retained for the final recap, while independent work continues.
+    return 0
 }
 
 # ─── Maintenance: foreign packages + orphan removal ──────
@@ -1561,9 +1576,22 @@ manage_kernels() {
     if _confirm "Remove a kernel? [y/N]:"; then
         read -rp "Package name to remove: " remove_pkg
         if [[ -n "$remove_pkg" ]]; then
-            local running_kernel; running_kernel=$(uname -r)
-            if pacman -Q "$remove_pkg" 2>/dev/null | grep -q "$running_kernel"; then
+            local running_kernel running_pkg
+            running_kernel=$(uname -r)
+            # uname's release string is not pacman's package version. Resolve
+            # the owner of the running kernel image instead. After an upgrade
+            # its old module tree may be gone; refuse removal if ownership is
+            # unavailable rather than guessing that the package is safe.
+            if ! running_pkg=$(pacman -Qoq "/usr/lib/modules/$running_kernel/vmlinuz" 2>/dev/null) \
+                || [[ -z "$running_pkg" || "$running_pkg" == *$'\n'* ]]; then
+                warn "Cannot identify package owning running kernel ($running_kernel) — reboot before removing kernels"
+                _record "kernel-removal" fail "running kernel owner unknown"
+                return 1
+            fi
+            if [[ "$remove_pkg" == "$running_pkg" ]]; then
                 warn "Cannot remove running kernel ($running_kernel) — reboot first"
+                _record "kernel-removal" fail "requested package owns the running kernel"
+                return 1
             else
                 sudo pacman -R "$remove_pkg" "${remove_pkg}-headers" 2>/dev/null \
                     || sudo pacman -R "$remove_pkg"
@@ -2362,7 +2390,7 @@ usage() {
     echo "  --app-launchers     Remove stale non-Steam app launchers, report unmirrored apps"
     echo "  --pacnew            Interactively merge .pacnew files with pacdiff"
     echo "  --rebuild           Rebuild packages flagged by rebuild-detector"
-    echo "  --help              Show this message"
+    echo "  --help, -h          Show this message"
     echo ""
     echo "Modifiers (combine with the actions above):"
     echo "  --dry-run, -n       Print the resolved plan and change nothing."
@@ -2377,6 +2405,11 @@ usage() {
     echo "                      cleanup. Default keeps them: they hold the AUR git"
     echo "                      checkouts paru reuses, so wiping forces a full"
     echo "                      re-clone and rebuild of every AUR package."
+    echo ""
+    echo "Environment:"
+    echo "  SKIP_PHASES=\"...\"   Space-separated phases to skip. Valid names:"
+    echo "                      sources install dotfiles configure audit"
+    echo "                      (anything else is silently ignored)"
     echo ""
     echo "Only one vjupdate may run at a time (flock on $LOCK_FILE)."
     echo "Exit status is nonzero if any requested action failed."

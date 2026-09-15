@@ -203,8 +203,12 @@ vjupdate --clean-aggressive
 # Remove stale non-Steam app launchers, report apps not mirrored locally
 vjupdate --app-launchers
 
-# Skip specific bootstrap phases (space-separated phase names)
-SKIP_PHASES="mirrors keyrings" vjupdate
+# Skip specific bootstrap phases (space-separated).
+# ONLY these five names work — they are matched against the phase names passed
+# to _run_phase. `SKIP_PHASES="mirrors keyrings"` (documented here until
+# 2026-09-15) matched nothing and silently skipped no phases: mirrors/keyrings
+# are stamp names, throttled by _needs_run, not phases.
+SKIP_PHASES="sources install dotfiles configure audit" vjupdate
 
 # Re-apply all packages at once
 cd ~/Projects/dots && stow --restow -t ~ alacritty cave caveman DankMaterialShell fish \
@@ -304,9 +308,24 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   untouched; `--adopt` opts in and backs both live and repository versions up to
   unique `~/.local/state/dots/adopt-backup-<ts>-<suffix>/` directories first.
   Backup failures or unknown Stow conflict formats cancel adoption. See README.
+  Common packages use a single `stow --restow` invocation per package, not
+  separate unstow/install calls. Stow checks the full plan before executing it,
+  so a conflict preserves that package's working links. Do not restore the
+  blanket `stow -D` loop: it removed links before discovering conflicts.
 - **Cache cleanup keeps the AUR sources.** `~/.cache/paru` holds the git
   checkouts paru reuses; wiping it forces a full re-clone and rebuild of every
   AUR package. `--clean-aggressive` restores the old wipe-everything behaviour.
+  Failed cleanup commands record `cache-cleanup` as failed and suppress the
+  success message. Independent work can continue; the final recap returns
+  nonzero. Both paccache operations are attempted even if the first fails.
+- **Installer pipelines use `bash -o pipefail -c`.** Child shells do not
+  inherit pipefail. Without it, a failed download piped into an empty successful
+  installer was reported as done. Each installer outcome is recorded.
+- **Running-kernel protection uses package ownership.** `manage_kernels` asks
+  `pacman -Qoq /usr/lib/modules/$(uname -r)/vmlinuz` for the owning package.
+  Comparing `uname -r` with `pacman -Q` version text is invalid: their formats
+  differ. Removal is refused if ownership is unknown or matches the requested
+  package. An upgrade may remove the old module tree; reboot before retrying.
 - **Audit-dependent actions live in one table** (`AUDIT_ACTIONS`, top of the
   file) mapping checklist name → flag var. `_enable_audit_action` sets the flag
   *and* un-skips the audit phase, so an action can't be selected into a phase
@@ -318,6 +337,13 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   the phase invocation in `if` or `||`: that disables errexit for the whole
   call tree, allowing failed keyring operations to be stamped successful.
   Recoverable failures must be handled and recorded at their call sites.
+
+Verification after the 2026-09-15 follow-up: 27 isolated tests passed, including
+five new regressions covering these four fixes. Each new regression failed
+against the saved pre-fix script. Bash syntax, ShellCheck at error and warning
+levels, and temporary assembled desktop/surface niri profiles also passed.
+Run `python3 -B -m unittest discover -s tests -v`; use `VJUPDATE_SCRIPT` to test
+a saved snapshot. Keep system-changing commands mocked and fixtures temporary.
 
 ## vjupdate bootstrap phases
 

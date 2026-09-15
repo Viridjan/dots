@@ -217,8 +217,108 @@ bootstrap
         self.assertNotIn("BAD_KERNEL", r.stdout)
 
 
+class FollowupFixTests(FixtureCase):
+    def test_conflict_preserves_working_symlink(self):
+        repo = self.fixture_repo()
+        (repo / 'sample/working').write_text('working config')
+        link = self.home / 'working'
+        link.symlink_to(repo / 'sample/working')
+        self.mock('stow', '''
+case " $* " in
+  *" -D "*) rm -f "$HOME/working"; exit 0 ;;
+  *) echo 'conflicting existing target config file' >&2; exit 1 ;;
+esac
+''')
+        r = self.shell('''
+COMMON_STOW_PKGS=(sample)
+git() { :; }
+_stow_niri_cfg() { :; }
+deploy_dotfiles
+print_recap
+''')
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertTrue(link.is_symlink(), r.stdout + r.stderr)
+        self.assertEqual(link.read_text(), 'working config')
+
+    def test_running_kernel_cannot_be_removed(self):
+        r = self.shell('''
+uname() { echo 6.12.1-1-cachyos; }
+pacman() {
+    if [[ "$1" == -Qoq ]]; then echo linux-cachyos;
+    else echo 'linux-cachyos 6.12.1-1'; fi
+}
+_confirm() { [[ "$1" == Remove* ]]; }
+sudo() { echo BAD_REMOVAL; }
+manage_kernels <<< linux-cachyos
+''')
+        self.assertNotIn('BAD_REMOVAL', r.stdout)
+        self.assertIn('Cannot remove running kernel', r.stdout)
+
+    def test_unknown_running_kernel_owner_blocks_removal(self):
+        r = self.shell('''
+uname() { echo 6.12.1-1-cachyos; }
+pacman() {
+    [[ "$1" == -Qoq ]] && return 1
+    echo 'linux-cachyos 6.12.2-1'
+}
+_confirm() { [[ "$1" == Remove* ]]; }
+sudo() { echo BAD_REMOVAL; }
+manage_kernels <<< linux-cachyos
+print_recap
+''')
+        self.assertNotIn('BAD_REMOVAL', r.stdout)
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+
+    def test_failed_installer_pipeline_is_not_success(self):
+        repo = self.fixture_repo()
+        (repo / '.install-scripts.list').write_text('false | true\n')
+        r = self.shell('run_install_scripts\nprint_recap')
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertNotIn('done: false | true', r.stdout)
+
+    def test_failed_cache_cleanup_is_not_success(self):
+        r = self.shell('''
+sudo() { echo "attempt $*"; return 42; }
+clean_caches
+echo CLEANUP_RETURNED
+print_recap
+''')
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertIn('attempt paccache -rk2', r.stdout)
+        self.assertIn('attempt paccache -ruk0', r.stdout)
+        self.assertIn('CLEANUP_RETURNED', r.stdout)
+        self.assertNotIn('caches cleaned', r.stdout)
+
+
 class SafetyChecks(FixtureCase):
     # Preservation checks, not regressions claimed to fail pre-fix.
+    def test_nonrunning_kernel_can_be_removed(self):
+        r = self.shell('''
+uname() { echo 6.12.1-1-cachyos; }
+pacman() {
+    if [[ "$1" == -Qoq ]]; then echo linux-cachyos;
+    else echo 'linux-cachyos-lts 6.6.1-1'; fi
+}
+_confirm() { [[ "$1" == Remove* ]]; }
+sudo() { echo "REMOVAL: $*"; }
+manage_kernels <<< linux-cachyos-lts
+''')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn('REMOVAL: pacman -R linux-cachyos-lts linux-cachyos-lts-headers', r.stdout)
+
+    def test_successful_install_and_cleanup(self):
+        repo = self.fixture_repo()
+        (repo / '.install-scripts.list').write_text('true | true\n')
+        r = self.shell('''
+sudo() { return 0; }
+run_install_scripts
+clean_caches
+print_recap
+''')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn('done: true | true', r.stdout)
+        self.assertIn('caches cleaned', r.stdout)
+
     def test_lock_precedes_log_rotation_and_releases(self):
         state = self.home / ".state/dots"
         state.mkdir(parents=True)

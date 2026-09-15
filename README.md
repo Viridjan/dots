@@ -162,6 +162,10 @@ directories, outside the tracked tree. `live/` and `repo/` preserve both version
 before anything is moved. A failed backup, missing source or unrecognised Stow
 conflict cancels adoption for that package.
 
+Common packages are restowed in one operation each. Stow checks for conflicts
+before changing links, so a conflicting file does not remove that package's
+already-working symlinks.
+
 ### Only one run at a time
 
 `vjupdate` takes an flock on `~/.local/state/dots/vjupdate.lock` before it
@@ -176,6 +180,15 @@ Unexpected command failures stop the run and print the failure recap. They do
 not continue into dependent operations; explicitly handled recoverable failures
 can still permit independent cleanup.
 
+Installer pipelines report download failures even when the receiving shell
+exits successfully. Failed cache cleanup is recorded in the recap and does not
+print “caches cleaned”; independent work can continue, with a nonzero final
+status. AUR sources remain preserved unless `--clean-aggressive` is selected.
+
+Kernel removal checks which package owns the running kernel image. It refuses
+to remove that package, or to proceed when ownership cannot be determined.
+After a kernel upgrade, reboot before trying again if the old image is gone.
+
 Run isolated regression and preservation checks with:
 
 ```bash
@@ -184,6 +197,9 @@ python3 -B -m unittest discover -s tests -v
 
 Set `VJUPDATE_SCRIPT=/path/to/snapshot` to run the same tests against an older
 script. Tests use a temporary home and restricted PATH with mocked system tools.
+The 2026-09-15 follow-up passed 27 tests; all five new regressions failed against
+the pre-fix snapshot. Bash syntax, both ShellCheck levels, and both temporary
+niri machine profiles also passed validation.
 
 ---
 
