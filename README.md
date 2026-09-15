@@ -132,6 +132,59 @@ stow --restow -t ~ desktop          # or: surface
 
 Or just re-run `bash scripts/.local/bin/vjupdate` — it's idempotent.
 
+### Preview first
+
+`vjupdate --dry-run` (`-n`) previews the requested action and changes nothing.
+`--update` and `--check` show their own operations. Bootstrap previews honor
+`SKIP_PHASES` and show missing packages, Stow simulations and cleanup. Interactive
+choices are not known yet, so that preview explicitly shows the `--yes` baseline;
+it does not claim that optional services were selected.
+It takes no lock, rotates no log, writes no stamps and fetches nothing — facts
+that would need network or root are shown as `[unknown]` rather than guessed.
+
+### Stow conflicts are no longer adopted automatically
+
+**Behaviour change.** `vjupdate` used to deploy every package with
+`stow --adopt`. When a real file already sat at a target path, `--adopt` moved
+that file *into the repo* — overwriting the tracked copy with whatever was live
+— and then symlinked to it. On a machine whose config had drifted this silently
+replaced repo content, and the only evidence was an unexplained `git diff`.
+
+Now a conflict is reported and left alone. Nothing is overwritten and no user
+file is deleted. To take the live files over deliberately:
+
+```bash
+vjupdate --adopt      # backs up every conflicting file first
+```
+
+Backups go to unique `~/.local/state/dots/adopt-backup-<timestamp>-<suffix>/`
+directories, outside the tracked tree. `live/` and `repo/` preserve both versions
+before anything is moved. A failed backup, missing source or unrecognised Stow
+conflict cancels adoption for that package.
+
+### Only one run at a time
+
+`vjupdate` takes an flock on `~/.local/state/dots/vjupdate.lock` before it
+rotates the log or touches anything. A second invocation exits immediately with
+a clear message. The lock is held on an open file descriptor, so the kernel
+releases it however the process ends. `--help` and `--dry-run` never take it.
+
+Exit status is nonzero if any requested action failed; the end-of-run summary
+lists each action as succeeded, failed, or skipped (with the reason, so an
+intentional skip is distinguishable from one caused by an earlier failure).
+Unexpected command failures stop the run and print the failure recap. They do
+not continue into dependent operations; explicitly handled recoverable failures
+can still permit independent cleanup.
+
+Run isolated regression and preservation checks with:
+
+```bash
+python3 -B -m unittest discover -s tests -v
+```
+
+Set `VJUPDATE_SCRIPT=/path/to/snapshot` to run the same tests against an older
+script. Tests use a temporary home and restricted PATH with mocked system tools.
+
 ---
 
 ## Stow operations

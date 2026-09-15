@@ -46,17 +46,118 @@ AUDIT_ORPHAN_REMOVAL=false
 AUDIT_PYTHON_REBUILD=false
 AUDIT_REBUILD=false
 AUDIT_PACNEW=false
-mkdir -p "$STAMP_DIR"
-
-# ─── Logging ─────────────────────────────────────────────
+DRY_RUN=false
+CLEAN_AGGRESSIVE=false
+STOW_ADOPT=false
 LOG_FILE="$STAMP_DIR/vjupdate.log"
-for _i in 2 1; do
-    [[ -f "${LOG_FILE}.$_i" ]] && mv "${LOG_FILE}.$_i" "${LOG_FILE}.$((_i+1))"
-done
-[[ -f "$LOG_FILE" ]] && mv "$LOG_FILE" "${LOG_FILE}.1"
-exec > >(tee "$LOG_FILE") 2>&1
-_TEE_PID=$!
-trap 'exec 1>&- 2>&-; wait $_TEE_PID 2>/dev/null || true; rm -f "$_MS_RESULT"' EXIT
+LOCK_FILE="$STAMP_DIR/vjupdate.lock"
+
+# ─── Audit-dependent actions ─────────────────────────────
+# Single source of truth: checklist name → flag variable. Every one of these
+# only sets a flag consumed inside phase_audit, so selecting one must also
+# enable that phase. Adding an action here wires up the checklist, the
+# force-enable, the CLI flag and the dry-run preview at once — previously each
+# lived in a separate place and `rebuild` silently did nothing when audit was
+# unchecked because only two of the four lists had been updated.
+declare -A AUDIT_ACTIONS=(
+    [orphan-removal]=AUDIT_ORPHAN_REMOVAL
+    [python-rebuild]=AUDIT_PYTHON_REBUILD
+    [rebuild]=AUDIT_REBUILD
+    [pacnew-merge]=AUDIT_PACNEW
+)
+# Regex alternation over the keys, built once.
+_audit_action_re() { local IFS='|'; echo "${!AUDIT_ACTIONS[*]}"; }
+# Enable one action by name, plus the audit phase it depends on.
+_enable_audit_action() {
+    local name="$1" var="${AUDIT_ACTIONS[$1]:-}"
+    [[ -n "$var" ]] || die "unknown audit action: $name"
+    printf -v "$var" '%s' true
+    SKIP_PHASES=" ${SKIP_PHASES:-} "
+    SKIP_PHASES="${SKIP_PHASES/ audit / }"
+    SKIP_PHASES="${SKIP_PHASES# }"
+}
+
+# ─── Action results (see _record / print_recap) ──────────
+# Parallel arrays rather than an assoc array so the recap keeps run order.
+_RESULT_NAMES=(); _RESULT_STATES=(); _RESULT_NOTES=()
+_FAILED=0
+_RECAP_FAILURE_REPORTED=false
+# _record <name> <ok|fail|skip> [reason]
+_record() {
+    _RESULT_NAMES+=("$1"); _RESULT_STATES+=("$2"); _RESULT_NOTES+=("${3:-}")
+    [[ "$2" == fail ]] && _FAILED=1
+    return 0
+}
+# ─── Dry-run helper ──────────────────────────────────────
+# Mutating commands go through this. In --dry-run it prints and does nothing.
+_mutate() {
+    if $DRY_RUN; then echo -e "${CYN}    [dry-run] would run: $*${NC}"; return 0; fi
+    "$@"
+}
+# Facts that cannot be known without network/privileged access get labelled,
+# so a preview never implies something was actually verified.
+_unknown() { echo -e "${YEL}    [unknown] $*${NC}"; }
+
+# ─── Cleanup ─────────────────────────────────────────────
+# Installed immediately so an early failure still restores the cursor. Must not
+# call exit: returning lets bash propagate the original status untouched.
+_TEE_PID=""
+_cleanup() {
+    local _rc=$?
+    # Probe whether /dev/tty can actually be opened (a -w test only checks the
+    # permission bits and still passes with no controlling terminal, leaving a
+    # bash redirection error that 2>/dev/null on tput cannot suppress).
+    if { : >/dev/tty; } 2>/dev/null; then
+        tput cnorm >/dev/tty 2>/dev/null || true
+    fi
+    [[ -n "${_MS_RESULT:-}" ]] && rm -f "${_MS_RESULT}"
+    if [[ -n "${_TEE_PID:-}" ]]; then
+        exec 1>&- 2>&- || true
+        wait "$_TEE_PID" 2>/dev/null || true
+    fi
+    return $_rc
+}
+trap _cleanup EXIT
+
+# ─── Runtime init (locking + logging) ────────────────────
+# Deliberately NOT run at load: --help and --dry-run must not rotate the log,
+# create stamps, or take the lock. Every mutating entry point calls this first.
+_RUNTIME_READY=false
+_LOCK_FD=
+_ACTIVE_PHASE=""
+_runtime_error() {
+    local rc=$?
+    trap - ERR
+    # A final recap deliberately returns failure for already-recorded errors.
+    # Preserve that status without reporting the same failure a second time.
+    $_RECAP_FAILURE_REPORTED && exit "$rc"
+    _record "${_ACTIVE_PHASE:-action:${ACTION:-bootstrap}}" fail "exit $rc; remaining work aborted"
+    print_recap || true
+    exit "$rc"
+}
+_init_runtime() {
+    $_RUNTIME_READY && return 0
+    mkdir -p "$STAMP_DIR"
+
+    # Lock before rotating the log — two concurrent runs would otherwise shuffle
+    # each other's log files before either noticed. The fd stays open for the
+    # life of the process, so the kernel releases it on any exit, including kill.
+    exec {_LOCK_FD}>"$LOCK_FILE"
+    if ! flock -n "$_LOCK_FD"; then
+        die "another vjupdate is already running (lock: $LOCK_FILE) — wait for it to finish"
+    fi
+
+    for _i in 2 1; do
+        [[ -f "${LOG_FILE}.$_i" ]] && mv "${LOG_FILE}.$_i" "${LOG_FILE}.$((_i+1))"
+    done
+    [[ -f "$LOG_FILE" ]] && mv "$LOG_FILE" "${LOG_FILE}.1"
+    exec > >(tee "$LOG_FILE") 2>&1
+    _TEE_PID=$!
+    _RUNTIME_READY=true
+    set -E
+    trap _runtime_error ERR
+    echo "=== vjupdate $(date '+%Y-%m-%d %H:%M:%S') args: ${_ARGS:-<none>} ==="
+}
 
 # Pause tee before TUI (close pipe so tee flushes), resume after.
 _tui_start() {
@@ -67,15 +168,24 @@ _tui_end() {
     exec > >(tee -a "$LOG_FILE") 2>&1
     _TEE_PID=$!
 }
-echo "=== vjupdate $(date '+%Y-%m-%d %H:%M:%S') args: ${*:-<none>} ==="
-
 _run_phase() {
     local name="$1"; shift
-    [[ " ${SKIP_PHASES:-} " == *" $name "* ]] && return
+    if [[ " ${SKIP_PHASES:-} " == *" $name "* ]]; then
+        _record "phase:$name" skip "not selected"
+        return 0
+    fi
     local label="$name"
     [[ "$name" == "configure" ]] && label="configs"
     section "$label"
+    # Calling a phase in `if` disables errexit throughout its entire call tree.
+    # Run it bare: an unexpected failure must stop dependent work. Runtime's
+    # ERR trap records it and prints the recap before exiting. Recoverable
+    # failures are handled and recorded explicitly at their call sites.
+    _ACTIVE_PHASE="phase:$name"
     "$@"
+    _record "phase:$name" ok
+    _ACTIVE_PHASE=""
+    return 0
 }
 
 _ensure_dots_repo() {
@@ -271,29 +381,44 @@ _install_list() {
                 _die_infected "infected packages about to be installed" "${infected[@]}"
             fi
         fi
-        paru -S --needed --noconfirm "${to_install[@]}"
+        # Callers run this behind `|| return 1` inside an `if !`, which disables
+        # set -e for the whole chain — so a failing paru would otherwise fall
+        # through, mark everything as installed, and report success, silently
+        # skipping the mirror-refresh retry. Propagate the failure explicitly
+        # and leave the index untouched so the retry still sees work to do.
+        paru -S --needed --noconfirm "${to_install[@]}" || return 1
         for pkg in "${to_install[@]}"; do
             _INSTALLED_PKGS["$pkg"]=1
         done
     fi
 }
 
+# Fetch/refresh the aur-malware-check definitions. Returns non-zero on failure
+# so callers decide whether that is fatal. Idempotent within one run: several
+# gates need current definitions, but only the first one pays for the pull.
+_MALWARE_DEFS_FRESH=false
+_update_malware_defs() {
+    $_MALWARE_DEFS_FRESH && return 0
+    local repo_dir="$HOME/.local/share/aur-malware-check"
+    if [[ -d "$repo_dir" ]]; then
+        git -C "$repo_dir" reset --hard HEAD --quiet 2>/dev/null || true
+        git -C "$repo_dir" pull --quiet 2>/dev/null || return 1
+    else
+        git clone --quiet https://github.com/lenucksi/aur-malware-check.git "$repo_dir" 2>/dev/null || return 1
+    fi
+    _MALWARE_DEFS_FRESH=true
+}
+
 # Pre-install malware gate: check all AUR package lists against malware definitions
 _check_packages_against_malware() {
     local repo_dir="$HOME/.local/share/aur-malware-check"
+    # Always refresh, never "only if missing": an existing but months-old clone
+    # would otherwise wave through a package flagged since the last fetch, and
+    # the full installed-package scan only runs later, after the install.
+    info "Refreshing malware definitions..."
+    _update_malware_defs || die "malware gate: failed to update definitions — aborting install"
     local campaign_pkgs=("$repo_dir"/data/campaigns/*/packages*.txt)
-    if [[ ! -e "${campaign_pkgs[0]}" ]]; then
-        info "malware definitions not found — fetching..."
-        if [[ -d "$repo_dir" ]]; then
-            git -C "$repo_dir" pull --quiet 2>/dev/null \
-                || die "malware gate: failed to update definitions — aborting install"
-        else
-            git clone --quiet https://github.com/lenucksi/aur-malware-check.git "$repo_dir" 2>/dev/null \
-                || die "malware gate: failed to fetch definitions — aborting install"
-        fi
-        campaign_pkgs=("$repo_dir"/data/campaigns/*/packages*.txt)
-        [[ -e "${campaign_pkgs[0]}" ]] || die "malware gate: definitions missing after fetch — aborting install"
-    fi
+    [[ -e "${campaign_pkgs[0]}" ]] || die "malware gate: definitions missing after fetch — aborting install"
     info "Pre-install malware gate: scanning package lists..."
     local infected=()
     local lists=("$DOTS_DIR/.paru-S-common.list" "$DOTS_DIR/.paru-S-${MACHINE}.list")
@@ -416,8 +541,15 @@ install_all() {
     fi
 
     info "Upgrading existing packages..."
-    _syuu || warn "Full upgrade had warnings — continuing"
-    ok "upgraded: system"
+    # Never announce success unconditionally: this used to print
+    # "upgraded: system" even when _syuu had just failed.
+    if _syuu; then
+        _record "full-upgrade" ok
+        ok "upgraded: system"
+    else
+        _record "full-upgrade" fail "paru -Syuu returned non-zero"
+        warn "Full upgrade had warnings — continuing with installs"
+    fi
 
     _do_install() {
         info "Installing common packages..."
@@ -426,11 +558,24 @@ install_all() {
         _install_list "$DOTS_DIR/.paru-S-${MACHINE}.list" || return 1
     }
 
+    local _pkg_ok=true
     if ! _do_install; then
         warn "Install failed — forcing mirror refresh and retrying..."
+        # Only drop the stamp once the retry is actually about to happen.
         rm -f "$STAMP_DIR/mirrors"
         refresh_mirrors
-        _do_install || die "Package install failed after mirror refresh."
+        if _do_install; then
+            _record "packages" ok "succeeded after mirror refresh"
+        else
+            _pkg_ok=false
+            _record "packages" fail "failed after mirror refresh"
+            # Do not die: flatpak installs and cache cleanup are independent of
+            # the pacman/AUR list, so they still run. The non-zero exit status
+            # comes from print_recap, so the failure is not swallowed.
+            warn "Package install failed after mirror refresh — continuing with independent steps"
+        fi
+    else
+        _record "packages" ok
     fi
 
     if command -v flatpak &>/dev/null; then
@@ -449,6 +594,9 @@ install_all() {
     fi
 
     clean_caches
+    # Propagate the package outcome so phase_install (and the exit status)
+    # reflect it, rather than reporting whatever clean_caches happened to return.
+    $_pkg_ok
 }
 
 # ─── Phase 4: Dotfiles ───────────────────────────────────
@@ -511,32 +659,127 @@ deploy_dotfiles() {
     done
     stow -D -t "$HOME" claude 2>/dev/null || true
 
-    # Stow common packages with --adopt:
-    # - Fresh install: target doesn't exist → stow creates directory-level symlink.
-    # - Re-run / broken symlink replaced by real dir: --adopt moves the real file
-    #   into the repo package dir and creates a symlink. Run git diff after to review.
-    local _stowed=()
-    for pkg in "${COMMON_STOW_PKGS[@]}"; do
-        if [[ -d "$pkg" ]]; then
-            stow --adopt -t "$HOME" "$pkg"
-            _stowed+=("$pkg")
+    # BEHAVIOUR CHANGE (deliberate): routine deployment no longer passes
+    # --adopt. --adopt silently MOVES whatever real file is already at the
+    # target INTO the repo, overwriting the tracked copy, then symlinks to it.
+    # On a re-run over a machine whose config had drifted, that quietly replaced
+    # repo content with live content and the only trace was an unexplained
+    # `git diff`. Now a conflict is reported and left alone; adopting is an
+    # explicit `--adopt` run that backs the files up first.
+    local _stowed=() _conflicts=()
+    _deploy_pkg() {   # <stow args...> -- label
+        local label="${*: -1}"; set -- "${@:1:$#-1}"
+        if $STOW_ADOPT; then
+            if ! _adopt_backup "$@"; then
+                _record "stow:$label" fail "backup failed; adoption cancelled"
+                return 1
+            fi
+            _mutate stow --adopt "$@" && _stowed+=("$label") && return 0
+            _record "stow:$label" fail "adopt failed"; return 1
         fi
+        if _mutate stow "$@" 2>/dev/null; then
+            _stowed+=("$label"); return 0
+        fi
+        # Re-run visibly to capture why; stow reports conflicts on stderr.
+        local _err; _err=$(stow -n "$@" 2>&1 || true)
+        _conflicts+=("$label: $(echo "$_err" | grep -c 'existing target') conflict(s)")
+        _record "stow:$label" fail "conflicts"
+        warn "stow conflict in '$label' — not adopting; run 'vjupdate --adopt' to take them over"
+        echo "$_err" | sed 's/^/        /'
+        return 1
+    }
+
+    for pkg in "${COMMON_STOW_PKGS[@]}"; do
+        [[ -d "$pkg" ]] && _deploy_pkg -t "$HOME" "$pkg" "$pkg" || true
     done
 
     _stow_niri_cfg
     _stowed+=("niri")
 
-    stow --adopt --restow -t "$HOME" claude
-    _stowed+=("claude")
-
-    [[ -d bkg ]] && stow --adopt -t "$HOME" bkg && _stowed+=("bkg")
+    _deploy_pkg --restow -t "$HOME" claude claude || true
+    [[ -d bkg ]] && { _deploy_pkg -t "$HOME" bkg bkg || true; }
 
     # ollama targets / (root) not ~HOME — stow systemd drop-in for ROCm GPU support
     if [[ -d ollama ]]; then
-        sudo stow --adopt -t / ollama && _stowed+=("ollama→/")
+        if $DRY_RUN; then
+            _mutate sudo stow -t / ollama
+        elif $STOW_ADOPT; then
+            _adopt_backup -t / ollama || { _record "stow:ollama" fail "backup failed"; return 1; }
+            sudo stow --adopt -t / ollama && _stowed+=("ollama→/") || _record "stow:ollama" fail "adopt failed"
+        else
+            sudo stow -t / ollama && _stowed+=("ollama→/") \
+                || { _record "stow:ollama" fail "conflicts"; warn "stow conflict in 'ollama' — run 'vjupdate --adopt'"; }
+        fi
     fi
 
     for _pkg in "${_stowed[@]}"; do ok "stowed: $_pkg"; done
+    if [[ ${#_conflicts[@]} -gt 0 ]]; then
+        warn "stow conflicts left untouched: ${_conflicts[*]}"
+    fi
+    # Deliberately returns 0 even with conflicts. A conflict is the EXPECTED,
+    # recoverable outcome of not passing --adopt, and each one is already
+    # recorded as failed at its call site, so _FAILED (and the exit status) is
+    # set either way. Returning non-zero here would trip the ERR trap and abort
+    # the whole run — dms_import, configure and audit would never execute
+    # because one package had a drifted file.
+    return 0
+}
+
+# Back up every file stow would overwrite, OUTSIDE the tracked tree, before an
+# --adopt run moves it into the repo. Without this, adopting is unrecoverable:
+# the repo copy is gone and the live file has been moved.
+_adopt_backup() {
+    local dest _err rc=0 target="$HOME" pkg="${*: -1}" arg
+    local -a args=("$@")
+    while (( $# )); do
+        arg="$1"; shift
+        case "$arg" in
+            -t|--target) target="$1"; shift ;;
+            --target=*) target="${arg#*=}" ;;
+        esac
+    done
+    _err=$(LC_ALL=C stow -n "${args[@]}" 2>&1) || rc=$?
+    (( rc == 0 )) && return 0
+    # stow's conflict line is:
+    #   * cannot stow <src> over existing target <target> since <reason>
+    # <target> is relative to -t, which is / for the ollama package.
+    # Refuse unknown conflict formats and probe errors, never silently adopt.
+    local _targets
+    _targets=$(printf '%s\n' "$_err" | sed -n 's/^ *\* cannot stow .* over existing target \(.*\) since neither a link nor a directory and --adopt not specified$/\1/p')
+    if [[ $rc != 1 || -z "$_targets" ]] || printf '%s\n' "$_err" | grep '^ *\* ' | grep -qv ' since neither a link nor a directory and --adopt not specified$'; then
+        warn "Cannot safely parse stow conflicts; adoption cancelled: $_err"
+        return 1
+    fi
+    # Unreachable today (--dry-run exits after plan_preview and never reaches
+    # deploy_dotfiles), but _deploy_pkg and the ollama branch both honour
+    # DRY_RUN, so this stays consistent with them: if dry-run is ever wired
+    # through the phases, adoption must not start writing backups.
+    if $DRY_RUN; then
+        printf '%s\n' "$_targets" | while IFS= read -r t; do
+            [[ -n "$t" ]] && echo -e "${CYN}    [dry-run] would back up live+repo copies of $t${NC}"
+        done
+        return 0
+    fi
+    mkdir -p "$STAMP_DIR" || return 1
+    dest=$(mktemp -d "$STAMP_DIR/adopt-backup-$(date '+%Y%m%d-%H%M%S')-XXXXXX") || return 1
+    local t src repo_src
+    while IFS= read -r t; do
+        if [[ -z "$t" || "$t" == /* || "/$t/" == *"/../"* ]]; then
+            warn "Invalid stow conflict path; adoption cancelled: $t"
+            return 1
+        fi
+        src="$target/$t"
+        repo_src="$pkg/$t"
+        if [[ ! -e "$src" && ! -L "$src" ]] || [[ ! -e "$repo_src" && ! -L "$repo_src" ]]; then
+            warn "Backup source missing; adoption cancelled: $t"
+            return 1
+        fi
+        mkdir -p "$dest/live/$(dirname "$t")" "$dest/repo/$(dirname "$t")" || return 1
+        cp -a -- "$src" "$dest/live/$t" || { warn "Backup failed: $src"; return 1; }
+        cp -a -- "$repo_src" "$dest/repo/$t" || { warn "Backup failed: $repo_src"; return 1; }
+        ok "backed up live and repo: $t"
+    done <<< "$_targets"
+    ok "adopt backups in $dest"
 }
 
 # ─── Phase 5: Services ───────────────────────────────────
@@ -545,24 +788,22 @@ _enable() {
     systemctl enable --now "$1" 2>/dev/null && ok "enabled: $1" || warn "skipped (not found): $1"
 }
 
+# Listed once so --dry-run previews exactly what enable_services would touch.
+SERVICES=(
+    NetworkManager bluetooth cups bpftune ananicy-cpp
+    dmemcg-booster-system systemd-oomd power-profiles-daemon
+    snapper-timeline.timer snapper-cleanup.timer limine-snapper-sync.service
+    greetd docker
+)
+SERVICES_DESKTOP=(ollama)
+
 enable_services() {
     info "Enabling common services..."
-    _enable NetworkManager
-    _enable bluetooth
-    _enable cups
-    _enable bpftune
-    _enable ananicy-cpp
-    _enable "dmemcg-booster-system"
-    _enable systemd-oomd
-    _enable power-profiles-daemon
-    _enable "snapper-timeline.timer"
-    _enable "snapper-cleanup.timer"
-    _enable "limine-snapper-sync.service"
-    _enable greetd
-    _enable docker
+    local _svc
+    for _svc in "${SERVICES[@]}"; do _enable "$_svc"; done
 
     if [[ "$MACHINE" == desktop ]]; then
-        _enable ollama
+        for _svc in "${SERVICES_DESKTOP[@]}"; do _enable "$_svc"; done
         sudo systemctl daemon-reload 2>/dev/null || true
         sudo usermod -aG libvirt "$USER" 2>/dev/null || true
         sudo usermod -aG docker "$USER" 2>/dev/null || true
@@ -1146,7 +1387,13 @@ system_update() {
     info "Updating all packages..."
     # Match install_all: a failed upgrade must not abort the run before
     # clean_caches and print_recap get to report what happened.
-    _syuu && ok "system up to date" || warn "Full upgrade failed — see log"
+    if _syuu; then
+        _record "full-upgrade" ok
+        ok "system up to date"
+    else
+        _record "full-upgrade" fail "paru -Syuu returned non-zero"
+        warn "Full upgrade failed — see log"
+    fi
 }
 
 # ─── Maintenance: flatpak update ─────────────────────────
@@ -1179,13 +1426,28 @@ clean_caches() {
     # which may not be installed yet if a fresh bootstrap failed mid-install.
     # Unguarded, it would abort the run before print_recap.
     if command -v paccache &>/dev/null; then
-        sudo paccache -rk2  || warn "paccache -rk2 failed"
-        sudo paccache -ruk0 || warn "paccache -ruk0 failed"
+        _mutate sudo paccache -rk2  || warn "paccache -rk2 failed"
+        _mutate sudo paccache -ruk0 || warn "paccache -ruk0 failed"
     else
         warn "paccache not found — install pacman-contrib"
     fi
-    rm -rf "$HOME/.cache/paru/clone" "$HOME/.cache/paru" "$HOME/.cache/yay"
-    ok "caches cleaned"
+
+    # BEHAVIOUR CHANGE (deliberate): the paru/yay caches are no longer wiped.
+    # ~/.cache/paru/clone holds the AUR git checkouts paru reuses; deleting it
+    # forces a full re-clone and rebuild of every AUR package on the next run,
+    # which is what made AUR upgrades slow after every maintenance pass. Only
+    # built artefacts are pruned, and only with --clean-aggressive.
+    local _paru_cache="$HOME/.cache/paru"
+    if $CLEAN_AGGRESSIVE; then
+        _mutate rm -rf "$_paru_cache" "$HOME/.cache/yay"
+        ok "caches cleaned (aggressive: AUR sources removed, next build re-clones)"
+    else
+        if [[ -d "$_paru_cache" ]]; then
+            local _sz; _sz=$(du -sh "$_paru_cache" 2>/dev/null | cut -f1 || echo '?')
+            ok "kept: AUR build cache ($_sz in $_paru_cache) — use --clean-aggressive to remove"
+        fi
+        ok "caches cleaned (pacman only; AUR sources preserved)"
+    fi
 }
 
 # ─── Maintenance: foreign packages + orphan removal ──────
@@ -1319,7 +1581,7 @@ check_pacnew() {
         return
     fi
     pacdiff -o || true
-    $AUDIT_PACNEW || return
+    $AUDIT_PACNEW || return 0
     # pacdiff prompts per file and opens $DIFFPROG (default 'vim -d'), so it
     # needs a terminal — a --yes run would block on stdin forever.
     if ! $INTERACTIVE; then
@@ -1338,25 +1600,66 @@ check_pacnew() {
 check_aur_malware() {
     local repo_dir="$HOME/.local/share/aur-malware-check"
     info "Checking AUR malware (supply chain attack scan)..."
-    if [[ -d "$repo_dir" ]]; then
-        git -C "$repo_dir" reset --hard HEAD --quiet 2>/dev/null || true
-        git -C "$repo_dir" pull --quiet 2>/dev/null \
-            || die "aur-malware-check: failed to update repo — cannot proceed without up-to-date definitions"
-    else
-        git clone --quiet https://github.com/lenucksi/aur-malware-check.git "$repo_dir" 2>/dev/null \
-            || die "aur-malware-check: failed to clone repo — cannot proceed without definitions"
-    fi
-    local result
-    # || true is load-bearing: aur_check exits non-zero exactly when it finds
-    # something, and set -e would kill the script here before the die() below
-    # ever printed why.
-    result=$(cd "$repo_dir" && python -m aur_check --full --refresh --json 2>/dev/null) || true
-    if [[ -n "$result" ]] && python3 -c "import json,sys; sys.exit(0 if json.loads(sys.argv[1])['exit_code'] == 0 else 1)" "$result" 2>/dev/null; then
-        ok "aur malware check: clean"
-    else
-        echo "$result"
-        die "aur malware check: POSSIBLE INFECTION DETECTED — aborting"
-    fi
+    _update_malware_defs \
+        || die "aur-malware-check: failed to update definitions — cannot proceed without them"
+    local result rc=0
+    # || rc=$? is load-bearing: aur_check exits non-zero exactly when it finds
+    # something, and set -e would kill the script here before the reporting
+    # below ever printed why.
+    result=$(cd "$repo_dir" && python -m aur_check --full --refresh --json 2>/dev/null) || rc=$?
+    # aur_check's exit codes are graded (aur_check/constants.py ExitCode):
+    #   0 OK  1 WARNING  2 CRITICAL  3 UNKNOWN
+    # WARNING means "could not fully verify" (missing/unreadable pacman logs)
+    # with NO indicators found — models.py returns it only after every hit list
+    # comes back empty. Lumping 1 and 3 in with 2 cried malware over a missing
+    # log file. Parse the code, the warning kinds and their details in one go.
+    local parsed verdict kinds detail
+    parsed=$(python3 -c "import json,sys
+try:
+    d = json.loads(sys.argv[1])
+    ws = d.get('warnings') or []
+    code = d['exit_code']
+    if type(code) is not int:
+        raise ValueError('invalid exit_code')
+    lines = [str(code), ', '.join(sorted({(w.get('kind') or '?') for w in ws}))]
+    lines += ['      - ' + (w.get('kind') or '?') + ': ' + (w.get('detail') or '') for w in ws]
+    print('\n'.join(lines))
+except Exception:
+    print('unreadable')
+    print('')" "$result" 2>/dev/null) || parsed=$'unreadable\n'
+    verdict=$(printf '%s\n' "$parsed" | sed -n '1p')
+    kinds=$(printf '%s\n'  "$parsed" | sed -n '2p')
+    detail=$(printf '%s\n' "$parsed" | tail -n +3)
+    case "$verdict" in
+        0)
+            # A JSON body saying "clean" while the process exited non-zero means
+            # the two disagree; trusting the body would let a crash after the
+            # dump read as a pass. aur_check exits with its own ExitCode, so a
+            # clean verdict must come with rc=0.
+            if [[ $rc -ne 0 ]]; then
+                echo "$result"
+                die "aur malware check: scanner reported clean but exited $rc — inconsistent, cannot verify, aborting"
+            fi
+            ok "aur malware check: clean" ;;
+        1)
+            # Blocks, as an unverifiable system is not a safe one — but say so
+            # honestly instead of claiming an infection nobody detected.
+            echo -e "${YEL}    scan could not fully verify:${NC}"
+            [[ -n "$detail" ]] && printf '%s\n' "$detail"
+            die "aur malware check: verification INCOMPLETE (${kinds:-unspecified warnings}) — no indicators found, but the scan was not conclusive; aborting" ;;
+        2)
+            echo "$result"
+            die "aur malware check: POSSIBLE INFECTION DETECTED — aborting" ;;
+        3)
+            echo "$result"
+            die "aur malware check: scanner reported an error (exit_code=3, rc=$rc) — cannot verify, aborting" ;;
+        unreadable|"")
+            [[ -n "$result" ]] && echo "$result"
+            die "aur malware check: scanner produced no usable output (rc=$rc) — cannot verify, aborting" ;;
+        *)
+            echo "$result"
+            die "aur malware check: unrecognised scanner exit_code '$verdict' — cannot verify, aborting" ;;
+    esac
 }
 
 # ─── Maintenance: firmware updates ───────────────────────
@@ -1389,18 +1692,39 @@ check_pacman_db() {
 
 # ─── Warnings recap ──────────────────────────────────────
 print_recap() {
+    if [[ ${#_RESULT_NAMES[@]} -gt 0 ]]; then
+        echo ""
+        echo -e "${CYN}════════════════════════════════════════════${NC}"
+        echo -e "${CYN}  Results${NC}"
+        echo -e "${CYN}════════════════════════════════════════════${NC}"
+        local i mark col
+        for i in "${!_RESULT_NAMES[@]}"; do
+            case "${_RESULT_STATES[$i]}" in
+                ok)   mark="✓"; col="$GRN" ;;
+                fail) mark="✗"; col="$RED" ;;
+                *)    mark="–"; col="$YEL" ;;
+            esac
+            printf '%b  %s %-28s%b%s\n' "$col" "$mark" "${_RESULT_NAMES[$i]}" "$NC" \
+                "${_RESULT_NOTES[$i]:+  (${_RESULT_NOTES[$i]})}"
+        done
+    fi
+
     if [[ ${#WARNINGS[@]} -eq 0 ]]; then
         echo ""; ok "no warnings"
-        return
+    else
+        echo ""
+        echo -e "${YEL}════════════════════════════════════════════${NC}"
+        echo -e "${YEL}  ⚠  Warnings / Errors (${#WARNINGS[@]})${NC}"
+        echo -e "${YEL}════════════════════════════════════════════${NC}"
+        for w in "${WARNINGS[@]}"; do
+            echo -e "${YEL}  [!] $w${NC}"
+        done
+        echo ""
     fi
-    echo ""
-    echo -e "${YEL}════════════════════════════════════════════${NC}"
-    echo -e "${YEL}  ⚠  Warnings / Errors (${#WARNINGS[@]})${NC}"
-    echo -e "${YEL}════════════════════════════════════════════${NC}"
-    for w in "${WARNINGS[@]}"; do
-        echo -e "${YEL}  [!] $w${NC}"
-    done
-    echo ""
+    # Exit status reflects whether the requested work actually succeeded, so a
+    # failed run is visible to a caller/cron after recoverable failures too.
+    (( _FAILED != 0 )) && _RECAP_FAILURE_REPORTED=true
+    return $_FAILED
 }
 
 # ─── Phase 9: Summary ────────────────────────────────────
@@ -1670,10 +1994,8 @@ phase_configure() {
     _sel "caveman-code"    && setup_caveman_code
     _sel "ollama"          && setup_ollama
     _sel "vms"             && setup_vms
-    _sel "orphan-removal"  && AUDIT_ORPHAN_REMOVAL=true
-    _sel "python-rebuild"  && AUDIT_PYTHON_REBUILD=true
-    _sel "rebuild"         && AUDIT_REBUILD=true
-    _sel "pacnew-merge"    && AUDIT_PACNEW=true
+    # Audit-dependent actions are resolved in bootstrap() from the AUDIT_ACTIONS
+    # table (which also enables the audit phase); nothing to set here.
     _sel "steam-launchers" && setup_steam_launchers
     _sel "app-launchers"   && check_app_launchers
 
@@ -1707,27 +2029,43 @@ bootstrap() {
             SKIP_PHASES+="configure "
         fi
 
-        # If orphan-removal or python-rebuild are selected but audit phase is not,
-        # force-enable audit so those flags actually get used.
-        if echo "${CONFIGURE_ITEMS:-}" | grep -qE "^(orphan-removal|python-rebuild) —"; then
-            # entries are stored as "audit " (no leading space); pad before replacing
-            SKIP_PHASES=" $SKIP_PHASES"
-            SKIP_PHASES="${SKIP_PHASES/ audit / }"
-            SKIP_PHASES="${SKIP_PHASES# }"
-        fi
+        # Enable each selected audit-dependent action from the single table at
+        # the top of the file. _enable_audit_action also un-skips the audit
+        # phase, so an action can no longer be selected into a phase that never
+        # runs — which is what made `rebuild` a silent no-op.
+        local _act
+        for _act in "${!AUDIT_ACTIONS[@]}"; do
+            echo "${CONFIGURE_ITEMS:-}" | grep -q "^$_act —" && _enable_audit_action "$_act"
+        done
     else
         detect_machine
         _ensure_dots_repo
     fi
-    _check_packages_against_malware
+    # Gate package mutations, including rebuilds and the optional kernel action.
+    # A dotfiles-only run still needs no network. The post-audit scan is too late
+    # to guard rebuilds because they execute before it.
+    if [[ " ${SKIP_PHASES:-} " != *" install "* || " ${SKIP_PHASES:-} " != *" sources "* ]] \
+        || { [[ " ${SKIP_PHASES:-} " != *" audit "* ]] && { $AUDIT_REBUILD || $AUDIT_PYTHON_REBUILD || $AUDIT_ORPHAN_REMOVAL; }; } \
+        || { [[ " ${SKIP_PHASES:-} " != *" configure "* ]] && grep -q '^kernels —' <<< "$CONFIGURE_ITEMS"; }; then
+        _check_packages_against_malware
+        # phase_install runs paru -Syuu, which rebuilds installed AUR packages
+        # from upstream PKGBUILDs — the exact vector the scan exists to catch.
+        # The list gate only covers packages we are about to request, so scan
+        # what is already installed too, before the mutation rather than in the
+        # audit phase afterwards. Same gate update() already applies to --update.
+        # Definitions were just refreshed, so this reuses them without re-pulling.
+        check_aur_malware
+    fi
     info "phases active: $({ for _p in sources install dotfiles configure audit; do [[ " ${SKIP_PHASES:-} " == *" $_p "* ]] || printf '%s ' "$_p"; done; })"
     _run_phase "sources"   phase_sources
     _run_phase "install"   phase_install
     _run_phase "dotfiles"  phase_dotfiles
     _run_phase "configure" phase_configure
     _run_phase "audit"     phase_audit
-    print_recap
+    local _rc=0
+    print_recap || _rc=$?
     ${_show_manual:-false} && print_manual_steps || true
+    return $_rc
 }
 
 update() {
@@ -1869,7 +2207,11 @@ check_app_launchers() {
         base="$(basename "$f")"
         [[ "$base" == steam_app_* ]] && continue
 
-        exec_line=$(grep -m1 '^Exec=' "$f" | cut -d= -f2-)
+        # grep exits 1 when a .desktop carries no Exec= (Hidden=true override
+        # stubs, and .directory-style entries). With set -euo pipefail that
+        # killed the whole run mid-loop before the -z check below could skip
+        # the file. Keep such entries — absence of Exec is not staleness.
+        exec_line=$(grep -m1 '^Exec=' "$f" | cut -d= -f2-) || exec_line=""
         [[ -z "$exec_line" ]] && continue
 
         bin=$(_desktop_exec_bin "$exec_line")
@@ -1894,6 +2236,114 @@ check_app_launchers() {
     ok "$missing installed app(s) not mirrored in ~/.local/share/applications (already visible via /usr/share/applications, informational only)"
 }
 
+# ─── Dry run ─────────────────────────────────────────────
+# Read-only preview of the resolved plan. Takes no lock, rotates no log, writes
+# no stamps, refreshes no definitions, touches no repo. Anything that would need
+# a network fetch or root is reported as unknown rather than guessed at.
+plan_preview() {
+    DRY_RUN=true
+    info "Dry run — no changes"
+    case "${ACTION:-}" in
+        --check|-c)
+            info "Audit: foreign/orphan packages, rebuilds, pacnew, firmware, malware, pacman database"
+            echo "      Would write ~/foreign-pkgs.txt when foreign packages are found."
+            _unknown "audit findings: checks and definition refresh have not run"
+            return 0 ;;
+        --update|-u)
+            detect_machine
+            info "Update: malware gate, package replacement, mirror refresh, system and Flatpak upgrades"
+            echo "      Would replace libreoffice-fresh with libreoffice-still if installed."
+            echo "      Would remove unused Flatpak runtimes."
+            _unknown "available upgrades and malware verdict: network checks have not run"
+            info "Cleanup: paccache -rk2 / -ruk0"
+            $CLEAN_AGGRESSIVE && echo "      Would remove ~/.cache/paru and ~/.cache/yay." \
+                || echo "      AUR sources preserved."
+            return 0 ;;
+    esac
+    detect_machine
+    if [[ "${ACTION:-}" != --yes && "${ACTION:-}" != -y ]]; then
+        _unknown "interactive checklist selections; showing the --yes baseline below"
+    fi
+    ok "dots repo: $DOTS_DIR"
+    info "Bootstrap phases (--yes baseline):"
+    local p
+    for p in sources install dotfiles configure audit; do
+        if [[ " ${SKIP_PHASES:-} " == *" $p "* ]]; then
+            echo "      – $p (skipped)"
+        else
+            echo "      ✓ $p"
+        fi
+    done
+
+    if [[ " ${SKIP_PHASES:-} " != *" sources "* ]]; then
+        info "Sources: install paru if missing, keyrings, mirrors, Flathub remote, clone projects"
+        _unknown "definition refresh and malware scan: not run"
+    fi
+    if [[ " ${SKIP_PHASES:-} " != *" install "* ]]; then
+        info "Packages that would be installed:"
+        local installed list pkg missing=0
+        if [[ -r "$DOTS_DIR/.paru-S-common.list" ]] && installed=$(pacman -Qq 2>/dev/null); then
+            local -A present=() skipped=()
+            while IFS= read -r pkg; do
+                [[ -n "$pkg" ]] && present["$pkg"]=1
+            done <<< "$installed"
+            if [[ -f "$DOTS_DIR/.paru-skip.list" ]]; then
+                while IFS= read -r pkg; do skipped["$pkg"]=1; done < <(_pkg_list "$DOTS_DIR/.paru-skip.list")
+            fi
+            for list in "$DOTS_DIR/.paru-S-common.list" "$DOTS_DIR/.paru-S-${MACHINE}.list"; do
+                [[ -r "$list" ]] || { _unknown "unreadable list: $list"; continue; }
+                while IFS= read -r pkg; do
+                    [[ -v skipped["$pkg"] ]] && continue
+                    [[ -v present["$pkg"] ]] || { echo "      + $pkg"; (( missing++ )) || true; }
+                done < <(_pkg_list "$list")
+            done
+            (( missing == 0 )) && ok "all listed packages present"
+        else
+            _unknown "package lists or installed-package query unavailable"
+        fi
+        echo "      Would remove installed packages listed in .paru-R.list, then upgrade the system."
+        echo "      Would install .flatpak-S.list and update Flatpak apps."
+        _unknown "available upgrades and malware verdict: network checks have not run"
+    fi
+
+    if [[ " ${SKIP_PHASES:-} " != *" dotfiles "* ]]; then
+        info "Dotfile deployment:"
+        if [[ -d "$DOTS_DIR" ]] && cd "$DOTS_DIR" 2>/dev/null; then
+            local out rc target
+            for pkg in "${COMMON_STOW_PKGS[@]}" claude bkg ollama; do
+                [[ -d "$pkg" ]] || continue
+                target="$HOME"
+                [[ "$pkg" == ollama ]] && target=/
+                rc=0
+                out=$(stow -n --restow -t "$target" "$pkg" 2>&1) || rc=$?
+                if (( rc != 0 )); then
+                    _unknown "stow probe for $pkg failed (exit $rc): $out"
+                else
+                    ok "$pkg: stow simulation passed"
+                fi
+            done
+            echo "      Would link machine-specific niri files and import DMS overrides."
+            $STOW_ADOPT && echo "      Would back up live AND repo files before adoption."
+        else
+            _unknown "cannot read $DOTS_DIR — stow conflicts not checked"
+        fi
+    fi
+    if [[ " ${SKIP_PHASES:-} " != *" configure "* ]]; then
+        info "Configure (--yes): custom install scripts and fish setup"
+        _unknown "installer effects: commands are not executed in preview"
+    fi
+    if [[ " ${SKIP_PHASES:-} " != *" audit "* ]]; then
+        info "Audit: foreign/orphan packages, unused Flatpak runtimes, rebuild checks, pacnew, firmware, malware, database"
+    fi
+    if [[ " ${SKIP_PHASES:-} " != *" install "* ]]; then
+        info "Cleanup: paccache -rk2 / -ruk0"
+        $CLEAN_AGGRESSIVE && echo "      Would remove ~/.cache/paru and ~/.cache/yay." \
+            || echo "      AUR sources preserved."
+    fi
+    ok "dry run complete — nothing was changed"
+    return 0
+}
+
 usage() {
     echo "Usage: vjupdate [OPTION]"
     echo ""
@@ -1913,25 +2363,75 @@ usage() {
     echo "  --pacnew            Interactively merge .pacnew files with pacdiff"
     echo "  --rebuild           Rebuild packages flagged by rebuild-detector"
     echo "  --help              Show this message"
+    echo ""
+    echo "Modifiers (combine with the actions above):"
+    echo "  --dry-run, -n       Print the resolved plan and change nothing."
+    echo "                      Takes no lock, rotates no log, writes no stamps,"
+    echo "                      fetches nothing. Facts needing network or root"
+    echo "                      are shown as [unknown], never guessed."
+    echo "  --adopt             Let stow ADOPT conflicting files into the repo."
+    echo "                      Off by default: adoption overwrites the tracked"
+    echo "                      copy with whatever is live. Conflicting files are"
+    echo "                      copied to \$STAMP_DIR/adopt-backup-<ts>/ first."
+    echo "  --clean-aggressive  Also delete ~/.cache/paru and ~/.cache/yay during"
+    echo "                      cleanup. Default keeps them: they hold the AUR git"
+    echo "                      checkouts paru reuses, so wiping forces a full"
+    echo "                      re-clone and rebuild of every AUR package."
+    echo ""
+    echo "Only one vjupdate may run at a time (flock on $LOCK_FILE)."
+    echo "Exit status is nonzero if any requested action failed."
 }
 
-case "${1:-}" in
-    --interactive|-i)    INTERACTIVE=true;  bootstrap ;;
-    --yes|-y)            INTERACTIVE=false; bootstrap ;;
-    --update|-u)         update ;;
-    --check|-c)          check ;;
-    --kernels)           manage_kernels ;;
-    --automount)         detect_machine; automount_disks ;;
-    --optimize)          detect_machine; optimize_system ;;
-    --keyring-pam)       setup_keyring_pam ;;
-    --dms-export)        dms_export ;;
-    --dms-import)        dms_import ;;
-    --steam-launchers)   setup_steam_launchers ;;
-    --app-launchers)     check_app_launchers ;;
-    --rebuild)           AUDIT_REBUILD=true; check_rebuilds ;;
-    --pacnew)            AUDIT_PACNEW=true; check_pacnew ;;
+# Sourcing the script (for tests) must not run anything. Guard main execution so
+# functions can be exercised in isolation without startup side effects.
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+    return 0 2>/dev/null || true
+fi
 
-    --help|-h)           usage ;;
-    "")                  bootstrap ;;
-    *)                   die "Unknown option: $1. Use --help." ;;
+_ARGS="$*"
+ACTION=""
+# Modifiers are order-independent and may be combined with any action; the
+# action itself is whatever non-modifier argument appears.
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --dry-run|-n)       DRY_RUN=true ;;
+        --adopt)            STOW_ADOPT=true ;;
+        --clean-aggressive) CLEAN_AGGRESSIVE=true ;;
+        --help|-h)          ACTION=help ;;
+        "")                 ;;
+        -*|*)
+            [[ -n "$ACTION" ]] && die "More than one action given ($ACTION, $1). Use --help."
+            ACTION="$1" ;;
+    esac
+    shift
+done
+
+# --help and --dry-run are read-only: no lock, no log rotation, no stamps.
+if [[ "$ACTION" == help ]]; then usage; exit 0; fi
+if $DRY_RUN; then
+    case "$ACTION" in
+        ""|--interactive|-i|--yes|-y|--update|-u|--check|-c)
+            $STOW_ADOPT && warn "--adopt shown in preview only; nothing will be adopted"
+            plan_preview; exit $? ;;
+        *) die "--dry-run currently covers the bootstrap/update/check plan, not $ACTION" ;;
+    esac
+fi
+
+case "$ACTION" in
+    --interactive|-i)    _init_runtime; INTERACTIVE=true;  bootstrap ;;
+    --yes|-y)            _init_runtime; INTERACTIVE=false; bootstrap ;;
+    --update|-u)         _init_runtime; update ;;
+    --check|-c)          _init_runtime; check ;;
+    --kernels)           _init_runtime; check_aur_malware; manage_kernels ;;
+    --automount)         _init_runtime; detect_machine; automount_disks ;;
+    --optimize)          _init_runtime; detect_machine; optimize_system ;;
+    --keyring-pam)       _init_runtime; setup_keyring_pam ;;
+    --dms-export)        _init_runtime; dms_export ;;
+    --dms-import)        _init_runtime; dms_import ;;
+    --steam-launchers)   _init_runtime; setup_steam_launchers ;;
+    --app-launchers)     _init_runtime; check_app_launchers ;;
+    --rebuild)           _init_runtime; check_aur_malware; _enable_audit_action rebuild; check_rebuilds ;;
+    --pacnew)            _init_runtime; _enable_audit_action pacnew-merge; check_pacnew ;;
+    "")                  _init_runtime; bootstrap ;;
+    *)                   die "Unknown option: $ACTION. Use --help." ;;
 esac

@@ -190,6 +190,16 @@ vjupdate --rebuild
 # Interactively merge .pacnew files (pacdiff; overwrites keep a .bak)
 vjupdate --pacnew
 
+# Preview the resolved plan; changes nothing, takes no lock, fetches nothing
+vjupdate --dry-run          # combine with any bootstrap/update/check action
+
+# Let stow adopt conflicting files (backs them up to
+# ~/.local/state/dots/adopt-backup-<ts>/ first)
+vjupdate --adopt
+
+# Also wipe ~/.cache/paru and ~/.cache/yay during cleanup
+vjupdate --clean-aggressive
+
 # Remove stale non-Steam app launchers, report apps not mirrored locally
 vjupdate --app-launchers
 
@@ -282,6 +292,32 @@ Opens Chromium `--app` at 75% of screen size (100% on Surface). Window size is m
 **Windows shared folder**: `~/Shared` on host is mounted into the VM via Samba. Inside Windows, map `\\host.lan\Data` as a network drive (This PC → Map network drive).
 
 Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
+
+## vjupdate behaviour notes
+
+- **Single instance.** An flock on `~/.local/state/dots/vjupdate.lock` is taken
+  *before* log rotation; a second run exits with a message. `--help` and
+  `--dry-run` skip runtime init entirely (no lock, no log rotation, no stamps),
+  so they are genuinely read-only. Main execution is guarded by a
+  `BASH_SOURCE` check so tests can source the file for its functions.
+- **Stow no longer uses `--adopt` by default.** Conflicts are reported and left
+  untouched; `--adopt` opts in and backs both live and repository versions up to
+  unique `~/.local/state/dots/adopt-backup-<ts>-<suffix>/` directories first.
+  Backup failures or unknown Stow conflict formats cancel adoption. See README.
+- **Cache cleanup keeps the AUR sources.** `~/.cache/paru` holds the git
+  checkouts paru reuses; wiping it forces a full re-clone and rebuild of every
+  AUR package. `--clean-aggressive` restores the old wipe-everything behaviour.
+- **Audit-dependent actions live in one table** (`AUDIT_ACTIONS`, top of the
+  file) mapping checklist name → flag var. `_enable_audit_action` sets the flag
+  *and* un-skips the audit phase, so an action can't be selected into a phase
+  that never runs. Add new ones there only — the checklist, the CLI flag and the
+  dry-run preview all read from it.
+- **Exit status is meaningful.** Phases record ok/fail/skip; `print_recap`
+  prints the table and returns non-zero if anything failed. Unexpected phase
+  failures abort and print a recap through the runtime ERR trap. Never wrap
+  the phase invocation in `if` or `||`: that disables errexit for the whole
+  call tree, allowing failed keyring operations to be stamped successful.
+  Recoverable failures must be handled and recorded at their call sites.
 
 ## vjupdate bootstrap phases
 

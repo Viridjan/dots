@@ -29,7 +29,8 @@ input {
         map-to-output "eDP-1"
     }
 
-    mouse {
-        natural-scroll false
-    }
+    // No mouse{} block: `natural-scroll` is a bare flag node and takes no
+    // argument, so `natural-scroll false` is a parse error, not an "off"
+    // switch — it aborted the whole surface config. Omitting it is how you
+    // get natural scrolling off, which is already the default.
 }

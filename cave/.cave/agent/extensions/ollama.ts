@@ -7,7 +7,9 @@ export default function (pi: ExtensionAPI) {
     api: "openai-completions",
     models: [
       {
-        id: "qwen3-14b",
+        // Must match the ollama tag exactly — this id is sent as the `model`
+        // field to /v1, and `setup_ollama` pulls `qwen3:14b`.
+        id: "qwen3:14b",
         name: "Qwen3 14B (local)",
         reasoning: true,
         input: ["text"],
