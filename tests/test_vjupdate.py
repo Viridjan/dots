@@ -290,6 +290,132 @@ print_recap
         self.assertNotIn('caches cleaned', r.stdout)
 
 
+class UploadTests(FixtureCase):
+    def setUp(self):
+        super().setUp()
+        self.mock('git', '''
+printf '%s\\n' "$*" >> "$CALLS"
+shift 2
+case "$1" in
+  symbolic-ref) echo main ;;
+  config) case "$3" in *.remote) echo origin ;; *.merge) echo refs/heads/main ;; esac ;;
+  status) printf '%s' "${UPLOAD_CHANGES-M config}" ;;
+  commit) [[ "${UPLOAD_FAIL:-}" != commit ]] ;;
+  push) [[ "${UPLOAD_FAIL:-}" != push ]] ;;
+esac
+''')
+
+    def test_menu_groups_dotfiles_and_upload_under_dms(self):
+        r = self.shell('_multiselect() { printf "%s\\n" "$@"; }\n_bootstrap_multiselect')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        section = r.stdout.split(':  DMS & Stow', 1)[1].split(':  Shell & tools', 1)[0]
+        self.assertIn('dotfiles-export —', section)
+        self.assertIn('dotfiles-import —', section)
+        self.assertIn('stow-symlinks —', section)
+        self.assertLess(section.index('dotfiles-export —'), section.index('dotfiles-import —'))
+        self.assertLess(section.index('dotfiles-import —'), section.index('stow-symlinks —'))
+        self.assertNotIn('+dotfiles', section)
+        self.assertNotIn('dotfiles —', r.stdout)
+        self.assertNotIn('dotfiles-upload', r.stdout)
+
+    def test_declined_staging_does_not_modify_or_push(self):
+        r = self.shell('_confirm() { return 1; }\nexport_dotfiles\nprint_recap')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        calls = Path(self.env['CALLS']).read_text()
+        for action in (' add ', ' commit ', ' push '):
+            self.assertNotIn(action, calls)
+
+    def test_upload_commits_before_pushing_configured_branch(self):
+        r = self.shell('_confirm() { return 0; }\nexport_dotfiles <<< "Sync dotfiles"\nprint_recap')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        calls = Path(self.env['CALLS']).read_text()
+        self.assertLess(calls.index(' add -A'), calls.index(' commit -m Sync dotfiles'))
+        self.assertLess(calls.index(' commit -m Sync dotfiles'), calls.index(' push origin HEAD:refs/heads/main'))
+        self.assertNotIn('--force', calls)
+
+    def test_commit_failure_never_pushes(self):
+        self.env['UPLOAD_FAIL'] = 'commit'
+        r = self.shell('_confirm() { return 0; }\nexport_dotfiles <<< "Sync dotfiles"\nprint_recap')
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertNotIn(' push ', Path(self.env['CALLS']).read_text())
+
+    def test_push_failure_is_reported(self):
+        self.env['UPLOAD_FAIL'] = 'push'
+        r = self.shell('_confirm() { return 0; }\nexport_dotfiles <<< "Sync dotfiles"\nprint_recap')
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertIn('local commits preserved', r.stdout)
+
+    def test_clean_tree_can_retry_push_without_commit(self):
+        self.env['UPLOAD_CHANGES'] = ''
+        r = self.shell('_confirm() { return 0; }\nexport_dotfiles\nprint_recap')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        calls = Path(self.env['CALLS']).read_text()
+        self.assertNotIn(' commit ', calls)
+        self.assertIn(' push origin HEAD:refs/heads/main', calls)
+
+    def test_upload_runs_after_export(self):
+        r = self.shell('''
+CONFIGURE_PROMPTED=true
+CONFIGURE_ITEMS=$'dms-export — export\\ndotfiles-export — upload'
+dms_export() { echo EXPORTED; }
+export_dotfiles() { echo UPLOADED; }
+phase_configure
+''')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertLess(r.stdout.index('EXPORTED'), r.stdout.index('UPLOADED'))
+
+    def test_noninteractive_upload_is_skipped(self):
+        r = self.shell('INTERACTIVE=false\nexport_dotfiles\nprint_recap')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse(Path(self.env['CALLS']).exists())
+
+    def test_dotfiles_import_copies_overrides_without_git_or_stow(self):
+        repo = self.fixture_repo()
+        source = repo / 'niri/.config/niri/dms'
+        source.mkdir(parents=True)
+        live = self.home / '.config/niri/dms'
+        live.mkdir(parents=True)
+        names = ('alttab', 'binds', 'cursor', 'layout', 'windowrules', 'wpblur', 'colors')
+        for name in names:
+            (source / (name + '.kdl')).write_text('repo ' + name)
+            (live / (name + '.kdl')).write_text('old live')
+        r = self.shell('''
+CONFIGURE_PROMPTED=true
+CONFIGURE_ITEMS='dotfiles-import — import'
+deploy_dotfiles() { echo BAD_STOW; }
+phase_configure
+''')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn('BAD_STOW', r.stdout)
+        self.assertFalse(Path(self.env['CALLS']).exists())
+        for name in names:
+            self.assertEqual((live / (name + '.kdl')).read_text(), 'repo ' + name)
+
+    def test_stow_selection_does_not_import_dms(self):
+        r = self.shell('''
+CONFIGURE_PROMPTED=true
+CONFIGURE_ITEMS='stow-symlinks — deploy'
+deploy_dotfiles() { echo DEPLOYED; }
+dms_import() { echo BAD_DMS_IMPORT; }
+phase_configure
+''')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn('DEPLOYED', r.stdout)
+        self.assertNotIn('BAD_DMS_IMPORT', r.stdout)
+
+    def test_import_aliases_run_once_after_stow(self):
+        r = self.shell('''
+CONFIGURE_PROMPTED=true
+CONFIGURE_ITEMS=$'dotfiles-import — import\\nstow-symlinks — deploy\\ndms-import — dms'
+deploy_dotfiles() { echo STOWED; }
+dms_import() { echo DMS_COPIED; }
+phase_configure
+''')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(r.stdout.count('DMS_COPIED'), 1)
+        self.assertLess(r.stdout.index('STOWED'), r.stdout.index('DMS_COPIED'))
+
+
 class SafetyChecks(FixtureCase):
     # Preservation checks, not regressions claimed to fail pre-fix.
     def test_nonrunning_kernel_can_be_removed(self):

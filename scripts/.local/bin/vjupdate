@@ -1956,7 +1956,6 @@ _bootstrap_multiselect() {
         ":── Essentials ──────────────────────────────" \
         "+sources — paru · keyrings · mirror ranking · flathub remote · clone repos" \
         "+install — conflict removal · full upgrade · pacman/flatpak/AUR · cache cleanup" \
-        "dotfiles — stow symlinks · DMS config import" \
         "+audit — orphan pkgs · flatpak cleanup · rebuild check · pacnew · firmware" \
         "+orphan-removal — Remove orphaned packages (audit)" \
         "+python-rebuild — Rebuild Python packages needing rebuild (audit)" \
@@ -1972,11 +1971,14 @@ _bootstrap_multiselect() {
         "keyboard — Set X11 keyboard layout (us intl)" \
         "keyring-pam — Configure gnome-keyring PAM integration" \
         "kernels — Interactively install or remove CachyOS kernels" \
-        ":  DMS ─────────────────────────────────────" \
+        ":  DMS & Stow ──────────────────────────────" \
         "greeter — Configure DMS greeter (greetd)" \
         "dms-plugins — Install DMS plugins" \
         "dms-export — Copy live DMS config → repo (for committing)" \
         "dms-import — Copy repo DMS overrides → live" \
+        "dotfiles-export — Review and upload dotfile changes (commit + push)" \
+        "dotfiles-import — Copy repo DMS overrides → live" \
+        "stow-symlinks — Deploy Stow and Niri symlinks" \
         ":  Shell & tools ───────────────────────────" \
         "fish — Set up fish shell and tide theme" \
         "install-scripts — Run custom install scripts" \
@@ -1988,6 +1990,63 @@ _bootstrap_multiselect() {
         ":  Launchers ───────────────────────────────" \
         "+steam-launchers — Create .desktop launchers for all installed Steam games" \
         "+app-launchers — Remove stale non-Steam app launchers, report unmirrored apps"
+}
+
+export_dotfiles() {
+    if $DRY_RUN || ! $INTERACTIVE; then
+        _record "dotfiles-export" skip "interactive review required"
+        return 0
+    fi
+    local branch remote merge_ref changes message
+    branch=$(git -C "$DOTS_DIR" symbolic-ref --quiet --short HEAD) \
+        || { _record "dotfiles-export" fail "not on a branch"; warn "Upload needs a checked-out branch"; return 0; }
+    remote=$(git -C "$DOTS_DIR" config --get "branch.$branch.remote") || remote=""
+    merge_ref=$(git -C "$DOTS_DIR" config --get "branch.$branch.merge") || merge_ref=""
+    if [[ -z "$remote" || "$remote" == . || "$merge_ref" != refs/heads/* ]]; then
+        _record "dotfiles-export" fail "no remote upstream configured"
+        warn "Configure a remote upstream for $branch before uploading"
+        return 0
+    fi
+    changes=$(git -C "$DOTS_DIR" status --porcelain) \
+        || { _record "dotfiles-export" fail "cannot read repository status"; return 0; }
+    info "Upload destination: $remote/${merge_ref#refs/heads/} (local branch: $branch)"
+    if [[ -n "$changes" ]]; then
+        printf '%s\n' "$changes"
+        if ! _confirm "Stage ALL non-ignored changes in the dots repository for review? [y/N]"; then
+            _record "dotfiles-export" skip "staging declined"
+            return 0
+        fi
+        git -C "$DOTS_DIR" add -A \
+            || { _record "dotfiles-export" fail "staging failed"; return 0; }
+        git -C "$DOTS_DIR" --no-pager diff --cached --stat
+        git -C "$DOTS_DIR" --no-pager diff --cached --no-ext-diff --no-textconv
+        echo "Existing local commits will also be pushed. Cancelled reviews leave files staged."
+        if ! read -rp "Commit message (empty cancels): " message || [[ -z "${message//[[:space:]]/}" ]]; then
+            _record "dotfiles-export" skip "review cancelled; changes remain staged"
+            return 0
+        fi
+        if ! _confirm "Commit the staged changes and push to $remote/${merge_ref#refs/heads/}? [y/N]"; then
+            _record "dotfiles-export" skip "upload declined; changes remain staged"
+            return 0
+        fi
+        git -C "$DOTS_DIR" commit -m "$message" \
+            || { _record "dotfiles-export" fail "commit failed; nothing pushed"; return 0; }
+    else
+        info "No file changes; upload any existing local commits"
+        git -C "$DOTS_DIR" --no-pager log -5 --oneline
+        if ! _confirm "Push $branch to $remote/${merge_ref#refs/heads/}? [y/N]"; then
+            _record "dotfiles-export" skip "push declined"
+            return 0
+        fi
+    fi
+    if git -C "$DOTS_DIR" push "$remote" "HEAD:$merge_ref"; then
+        _record "dotfiles-export" ok
+        ok "uploaded: $remote/${merge_ref#refs/heads/}"
+    else
+        _record "dotfiles-export" fail "push failed; local commits preserved"
+        warn "Push failed; local commits are preserved. Resolve the remote error and retry."
+    fi
+    return 0
 }
 
 phase_configure() {
@@ -2017,7 +2076,6 @@ phase_configure() {
     _sel "fish"            && setup_fish
     _sel "dms-plugins"     && install_dms_plugins
     _sel "dms-export"      && dms_export
-    _sel "dms-import"      && dms_import
     _sel "claude"          && setup_claude
     _sel "caveman-code"    && setup_caveman_code
     _sel "ollama"          && setup_ollama
@@ -2026,6 +2084,13 @@ phase_configure() {
     # table (which also enables the audit phase); nothing to set here.
     _sel "steam-launchers" && setup_steam_launchers
     _sel "app-launchers"   && check_app_launchers
+    # Save/export first, then deploy links and copy DMS overrides. Both import
+    # menu labels select the same operation; run it only once if both are checked.
+    _sel "dotfiles-export" && export_dotfiles
+    _sel "stow-symlinks"   && deploy_dotfiles
+    if _sel "dotfiles-import" || _sel "dms-import"; then
+        dms_import
+    fi
 
     return 0
 }

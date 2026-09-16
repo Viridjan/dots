@@ -299,6 +299,22 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
 
 ## vjupdate behaviour notes
 
+- **DMS & Stow menu.** The old combined `dotfiles` menu item is replaced by
+  `dotfiles-import` and `stow-symlinks`, immediately after `dotfiles-export`
+  (formerly `dotfiles-upload`). All are opt-in. `dotfiles-export` runs near
+  the end of `phase_configure`, after any selected `dms-export`. Ordinary Stow
+  edits already reside in the repository. Upload asks before staging all
+  non-ignored repository changes, displays the staged diff, requests a commit
+  message and confirms commit/push to the configured remote upstream. It keeps
+  normal Git hooks enabled, never force-pushes, and preserves local commits if
+  pushing fails. Cancellation after staging leaves the index staged. A clean
+  tree can retry pushing existing commits. It is skipped in noninteractive runs.
+  `dotfiles-import` calls `dms_import`: it copies the seven repository DMS
+  overrides to the live directory, including colors. It does not pull from Git
+  or deploy links. It and the existing `dms-import` menu item share one call,
+  even when both are checked. Selected execution order is DMS export → Git
+  export → Stow symlinks → DMS import. The legacy `dotfiles` phase still deploys and imports
+  DMS for noninteractive `--yes`; the interactive menu never selects that phase.
 - **Single instance.** An flock on `~/.local/state/dots/vjupdate.lock` is taken
   *before* log rotation; a second run exits with a message. `--help` and
   `--dry-run` skip runtime init entirely (no lock, no log rotation, no stamps),
@@ -361,7 +377,7 @@ sources → install → dotfiles → configure → audit
 | `configure` | system services, snapper, keyboard, greeter, keyring-pam (user-prompted); DMS plugins, install scripts, fish, claude, VMs (first-run prompted) |
 | `audit` | orphan packages, flatpak cleanup, rebuild check, pacnew files, firmware updates |
 
-Interactive mode (default, or `-i`) opens a built-in terminal TUI (no external deps) showing all phases and configure items in one screen. Defaults: `install` and `audit` are pre-selected; `sources` and `dotfiles` are opt-in; one-time configure items (services, greeter, fish, claude plugins, etc.) are opt-in. Keys: `↑↓` navigate, `space` toggle, `ctrl+a` select/deselect all, `enter` confirm, `q` abort. `update` and `audit` also run via `vjupdate --update` and `vjupdate --check`.
+Interactive mode (default, or `-i`) opens a built-in terminal TUI (no external deps) showing phases and configure items in one screen. Sources, install and audit are pre-selected, along with orphan removal, Python rebuilds, rebuilds and launcher maintenance. DMS & Stow actions and other one-time configure items are opt-in. Keys: `↑↓` navigate, `space` toggle, `ctrl+a` select/deselect all, `enter` confirm, `q` abort. Update and audit also run via `vjupdate --update` and `vjupdate --check`.
 
 ## Shell script linting
 

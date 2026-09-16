@@ -166,6 +166,34 @@ Common packages are restowed in one operation each. Stow checks for conflicts
 before changing links, so a conflicting file does not remove that package's
 already-working symlinks.
 
+### Review and upload changes
+
+The interactive menu's **DMS & Stow** section contains:
+
+- **dms-export** — copy live DMS overrides into the repository, excluding colors.
+- **dms-import** — apply repository DMS overrides, including colors.
+- **dotfiles-export** — review repository changes, commit, and push.
+- **dotfiles-import** — copy repository DMS overrides to the live directory, including colors.
+- **stow-symlinks** — deploy Stow and Niri links, without copying DMS overrides.
+
+These options start unchecked. Ordinary Stow-linked settings already live in
+the repository; no export is needed for them. Select **dms-export** as well when
+you want to save live DMS overrides. Selected actions save/export first, then
+deploy symlinks, and finally copy DMS overrides. The old combined
+**dotfiles** menu item has been removed. Noninteractive `--yes` retains its
+existing `dotfiles` phase (deployment plus DMS import).
+
+`dotfiles-import` performs the same local copy as `dms-import`; if both are
+selected, the copy runs only once. It does not download from Git or deploy
+symlinks. Select **stow-symlinks** separately to create or refresh those links.
+
+Upload first asks whether to stage **all non-ignored repository changes**, then
+shows the staged diff, asks for a commit message, and confirms commit/push to
+the branch's configured upstream. Existing local commits are pushed too.
+Cancelling after staging leaves changes staged. Commit failures prevent pushing;
+push failures preserve local commits, and rerunning upload can retry a clean
+working tree. It never force-pushes and does not run automatically with `--yes`.
+
 ### Only one run at a time
 
 `vjupdate` takes an flock on `~/.local/state/dots/vjupdate.lock` before it
