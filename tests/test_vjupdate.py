@@ -112,6 +112,23 @@ print_recap
         self.assertFalse(calls.exists() and "adopted" in calls.read_text(), r.stdout)
         self.assertNotEqual(r.returncode, 0)
 
+    def test_only_scripts_is_stowed_unfolded(self):
+        # A folded ~/.local/bin made every installer write into the repo.
+        repo = self.fixture_repo()
+        (repo / "scripts").mkdir()
+        self.mock("stow", 'printf "%s\\n" "$*" >> "$CALLS"')
+        r = self.shell('''
+COMMON_STOW_PKGS=(scripts sample)
+git() { :; }
+_stow_niri_cfg() { :; }
+deploy_dotfiles
+''')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        calls = Path(self.env["CALLS"]).read_text().splitlines()
+        self.assertIn("--restow --no-folding -t %s scripts" % self.home, calls)
+        self.assertIn("--restow -t %s sample" % self.home, calls)
+        self.assertEqual(sum("--no-folding" in c for c in calls), 1, calls)
+
     def test_unrecognised_conflict_aborts_backup(self):
         self.fixture_repo()
         self.mock("stow", "echo 'new unrecognised conflict format' >&2; exit 1")

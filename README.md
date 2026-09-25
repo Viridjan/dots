@@ -120,7 +120,8 @@ After pulling new changes from this repo:
 ```bash
 cd ~/Projects/dots
 stow --restow -t ~ alacritty DankMaterialShell fish fonts gtk-3.0 gtk-4.0 \
-     micro mimeapps mpd paru qt5ct qt6ct spotify-player vesktop VSCodium scripts
+     micro mimeapps mpd paru qt5ct qt6ct spotify-player vesktop VSCodium
+stow --no-folding --restow -t ~ scripts   # keeps ~/.local/bin a real dir
 stow --adopt --restow -t ~ claude   # --adopt absorbs existing real files
 stow --restow -t ~ desktop          # or: surface
 # niri is NOT stowed — it uses file-level symlinks (DMS owns ~/.config/niri/).
@@ -317,7 +318,7 @@ bash scripts/.local/bin/vjupdate
 | `fonts` | `~/.local/share/fonts/` — user fonts (Luminari) |
 | `mpd` | `~/.config/mpd/mpd.conf` |
 | `spotify-player` | `~/.config/spotify-player/keymap.toml` |
-| `scripts` | `~/.local/bin/vjupdate` — bootstrap + maintenance script |
+| `scripts` | `~/.local/bin/{vjupdate,start-windows,start-open-notebook}` + `.desktop` launchers — stowed `--no-folding`, so installers own the rest of `~/.local/bin` |
 
 **niri note:** `cfg/display.kdl`, `cfg/input.kdl`, and `cfg/surface-layout.kdl` are NOT in the `niri` package —
 they come from `desktop/` or `surface/` depending on the machine.
@@ -356,7 +357,7 @@ Also checked by default under "Launchers" in the interactive menu.
 
 Deck tracker / collection manager for MTG Arena. Not in any repo, AUR or Flathub —
 upstream ships an AppImage that self-updates, so it is installed to `~/.local/bin/`
-and gitignored (167MB). Only the `.desktop` entry and icon are tracked.
+(outside the repo, 167MB). Only the `.desktop` entry and icon are tracked.
 
 ```bash
 curl -fL -o ~/.local/bin/mtgatool \
@@ -377,7 +378,7 @@ the tool sees almost nothing. Launch with `mtgatool` or from the app menu.
 
 Note: `vjupdate --app-launchers` deletes any `.desktop` whose target binary is
 missing — on a fresh clone, download the AppImage before running it, or the
-launcher symlink gets removed (restow `scripts` to bring it back).
+launcher symlink gets removed (`stow --no-folding --restow -t ~ scripts` brings it back).
 
 ### Keyboard shortcut pass-through
 

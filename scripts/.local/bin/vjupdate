@@ -713,8 +713,13 @@ deploy_dotfiles() {
         return 1
     }
 
+    # scripts is stowed unfolded: ~/.local/bin must stay a real directory so
+    # installers (npm -g, uv, codex, AppImages) write there, not into the repo.
+    # Every other package is folded on purpose: app writes should land in git.
+    local _nofold
     for pkg in "${COMMON_STOW_PKGS[@]}"; do
-        [[ -d "$pkg" ]] && _deploy_pkg --restow -t "$HOME" "$pkg" "$pkg" || true
+        _nofold=(); [[ "$pkg" == scripts ]] && _nofold=(--no-folding)
+        [[ -d "$pkg" ]] && _deploy_pkg --restow "${_nofold[@]}" -t "$HOME" "$pkg" "$pkg" || true
     done
 
     _stow_niri_cfg
@@ -2430,13 +2435,14 @@ plan_preview() {
     if [[ " ${SKIP_PHASES:-} " != *" dotfiles "* ]]; then
         info "Dotfile deployment:"
         if [[ -d "$DOTS_DIR" ]] && cd "$DOTS_DIR" 2>/dev/null; then
-            local out rc target
+            local out rc target nofold
             for pkg in "${COMMON_STOW_PKGS[@]}" claude bkg ollama; do
                 [[ -d "$pkg" ]] || continue
-                target="$HOME"
+                target="$HOME"; nofold=()
                 [[ "$pkg" == ollama ]] && target=/
+                [[ "$pkg" == scripts ]] && nofold=(--no-folding)
                 rc=0
-                out=$(stow -n --restow -t "$target" "$pkg" 2>&1) || rc=$?
+                out=$(stow -n --restow "${nofold[@]}" -t "$target" "$pkg" 2>&1) || rc=$?
                 if (( rc != 0 )); then
                     _unknown "stow probe for $pkg failed (exit $rc): $out"
                 else

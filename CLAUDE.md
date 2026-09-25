@@ -33,7 +33,7 @@ dots/
   paru/           → ~/.config/paru/
   qt5ct/          → ~/.config/qt5ct/
   qt6ct/          → ~/.config/qt6ct/
-  scripts/        → ~/.local/bin/  (vjupdate, graphify, claude-auto-retry, start-windows)
+  scripts/        → ~/.local/bin/  (vjupdate, start-windows, start-open-notebook; stowed --no-folding)
                   + ~/.local/share/applications/  (.desktop launchers)
   surface/        → ~/.config/niri/cfg/display.kdl + input.kdl + surface-layout.kdl  (Surface Pro 9 only)
   vesktop/        → ~/.config/vesktop/  (settings.json + settings/)
@@ -45,7 +45,25 @@ dots/
   .githooks/      ← NOT a stow package — git hooks; registered via core.hooksPath
 ```
 
-`niri` uses **file-level symlinks** — the `cfg/` and `dms/` directories are real, but individual `.kdl` files are symlinked. All other packages use directory-level symlinks.
+`niri` uses **file-level symlinks** — the `cfg/` and `dms/` directories are real, but individual `.kdl` files are symlinked. `scripts` is stowed `--no-folding`: `~/.local/bin` is a real directory with per-file links to the 3 tracked scripts, so installers (npm -g, uv, codex, AppImages) write there and never into the repo. All other packages use directory-level symlinks.
+
+Before 2026-09-25 `~/.local/bin` was a folded link into `scripts/.local/bin/`, so every installer wrote into the repo. One-time migration per machine (on the Surface: run it **before** `git pull`, since the pull deletes the tracked installer links it still serves from PATH):
+```bash
+bash <<'EOF'
+set -eu
+B=~/Projects/dots/scripts/.local/bin
+KEEP=" vjupdate start-windows start-open-notebook "
+[ -L ~/.local/bin ] || { echo "already unfolded"; exit 0; }
+T=$(mktemp -d ~/.local/bin-migrate.XXXX)
+for f in "$B"/* "$B"/.[!.]*; do
+  [ -e "$f" ] || [ -L "$f" ] || continue
+  n=${f##*/}; case "$KEEP" in *" $n "*) continue;; esac
+  mv -n -- "$f" "$T/" && [ ! -e "$f" ] && [ ! -L "$f" ] || { echo "FAILED: $n (staging: $T)"; exit 1; }
+done
+cd ~/Projects/dots && stow --no-folding --restow -t ~ scripts
+mv -n -- "$T"/* ~/.local/bin/ && rmdir "$T"
+EOF
+```
 
 `claude` requires `stow --adopt` (absorbs existing real files):
 ```bash
@@ -212,7 +230,8 @@ SKIP_PHASES="sources install dotfiles configure audit" vjupdate
 
 # Re-apply all packages at once
 cd ~/Projects/dots && stow --restow -t ~ alacritty cave caveman DankMaterialShell fish \
-    fonts gtk-3.0 gtk-4.0 micro mimeapps mpd paru qt5ct qt6ct spotify-player vesktop VSCodium scripts
+    fonts gtk-3.0 gtk-4.0 micro mimeapps mpd paru qt5ct qt6ct spotify-player vesktop VSCodium
+stow --no-folding --restow -t ~ scripts   # keeps ~/.local/bin a real dir
 stow --adopt --restow -t ~ claude
 stow --restow -t ~ desktop   # or: surface
 sudo stow --restow -t / ollama   # systemd drop-in; needs root target
@@ -275,7 +294,7 @@ Currently ignored (secrets audited 2026-06-21, no secrets found elsewhere):
 - Session/auth tokens: `cave/.cave/agent/sessions/`, `vesktop/.config/vesktop/sessionData/` (Discord token)
 - VSCodium cookie/token/web-storage stores; `fish_history`; `Crashpad/` dirs (memory dumps)
 - Continuously regenerated: `VSCodium/.config/VSCodium/{Cache,CachedData,CachedProfilesData,CachedExtensionVSIXs,GPUCache,DawnGraphiteCache,DawnWebGPUCache,Code Cache}/` — VSCodium rebuilds them on first start; `User/` keeps the real config
-- Non-secret exceptions kept ignored: `vesktop/.config/vesktop/Singleton*` (stale single-instance lock breaks launch), `vesktop/.config/vesktop/state.json` (window-bounds churn), `scripts/.local/bin/{uv,uvx,claude-science,cliamp,mtgatool}` (large vendored binaries with their own installer/updater — permanent repo bloat, no clone value)
+- Non-secret exceptions kept ignored: `vesktop/.config/vesktop/Singleton*` (stale single-instance lock breaks launch), `vesktop/.config/vesktop/state.json` (window-bounds churn)
 
 If tracked bloat is ever found again, the two-step fix is `git rm -r --cached` + ignore (stops growth), then `git filter-repo --invert-paths` to purge history. The second step rewrites every SHA and needs a force-push — **take a `git bundle create ... --all` backup first, and the other machine then needs `git fetch && git reset --hard origin/main`.**
 
@@ -390,9 +409,8 @@ Interactive mode (default, or `-i`) opens a built-in terminal TUI (no external d
 ## Shell script linting
 
 `.githooks/pre-commit` runs `shellcheck -S error` on staged shell scripts and blocks
-the commit on errors. It selects files by **shebang, not path** — `scripts/.local/bin/`
-also holds large vendored binaries (`uv`, `uvx`, `claude-science`, `cliamp`, `mtgatool`) that must never be
-scanned. It no-ops when shellcheck is absent, so a fresh clone can still commit.
+the commit on errors. It selects files by **shebang, not path**, so non-shell files
+(Python, KDL, binaries) are never scanned. It no-ops when shellcheck is absent, so a fresh clone can still commit.
 
 `deploy_dotfiles` runs `git config core.hooksPath .githooks`, so a clone self-registers.
 To register by hand: `git -C ~/Projects/dots config core.hooksPath .githooks`
