@@ -36,6 +36,7 @@ _die_infected() {
 }
 
 WARNINGS=()
+SYUU_FAIL_DETAIL=""
 
 DOTS_DIR="$HOME/Projects/dots"
 STAMP_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/dots"
@@ -292,19 +293,43 @@ _fix_untrusted_keys() {
     return "$fixed"
 }
 
+# Pull the actionable lines out of a failed paru -Syuu log, so the end-of-run
+# recap names what actually broke instead of only "had warnings". A single AUR
+# package failing to build is the common case and is easy to miss in 2000 lines
+# of upgrade output.
+_syuu_fail_detail() {
+    local log="$1" pkgs
+    pkgs=$(sed -n 's/^error: packages failed to build: //p' "$log" | tr '\n' ' ')
+    pkgs="${pkgs% }"
+    if [[ -n "$pkgs" ]]; then
+        echo "AUR build failed: $pkgs"
+        return
+    fi
+    # No build failure: fall back to the last error line paru printed.
+    sed -n 's/^error: //p' "$log" | tail -n 1
+}
+
 # paru -Syuu wrapper: auto-recovers from untrusted-signature errors once.
 _syuu() {
     local logfile; logfile=$(mktemp)
-    if paru -Syuu --noconfirm 2>&1 | tee "$logfile"; then
+    local rc=0
+    paru -Syuu --noconfirm 2>&1 | tee "$logfile" || rc=$?
+    if (( rc != 0 )); then
+        local out; out=$(<"$logfile")
+        if echo "$out" | grep -q "is unknown trust" && _fix_untrusted_keys "$out"; then
+            info "Retrying upgrade..."
+            rc=0
+            # Retry output is tee'd too — it used to be discarded, so a failure
+            # here left nothing to report.
+            paru -Syuu --noconfirm 2>&1 | tee "$logfile" || rc=$?
+        fi
+    fi
+    if (( rc == 0 )); then
         rm -f "$logfile"
         return 0
     fi
-    local out; out=$(<"$logfile"); rm -f "$logfile"
-    if echo "$out" | grep -q "is unknown trust" && _fix_untrusted_keys "$out"; then
-        info "Retrying upgrade..."
-        paru -Syuu --noconfirm
-        return $?
-    fi
+    SYUU_FAIL_DETAIL=$(_syuu_fail_detail "$logfile")
+    rm -f "$logfile"
     return 1
 }
 
@@ -547,8 +572,10 @@ install_all() {
         _record "full-upgrade" ok
         ok "upgraded: system"
     else
-        _record "full-upgrade" fail "paru -Syuu returned non-zero"
-        warn "Full upgrade had warnings — continuing with installs"
+        local _up_detail="${SYUU_FAIL_DETAIL:-}"
+        [[ -z "$_up_detail" ]] && _up_detail="paru -Syuu returned non-zero"
+        _record "full-upgrade" fail "$_up_detail"
+        warn "Full upgrade had warnings — continuing with installs: $_up_detail"
     fi
 
     _do_install() {

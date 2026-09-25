@@ -347,6 +347,14 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   *and* un-skips the audit phase, so an action can't be selected into a phase
   that never runs. Add new ones there only — the checklist, the CLI flag and the
   dry-run preview all read from it.
+- **A failed `paru -Syuu` names its cause in the recap.** `_syuu` tees both the
+  first attempt *and* the untrusted-key retry (the retry used to run unlogged, so
+  its failure reported nothing), then `_syuu_fail_detail` pulls
+  `error: packages failed to build: <pkgs>` out of the log into
+  `SYUU_FAIL_DETAIL` — falling back to the last `error:` line when no package
+  failed to build. `install_all` folds that into both the `full-upgrade` recap
+  note and the `warn`, so one broken AUR package is visible at the end instead of
+  buried in 2000 lines of upgrade output.
 - **Exit status is meaningful.** Phases record ok/fail/skip; `print_recap`
   prints the table and returns non-zero if anything failed. Unexpected phase
   failures abort and print a recap through the runtime ERR trap. Never wrap

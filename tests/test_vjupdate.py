@@ -519,5 +519,48 @@ done
                 self.assertIn(message, r.stdout + r.stderr)
 
 
+class UpgradeFailureReportingTests(FixtureCase):
+    """A failed paru -Syuu must name the cause in the end-of-run recap."""
+
+    def test_recap_names_failed_aur_package(self):
+        self.mock("paru", "\n".join([
+            'echo "resolving dependencies..."',
+            "echo \"error: failed to download sources for 'unsloth-0.1.808.beta-1': \"",
+            'echo "error: packages failed to build: unsloth-0.1.808.beta-1"',
+            "exit 1",
+        ]))
+        r = self.shell('_syuu || true\n'
+                       '_record "full-upgrade" fail "$SYUU_FAIL_DETAIL"\n'
+                       'print_recap || true')
+        self.assertIn("AUR build failed: unsloth-0.1.808.beta-1", r.stdout + r.stderr)
+
+    def test_detail_survives_untrusted_key_retry(self):
+        # The retry used to run unlogged, so its failure reported nothing.
+        self.mock("paru", "\n".join([
+            'if [[ -f "$CALLS.tried" ]]; then',
+            '  echo "error: packages failed to build: somepkg-2"',
+            "else",
+            '  : > "$CALLS.tried"',
+            '  echo "error: foo: signature from X is unknown trust"',
+            "fi",
+            "exit 1",
+        ]))
+        r = self.shell('_fix_untrusted_keys() { return 0; }\n'
+                       '_syuu || true\n'
+                       'echo "DETAIL=$SYUU_FAIL_DETAIL"')
+        self.assertIn("DETAIL=AUR build failed: somepkg-2", r.stdout)
+
+    def test_falls_back_to_last_error_line(self):
+        self.mock("paru", 'echo "error: failed to synchronize all databases"\nexit 1')
+        r = self.shell('_syuu || true\necho "DETAIL=$SYUU_FAIL_DETAIL"')
+        self.assertIn("DETAIL=failed to synchronize all databases", r.stdout)
+
+    def test_successful_upgrade_leaves_no_detail(self):
+        self.mock("paru", 'echo "there is nothing to do"\nexit 0')
+        r = self.shell('_syuu\necho "DETAIL=[$SYUU_FAIL_DETAIL]"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("DETAIL=[]", r.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
