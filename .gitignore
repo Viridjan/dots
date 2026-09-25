@@ -51,3 +51,6 @@ VSCodium/.config/VSCodium/Code Cache/
 
 # vesktop — same Electron/Chromium V8 code cache, rewritten every launch
 vesktop/.config/vesktop/Code Cache/
+
+# Machine-local link to the VM disk on /mnt/data — setup_vms recreates it
+windows/storage

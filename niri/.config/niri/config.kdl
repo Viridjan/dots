@@ -208,15 +208,6 @@ animations {
 // Window rules let you adjust behavior for individual windows.
 // Find more information on the wiki:
 // https://github.com/YaLTeR/niri/wiki/Configuration:-Window-Rules
-// Work around WezTerm's initial configure bug
-// by setting an empty default-column-width.
-window-rule {
-    // This regular expression is intentionally made as specific as possible,
-    // since this is the default config, and we want no false positives.
-    // You can get away with just app-id="wezterm" if you want.
-    match app-id=r#"^org\.wezfurlong\.wezterm$"#
-    default-column-width {}
-}
 window-rule {
     match app-id=r#"^org\.gnome\."#
     draw-border-with-background false
@@ -249,16 +240,11 @@ window-rule {
     open-focused false
 }
 window-rule {
-    match app-id=r#"^org\.wezfurlong\.wezterm$"#
     match app-id="Alacritty"
-    match app-id="zen"
-    match app-id="com.mitchellh.ghostty"
-    match app-id="kitty"
     draw-border-with-background false
 }
 window-rule {
     match app-id="brave-browser" title="^Picture-in-Picture$"
-    match app-id="zoom"
     open-floating true
 }
 // Per-app column widths
@@ -282,7 +268,6 @@ window-rule {
 }
 window-rule {
     match app-id="brave-browser"
-    match app-id="kitty"
     default-column-width { proportion 0.5; }
 }
 window-rule {
