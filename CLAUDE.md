@@ -297,6 +297,7 @@ Currently ignored (secrets audited 2026-06-21, no secrets found elsewhere):
 - Session/auth tokens: `cave/.cave/agent/sessions/`, `vesktop/.config/vesktop/sessionData/` (Discord token)
 - VSCodium cookie/token/web-storage stores; `fish_history`; `Crashpad/` dirs (memory dumps)
 - Continuously regenerated: `VSCodium/.config/VSCodium/{Cache,CachedData,CachedProfilesData,CachedExtensionVSIXs,GPUCache,DawnGraphiteCache,DawnWebGPUCache,Code Cache}/` — VSCodium rebuilds them on first start; `User/` keeps the real config
+- Claude Code synced account skills: `claude/.claude/skills/synced/` — re-downloaded by Claude Code per account (UUID-keyed dirs)
 - Non-secret exceptions kept ignored: `vesktop/.config/vesktop/Singleton*` (stale single-instance lock breaks launch), `vesktop/.config/vesktop/state.json` (window-bounds churn)
 
 If tracked bloat is ever found again, the two-step fix is `git rm -r --cached` + ignore (stops growth), then `git filter-repo --invert-paths` to purge history. The second step rewrites every SHA and needs a force-push — **take a `git bundle create ... --all` backup first, and the other machine then needs `git fetch && git reset --hard origin/main`.**
