@@ -45,6 +45,8 @@ dots/
   ollama/         → /etc/systemd/system/ollama.service.d/  (ROCm drop-in; stow -t /)
   windows/        ← NOT a stow package — Docker Compose for Windows 11 VM (dockur/windows, port 8006)
   .githooks/      ← NOT a stow package — git hooks; registered via core.hooksPath
+  tests/          ← NOT a stow package — vjupdate unittest suite (mocked system commands)
+  surface-sync.sh ← TEMPORARY one-shot Surface catch-up; delete once TODO.md's checklist is ticked
 ```
 
 `niri` uses **file-level symlinks** — the `cfg/` and `dms/` directories are real, but individual `.kdl` files are symlinked. `scripts` is stowed `--no-folding`: `~/.local/bin` is a real directory with per-file links to the 3 tracked scripts, so installers (npm -g, uv, codex, AppImages) write there and never into the repo. All other packages use directory-level symlinks.
