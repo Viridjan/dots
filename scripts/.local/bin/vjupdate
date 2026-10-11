@@ -728,18 +728,22 @@ deploy_dotfiles() {
     _deploy_pkg --restow -t "$HOME" claude claude || true
     [[ -d bkg ]] && { _deploy_pkg --restow -t "$HOME" bkg bkg || true; }
 
-    # ollama targets / (root) not ~HOME — stow systemd drop-in for ROCm GPU support
-    if [[ -d ollama ]]; then
+    # Root-target packages (-t /, not ~HOME):
+    #   ollama — systemd drop-in for ROCm GPU support
+    #   brave  — managed policy letting discord.com reach Vesktop's local RPC port
+    local _rpkg
+    for _rpkg in ollama brave; do
+        [[ -d "$_rpkg" ]] || continue
         if $DRY_RUN; then
-            _mutate sudo stow -t / ollama
+            _mutate sudo stow -t / "$_rpkg"
         elif $STOW_ADOPT; then
-            _adopt_backup -t / ollama || { _record "stow:ollama" fail "backup failed"; return 1; }
-            sudo stow --adopt -t / ollama && _stowed+=("ollama→/") || _record "stow:ollama" fail "adopt failed"
+            _adopt_backup -t / "$_rpkg" || { _record "stow:$_rpkg" fail "backup failed"; return 1; }
+            sudo stow --adopt -t / "$_rpkg" && _stowed+=("$_rpkg→/") || _record "stow:$_rpkg" fail "adopt failed"
         else
-            sudo stow -t / ollama && _stowed+=("ollama→/") \
-                || { _record "stow:ollama" fail "conflicts"; warn "stow conflict in 'ollama' — run 'vjupdate --adopt'"; }
+            sudo stow -t / "$_rpkg" && _stowed+=("$_rpkg→/") \
+                || { _record "stow:$_rpkg" fail "conflicts"; warn "stow conflict in '$_rpkg' — run 'vjupdate --adopt'"; }
         fi
-    fi
+    done
 
     for _pkg in "${_stowed[@]}"; do ok "stowed: $_pkg"; done
     if [[ ${#_conflicts[@]} -gt 0 ]]; then
@@ -771,7 +775,7 @@ _adopt_backup() {
     (( rc == 0 )) && return 0
     # stow's conflict line is:
     #   * cannot stow <src> over existing target <target> since <reason>
-    # <target> is relative to -t, which is / for the ollama package.
+    # <target> is relative to -t, which is / for the root-target packages (ollama, brave).
     # Refuse unknown conflict formats and probe errors, never silently adopt.
     local _targets
     _targets=$(printf '%s\n' "$_err" | sed -n 's/^ *\* cannot stow .* over existing target \(.*\) since neither a link nor a directory and --adopt not specified$/\1/p')
@@ -780,7 +784,7 @@ _adopt_backup() {
         return 1
     fi
     # Unreachable today (--dry-run exits after plan_preview and never reaches
-    # deploy_dotfiles), but _deploy_pkg and the ollama branch both honour
+    # deploy_dotfiles), but _deploy_pkg and the root-target loop both honour
     # DRY_RUN, so this stays consistent with them: if dry-run is ever wired
     # through the phases, adoption must not start writing backups.
     if $DRY_RUN; then

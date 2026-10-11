@@ -20,6 +20,7 @@ Memory and project context are scoped to the working directory at launch. Openin
 ```
 dots/
   alacritty/      → ~/.config/alacritty/
+  brave/          → /etc/brave/policies/managed/  (Brave managed policy; stow -t /)
   claude/         → ~/.claude/  (settings.json, hooks/, keybindings.json, statusline.sh)
   DankMaterialShell/ → ~/.config/DankMaterialShell/
   desktop/        → ~/.config/niri/cfg/display.kdl + input.kdl + surface-layout.kdl  (tower only)
@@ -239,6 +240,7 @@ stow --no-folding --restow -t ~ scripts   # keeps ~/.local/bin a real dir
 stow --adopt --restow -t ~ claude
 stow --restow -t ~ desktop   # or: surface
 sudo stow --restow -t / ollama   # systemd drop-in; needs root target
+sudo stow --restow -t / brave    # managed policy; needs root target
 
 # Re-apply one package after adding files
 cd ~/Projects/dots && stow --restow -t ~ <pkg>
@@ -340,6 +342,15 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   even when both are checked. Selected execution order is DMS export → Git
   export → Stow symlinks → DMS import. The legacy `dotfiles` phase still deploys and imports
   DMS for noninteractive `--yes`; the interactive menu never selects that phase.
+- **Brave policy package (`brave/`, added 2026-10-11).** Stowed to `/` by the
+  same root-target loop as `ollama` in `deploy_dotfiles`. It sets
+  `LoopbackNetworkAllowedForUrls: ["https://discord.com"]` so Discord invite
+  pages opened in Brave can hand the invite to Vesktop's arRPC on
+  `127.0.0.1:6463` without a permission prompt. Brave's `Preferences` file is
+  not tracked (rewritten every session), so policy is the only declarative
+  route. Side effect: Brave shows "Managed by your organisation". Policy name
+  and `/etc/brave/policies` path were read from the `brave-origin-bin` binary;
+  the end-to-end effect on invite links was **not verified** at time of writing.
 - **Single instance.** An flock on `~/.local/state/dots/vjupdate.lock` is taken
   *before* log rotation; a second run exits with a message. `--help` and
   `--dry-run` skip runtime init entirely (no lock, no log rotation, no stamps),
