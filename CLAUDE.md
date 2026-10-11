@@ -349,8 +349,9 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   `127.0.0.1:6463` without a permission prompt. Brave's `Preferences` file is
   not tracked (rewritten every session), so policy is the only declarative
   route. Side effect: Brave shows "Managed by your organisation". Policy name
-  and `/etc/brave/policies` path were read from the `brave-origin-bin` binary;
-  the end-to-end effect on invite links was **not verified** at time of writing.
+  and `/etc/brave/policies` path were read from the `brave-origin-bin` binary.
+  Confirmed on the desktop 2026-10-11: `brave://policy` shows the policy with
+  status OK, and invite links now open the join dialog in Vesktop.
 - **Single instance.** An flock on `~/.local/state/dots/vjupdate.lock` is taken
   *before* log rotation; a second run exits with a message. `--help` and
   `--dry-run` skip runtime init entirely (no lock, no log rotation, no stamps),
