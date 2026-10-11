@@ -8,3 +8,5 @@ x-scheme-handler/http=brave-origin.desktop
 x-scheme-handler/https=brave-origin.desktop
 x-scheme-handler/about=brave-origin.desktop
 x-scheme-handler/unknown=brave-origin.desktop
+application/pdf=brave-origin.desktop
+image/svg+xml=firefox.desktop
