@@ -35,7 +35,7 @@ dots/
   paru/           → ~/.config/paru/
   qt5ct/          → ~/.config/qt5ct/
   qt6ct/          → ~/.config/qt6ct/
-  scripts/        → ~/.local/bin/  (vjupdate, start-windows, start-open-notebook; stowed --no-folding)
+  scripts/        → ~/.local/bin/  (vjupdate, start-windows, start-open-notebook, start-keep; stowed --no-folding)
                   + ~/.local/share/applications/  (.desktop launchers)
   spotify-player/ → ~/.config/spotify-player/  (app.toml + keymap.toml)
   surface/        → ~/.config/niri/cfg/display.kdl + input.kdl + surface-layout.kdl  (Surface Pro 9 only)
@@ -50,14 +50,14 @@ dots/
   surface-sync.sh ← TEMPORARY one-shot Surface catch-up; delete once TODO.md's checklist is ticked
 ```
 
-`niri` uses **file-level symlinks** — the `cfg/` and `dms/` directories are real, but individual `.kdl` files are symlinked. `scripts` is stowed `--no-folding`: `~/.local/bin` is a real directory with per-file links to the 3 tracked scripts, so installers (npm -g, uv, codex, AppImages) write there and never into the repo. All other packages use directory-level symlinks.
+`niri` uses **file-level symlinks** — the `cfg/` and `dms/` directories are real, but individual `.kdl` files are symlinked. `scripts` is stowed `--no-folding`: `~/.local/bin` is a real directory with per-file links to the 4 tracked scripts, so installers (npm -g, uv, codex, AppImages) write there and never into the repo. All other packages use directory-level symlinks.
 
 Before 2026-09-25 `~/.local/bin` was a folded link into `scripts/.local/bin/`, so every installer wrote into the repo. One-time migration per machine (on the Surface: run it **before** `git pull`, since the pull deletes the tracked installer links it still serves from PATH):
 ```bash
 bash <<'EOF'
 set -eu
 B=~/Projects/dots/scripts/.local/bin
-KEEP=" vjupdate start-windows start-open-notebook "
+KEEP=" vjupdate start-windows start-open-notebook start-keep "
 [ -L ~/.local/bin ] || { echo "already unfolded"; exit 0; }
 T=$(mktemp -d ~/.local/bin-migrate.XXXX)
 for f in "$B"/* "$B"/.[!.]*; do
@@ -286,6 +286,7 @@ Package management uses flat text files (one package per line, `#` comments):
 | `.paru-S-surface.list` | Surface Pro 9-only packages |
 | `.paru-R.list` | Packages force-removed before install (conflict resolution) |
 | `.paru-skip.list` | Packages skipped by install + audit even if listed above (edit by hand) |
+| `.paru-hold.list` | Packages installed normally but excluded from automatic upgrades and rebuilds |
 | `.flatpak-S.list` | Flatpak apps |
 | `.dms-plugins.list` | DankMaterialShell plugins |
 | `.install-scripts.list` | Scripts run during bootstrap |
@@ -326,6 +327,10 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
 
 ## vjupdate behaviour notes
 
+- **Held packages.** `.paru-hold.list` excludes named packages from system
+  upgrades (including retries) and both rebuild paths. First installation is
+  unchanged. Audit and update runs warn about pending held AUR updates with
+  review and manual upgrade commands; dry runs list the holds.
 - **DMS & Stow menu.** The old combined `dotfiles` menu item is replaced by
   `dotfiles-import` and `stow-symlinks`, immediately after `dotfiles-export`
   (formerly `dotfiles-upload`). All are opt-in. `dotfiles-export` runs near

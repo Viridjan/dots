@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Google Keep
+Comment=Google Keep notes in an app window
+Exec=start-keep
+Icon=knotes
+StartupWMClass=chrome-keep.google.com__-Default
+Terminal=false
+Type=Application
+Categories=Office;
+Keywords=keep;notes;google;todo;

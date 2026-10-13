@@ -1,5 +1,7 @@
 # TODO
 
+- [ ] Switch `vectorcraft-bin` to Flathub once `ai.storyteller.vectorcraft` is published (pacman > flatpak > AUR; Flatpak adds a sandbox), then remove it from `.paru-hold.list`.
+
 ## Run `surface-sync.sh` on the Surface — confirm manually
 
 One-time catch-up for the Surface clone (unfolds `~/.local/bin`, resets to

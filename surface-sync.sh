@@ -20,7 +20,7 @@ set -euo pipefail
 
 DOTS="${DOTS:-$HOME/Projects/dots}"
 BIN="$HOME/.local/bin"
-KEEP=" vjupdate start-windows start-open-notebook "
+KEEP=" vjupdate start-windows start-open-notebook start-keep "
 YES=false
 [[ "${1:-}" == -y ]] && YES=true
 
@@ -158,7 +158,7 @@ dangling=$(find "$BIN" -maxdepth 1 -xtype l -printf '%f ' 2>/dev/null)
 [[ -z "$dangling" ]] && ok "no dangling links in ~/.local/bin" || warn "dangling (pre-existing? remove if unused): $dangling"
 [[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]] \
     && ok "checkout = origin/main ($(git log -1 --format=%h))" || { warn "checkout differs from origin/main"; fail=1; }
-leftover=$(git ls-files scripts/.local/bin | grep -v -E '/(vjupdate|start-windows|start-open-notebook)$' || true)
+leftover=$(git ls-files scripts/.local/bin | grep -v -E '/(vjupdate|start-windows|start-open-notebook|start-keep)$' || true)
 [[ -z "$leftover" ]] && ok "no installer links tracked" || { warn "unexpected tracked files: $leftover"; fail=1; }
 
 echo

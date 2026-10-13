@@ -311,9 +311,14 @@ _syuu_fail_detail() {
 
 # paru -Syuu wrapper: auto-recovers from untrusted-signature errors once.
 _syuu() {
+    local held
+    held=$(_held_packages | tr '\n' ',')
+    held=${held%,}
+    local args=(-Syuu --noconfirm)
+    [[ -n "$held" ]] && args+=(--ignore "$held")
     local logfile; logfile=$(mktemp)
     local rc=0
-    paru -Syuu --noconfirm 2>&1 | tee "$logfile" || rc=$?
+    paru "${args[@]}" 2>&1 | tee "$logfile" || rc=$?
     if (( rc != 0 )); then
         local out; out=$(<"$logfile")
         if echo "$out" | grep -q "is unknown trust" && _fix_untrusted_keys "$out"; then
@@ -321,7 +326,7 @@ _syuu() {
             rc=0
             # Retry output is tee'd too — it used to be discarded, so a failure
             # here left nothing to report.
-            paru -Syuu --noconfirm 2>&1 | tee "$logfile" || rc=$?
+            paru "${args[@]}" 2>&1 | tee "$logfile" || rc=$?
         fi
     fi
     if (( rc == 0 )); then
@@ -355,6 +360,44 @@ EOF
 # ─── Phase 3: Packages ───────────────────────────────────
 _pkg_list() {
     awk 'NF && $1 !~ /^#/' "$1"
+}
+
+_held_packages() {
+    if [[ -f "$DOTS_DIR/.paru-hold.list" ]]; then
+        _pkg_list "$DOTS_DIR/.paru-hold.list"
+    fi
+}
+
+# Read package names from stdin, excluding exact hold-list matches.
+_without_held_packages() {
+    awk -v holds="$(_held_packages)" '
+        BEGIN { n = split(holds, names, "\n"); for (i = 1; i <= n; i++) held[names[i]] = 1 }
+        NF && !($0 in held)
+    '
+}
+
+check_held_updates() {
+    local held pending line pkg
+    held=$(_held_packages)
+    [[ -n "$held" ]] || return 0
+    pending=$(paru -Qua 2>/dev/null || true)
+    while IFS= read -r line; do
+        pkg=${line%% *}
+        [[ -n "$pkg" ]] || continue
+        if grep -qxF "$pkg" <<< "$held"; then
+            warn "held package has update: $line (review: paru -Gp $pkg; upgrade: paru -S $pkg)"
+        fi
+    done <<< "$pending"
+    return 0
+}
+
+_preview_holds() {
+    local held
+    held=$(_held_packages)
+    if [[ -n "$held" ]]; then
+        info "Held packages (excluded from automatic upgrades and rebuilds):"
+        echo "$held"
+    fi
 }
 
 # Build these indexes once instead of spawning grep/pacman for every package.
@@ -1557,7 +1600,7 @@ check_python_rebuilds() {
     done <<< "$old_dirs"
 
     local unique_packages
-    unique_packages=$(echo "$all_packages" | tr ' ' '\n' | sort -u | tr '\n' ' ' | xargs 2>/dev/null || true)
+    unique_packages=$(echo "$all_packages" | tr ' ' '\n' | sort -u | _without_held_packages | tr '\n' ' ' | xargs 2>/dev/null || true)
     if [[ -z "$unique_packages" ]]; then
         ok "no python rebuilds needed"
         return
@@ -1584,7 +1627,11 @@ check_rebuilds() {
         return
     fi
     local packages
-    packages=$(awk -F'\t' '{print $2}' <<<"$out" | tr '\n' ' ' | xargs)
+    packages=$(awk -F'\t' '{print $2}' <<<"$out" | _without_held_packages | tr '\n' ' ' | xargs)
+    if [[ -z "$packages" ]]; then
+        ok "no unheld rebuilds needed"
+        return
+    fi
     warn "Packages needing rebuild: $packages"
     if ! $AUDIT_REBUILD; then warn "Rebuild skipped — enable via configure checklist"; return; fi
     # shellcheck disable=SC2086  # word-split intended: multiple package args
@@ -2132,7 +2179,7 @@ phase_configure() {
     return 0
 }
 phase_update()   { system_update; flatpak_update; clean_caches; }
-phase_audit()    { check_foreign_orphans; check_flatpak_orphans; check_rebuilds; check_python_rebuilds; check_pacnew; check_firmware; check_aur_malware; check_pacman_db; return 0; }
+phase_audit()    { check_held_updates; check_foreign_orphans; check_flatpak_orphans; check_rebuilds; check_python_rebuilds; check_pacnew; check_firmware; check_aur_malware; check_pacman_db; return 0; }
 
 # ─── Main ────────────────────────────────────────────────
 bootstrap() {
@@ -2210,6 +2257,7 @@ update() {
     # PKGBUILDs. Gate it the same way bootstrap does, before anything is pulled.
     check_aur_malware
     system_update
+    check_held_updates
     flatpak_update
     check_flatpak_orphans
     clean_caches
@@ -2223,6 +2271,7 @@ check() {
     echo -e "${BLU}╚═════════════════════════════════════╝${NC}"
     echo ""
 
+    check_held_updates
     check_foreign_orphans
     check_rebuilds
     check_python_rebuilds
@@ -2382,6 +2431,7 @@ plan_preview() {
         --update|-u)
             detect_machine
             info "Update: malware gate, package replacement, mirror refresh, system and Flatpak upgrades"
+            _preview_holds
             echo "      Would replace libreoffice-fresh with libreoffice-still if installed."
             echo "      Would remove unused Flatpak runtimes."
             _unknown "available upgrades and malware verdict: network checks have not run"
@@ -2432,6 +2482,7 @@ plan_preview() {
             _unknown "package lists or installed-package query unavailable"
         fi
         echo "      Would remove installed packages listed in .paru-R.list, then upgrade the system."
+        _preview_holds
         echo "      Would install .flatpak-S.list and update Flatpak apps."
         _unknown "available upgrades and malware verdict: network checks have not run"
     fi

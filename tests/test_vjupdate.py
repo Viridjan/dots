@@ -579,5 +579,137 @@ class UpgradeFailureReportingTests(FixtureCase):
         self.assertIn("DETAIL=[]", r.stdout)
 
 
+class HoldTests(FixtureCase):
+    def holds(self, content="vectorcraft-bin\n"):
+        repo = self.home / "Projects/dots"
+        repo.mkdir(parents=True, exist_ok=True)
+        path = repo / ".paru-hold.list"
+        path.write_text(content)
+        return path
+
+    def calls(self):
+        return Path(self.env["CALLS"]).read_text().splitlines()
+
+    def test_upgrade_holds_on_first_attempt_and_retry(self):
+        self.holds("# review manually\n\nvectorcraft-bin\nother-held\n")
+        self.mock("paru", '''
+printf '%s\\n' "$*" >> "$CALLS"
+if [[ ! -f "$CALLS.tried" ]]; then
+    touch_marker="$CALLS.tried"
+    : > "$touch_marker"
+    echo 'error: foo: signature from X is unknown trust'
+    exit 1
+fi
+''')
+        r = self.shell('_fix_untrusted_keys() { return 0; }\n_syuu')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.calls(),
+                         ["-Syuu --noconfirm --ignore vectorcraft-bin,other-held"] * 2)
+
+    def test_empty_and_missing_holds_preserve_upgrade_argv(self):
+        self.mock("paru", 'printf "%s\\n" "$*" >> "$CALLS"')
+        path = self.holds()
+        r = self.shell('_syuu')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.calls(), ["-Syuu --noconfirm --ignore vectorcraft-bin"])
+        for content in ("# no holds\n\n", None):
+            with self.subTest(content=content):
+                if content is None:
+                    path.unlink()
+                else:
+                    path.write_text(content)
+                Path(self.env["CALLS"]).unlink()
+                r = self.shell('_syuu')
+                self.assertEqual(r.returncode, 0, r.stderr)
+                self.assertEqual(self.calls(), ["-Syuu --noconfirm"])
+
+    def test_rebuild_filters_holds_and_avoids_empty_install(self):
+        self.holds()
+        self.mock("checkrebuild", "printf 'foreign\\tvectorcraft-bin\\nforeign\\tsafe-pkg\\n'")
+        self.mock("paru", 'printf "%s\\n" "$*" >> "$CALLS"')
+        r = self.shell('AUDIT_REBUILD=true\ncheck_rebuilds')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.calls(), ["-S --noconfirm safe-pkg"])
+        Path(self.env["CALLS"]).unlink()
+        self.mock("checkrebuild", "printf 'foreign\\tvectorcraft-bin\\n'")
+        r = self.shell('AUDIT_REBUILD=true\ncheck_rebuilds')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse(Path(self.env["CALLS"]).exists())
+
+    def test_python_rebuild_filters_holds(self):
+        self.holds()
+        python_root = self.root / "python-libs"
+        (python_root / "python3.1").mkdir(parents=True)
+        self.env["PYTHON_ROOT"] = str(python_root)
+        self.mock("python3", 'echo 3.2')
+        self.mock("pacman", "printf 'vectorcraft-bin\\nsafe-pkg\\n'")
+        self.mock("paru", 'printf "%s\\n" "$*" >> "$CALLS"')
+        r = self.shell(r'''
+# Redirect the directory scan into a temporary filesystem fixture.
+fn=$(declare -f check_python_rebuilds)
+eval "${fn//\/usr\/lib/$PYTHON_ROOT}"
+AUDIT_PYTHON_REBUILD=true
+check_python_rebuilds
+''')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.calls(), ["-S --noconfirm safe-pkg"])
+
+    def audit_body(self):
+        return '''
+check_foreign_orphans() { :; }
+check_flatpak_orphans() { :; }
+check_rebuilds() { :; }
+check_python_rebuilds() { :; }
+check_pacnew() { :; }
+check_firmware() { :; }
+check_aur_malware() { :; }
+check_pacman_db() { :; }
+phase_audit
+echo RECAP_START
+print_recap
+'''
+
+    def test_audit_warning_reaches_recap_and_empty_query_is_safe(self):
+        self.holds()
+        self.mock("paru", '''
+printf '%s\\n' "$*" >> "$CALLS"
+[[ "$*" == '-Qua' ]] || exit 97
+echo 'vectorcraft-bin 0.9.0-1 -> 0.9.1-1'
+echo 'safe-pkg 1-1 -> 2-1'
+''')
+        r = self.shell(self.audit_body())
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        detail = ('held package has update: vectorcraft-bin 0.9.0-1 -> 0.9.1-1 '
+                  '(review: paru -Gp vectorcraft-bin; upgrade: paru -S vectorcraft-bin)')
+        self.assertIn(detail, r.stdout.split("RECAP_START")[1])
+        self.assertNotIn("held package has update: safe-pkg", r.stdout)
+        self.mock("paru", 'printf "%s\\n" "$*" >> "$CALLS"; exit 1')
+        r = self.shell(self.audit_body())
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("held package has update", r.stdout)
+        self.holds().unlink()
+        Path(self.env["CALLS"]).unlink()
+        r = self.shell(self.audit_body())
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse(Path(self.env["CALLS"]).exists())
+
+    def test_first_install_kept_and_dry_run_lists_hold_without_writes(self):
+        repo = self.holds().parent
+        (repo / "packages.list").write_text("vectorcraft-bin\n")
+        self.mock("pacman", 'exit 0')
+        self.mock("paru", 'printf "%s\\n" "$*" >> "$CALLS"')
+        r = self.shell('_install_list "$DOTS_DIR/packages.list"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.calls(), ["-S --needed --noconfirm vectorcraft-bin"])
+        Path(self.env["CALLS"]).unlink()
+        self.mock("hostname", 'echo desktop')
+        before = sorted(str(p.relative_to(self.home)) for p in self.home.rglob("*"))
+        r = self.cli("--dry-run", "--update")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("vectorcraft-bin", r.stdout)
+        self.assertEqual(before, sorted(str(p.relative_to(self.home)) for p in self.home.rglob("*")))
+        self.assertFalse(Path(self.env["CALLS"]).exists())
+
+
 if __name__ == "__main__":
     unittest.main()
