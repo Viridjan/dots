@@ -164,6 +164,9 @@ geany
 kolourpaint
 freecad
 vectorcraft-bin
+gridcraft-bin
+pdfcraft-bin
+wordcraft-bin
 
 # Browsers
 brave-origin-bin
