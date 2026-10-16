@@ -415,6 +415,8 @@ a saved snapshot. Keep system-changing commands mocked and fixtures temporary.
 
 Phases use stamps in `~/.local/state/dots/` — heavy phases skip automatically if run recently: keyrings within 48h, mirror ranking within 30 days. A mirror run that fails on both arch and CachyOS is not stamped, so it retries next run.
 
+The keyrings phase wipes `/etc/pacman.d/gnupg/`, so every third-party pacman repo key must be listed in `_REPO_KEYS` (repo name → key ID): `reset_keyrings` re-imports them all right after the wipe. A repo missing from that map breaks the plain `pacman -Syy` in the mirrors step with "unknown trust" — only `_syuu` has the auto-recover retry.
+
 ```
 sources → install → dotfiles → configure → audit
 ```

@@ -247,6 +247,13 @@ install_paru() {
     ok "installed: paru"
 }
 
+# ─── Known third-party repo signing keys ────────────────
+# Fixes "signature from ... is unknown trust" pacman errors by
+# importing + locally signing the offending repo's key, then retrying.
+declare -A _REPO_KEYS=(
+    [sublime-text]=8A8F901A
+)
+
 # ─── Phase 2b: Keyrings ──────────────────────────────────
 reset_keyrings() {
     if ! _needs_run keyrings; then
@@ -259,6 +266,14 @@ reset_keyrings() {
     sudo pacman-key --populate
     sudo pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com
     sudo pacman-key --lsign-key F3B607488DB35A47
+    # The wipe above drops third-party repo keys too; without them the next
+    # pacman -Syy dies on "unknown trust" before _syuu's auto-recovery runs.
+    local key
+    for key in "${_REPO_KEYS[@]}"; do
+        sudo pacman-key --recv-keys "$key" --keyserver keyserver.ubuntu.com \
+            && sudo pacman-key --lsign-key "$key" \
+            || warn "could not trust repo key $key"
+    done
     if [[ "${MACHINE:-}" == surface ]]; then
         curl -sf https://raw.githubusercontent.com/linux-surface/linux-surface/master/pkg/keys/surface.asc \
             | sudo pacman-key --add -
@@ -269,13 +284,6 @@ reset_keyrings() {
     _mark_done keyrings
     ok "reset: keyrings"
 }
-
-# ─── Known third-party repo signing keys ────────────────
-# Fixes "signature from ... is unknown trust" pacman errors by
-# importing + locally signing the offending repo's key, then retrying.
-declare -A _REPO_KEYS=(
-    [sublime-text]=8A8F901A
-)
 
 _fix_untrusted_keys() {
     local out="$1" pkg key fixed=1
