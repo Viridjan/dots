@@ -250,9 +250,8 @@ install_paru() {
 # ─── Known third-party repo signing keys ────────────────
 # Fixes "signature from ... is unknown trust" pacman errors by
 # importing + locally signing the offending repo's key, then retrying.
-declare -A _REPO_KEYS=(
-    [sublime-text]=8A8F901A
-)
+# Add entries as [repo]=KEYID when a third-party pacman repo is added.
+declare -A _REPO_KEYS=()
 
 # ─── Phase 2b: Keyrings ──────────────────────────────────
 reset_keyrings() {
