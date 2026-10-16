@@ -579,6 +579,31 @@ class UpgradeFailureReportingTests(FixtureCase):
         self.assertIn("DETAIL=[]", r.stdout)
 
 
+class SyyRecoveryTests(FixtureCase):
+    """The mirrors-step database sync must recover from an untrusted repo key."""
+
+    def test_retries_after_trusting_key(self):
+        self.mock("sudo", '"$@"')
+        self.mock("pacman", "\n".join([
+            'printf "%s\\n" "$*" >> "$CALLS"',
+            'if [[ ! -f "$CALLS.tried" ]]; then',
+            '  : > "$CALLS.tried"',
+            '  echo "error: sublime-text: signature from \\"Sublime HQ\\" is unknown trust"',
+            "  exit 1",
+            "fi",
+        ]))
+        r = self.shell('_fix_untrusted_keys() { echo "FIX:$1" | grep -q sublime-text; }\n_syy')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(Path(self.env["CALLS"]).read_text().splitlines(), ["-Syy", "-Syy"])
+
+    def test_other_failures_propagate_without_retry(self):
+        self.mock("sudo", '"$@"')
+        self.mock("pacman", 'printf "%s\\n" "$*" >> "$CALLS"; echo "error: network"; exit 1')
+        r = self.shell('_syy')
+        self.assertNotEqual(r.returncode, 0)
+        self.assertEqual(Path(self.env["CALLS"]).read_text().splitlines(), ["-Syy"])
+
+
 class HoldTests(FixtureCase):
     def holds(self, content="vectorcraft-bin\n"):
         repo = self.home / "Projects/dots"

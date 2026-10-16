@@ -317,6 +317,21 @@ _syuu_fail_detail() {
     sed -n 's/^error: //p' "$log" | tail -n 1
 }
 
+# pacman -Syy with the same one-shot recovery as _syuu: a repo key that is
+# present but not locally signed (or lost since the last keyring reset) would
+# otherwise abort the whole sources phase on "unknown trust".
+_syy() {
+    local out rc=0
+    out=$(sudo pacman -Syy 2>&1) || rc=$?
+    printf '%s\n' "$out"
+    if (( rc != 0 )) && grep -q "is unknown trust" <<<"$out" && _fix_untrusted_keys "$out"; then
+        info "Retrying database sync..."
+        sudo pacman -Syy
+        return
+    fi
+    return "$rc"
+}
+
 # paru -Syuu wrapper: auto-recovers from untrusted-signature errors once.
 _syuu() {
     local held
@@ -591,7 +606,7 @@ refresh_mirrors() {
     fi
 
     rm -f "$tmp_arch" "$tmp_cachyos" "$rm_log"
-    sudo pacman -Syy
+    _syy
     _mark_done mirrors
     ok "refreshed: mirrors"
 }
