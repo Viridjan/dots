@@ -108,7 +108,7 @@ dsearch-bin
 whatsie
 telegram-desktop
 claude-code
-proton-mail-bin
+proton-mail
 rofi-ykman-git
 
 # Chromium (webapp launcher — used by .desktop app shortcuts)
@@ -162,18 +162,18 @@ geany
 # Graphics
 kolourpaint
 freecad
-vectorcraft-bin
-gridcraft-bin
-pdfcraft-bin
-wordcraft-bin
-photocraft-bin
-filmcraft-bin
-lightcraft-bin
-effectcraft-bin
-designcraft-bin
-soundcraft-bin
-deckcraft-bin
-cadcraft-bin
+vectorcraft
+gridcraft
+pdfcraft
+wordcraft
+photocraft
+filmcraft
+lightcraft
+effectcraft
+designcraft
+soundcraft
+deckcraft
+cadcraft
 figcraft
 
 # Browsers

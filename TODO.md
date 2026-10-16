@@ -1,6 +1,6 @@
 # TODO
 
-- [ ] Switch `vectorcraft-bin` to Flathub once `ai.storyteller.vectorcraft` is published (pacman > flatpak > AUR; Flatpak adds a sandbox), then remove it from `.paru-hold.list`.
+- [ ] Switch `vectorcraft` to Flathub once `ai.storyteller.vectorcraft` is published (pacman > flatpak > AUR; Flatpak adds a sandbox), then remove it from `.paru-hold.list`.
 
 ## Run `surface-sync.sh` on the Surface — confirm manually
 
@@ -30,4 +30,4 @@ a CPU/iGPU-friendly model (small enough to run on Iris Xe + RAM offload).
 Options to evaluate: `qwen3:4b`, `llama3.2:3b`, `gemma3:4b`.
 Add `setup_ollama` surface branch once decided.
 
-No Flatpak: `alacritty` (terminal sandboxing issues), `btop`, `shelly`, `proton-mail-bin`.
+No Flatpak: `alacritty` (terminal sandboxing issues), `btop`, `shelly`, `proton-mail`.
