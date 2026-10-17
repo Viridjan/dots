@@ -53,6 +53,18 @@ class TopicStatuslineTests(unittest.TestCase):
         self.assertNotIn("[DIR: ~", output)
         self.assertNotIn("[TOPIC:", output)
 
+    def test_control_characters_never_reach_terminal(self):
+        with tempfile.TemporaryDirectory(prefix="topic-statusline-test-") as tmp:
+            transcript = Path(tmp) / "transcript.jsonl"
+            transcript.write_text(json.dumps(
+                {"type": "custom-title", "customTitle": "hi\x1b]52;c;aGk=\x07there"}) + "\n")
+            payload = {"transcript_path": str(transcript), "cwd": "/tmp/a\x1b[2Jb"}
+            result = subprocess.run(["bash", str(SCRIPT)], input=json.dumps(payload),
+                                    text=True, capture_output=True, timeout=5)
+        # Only the script's own SGR colour sequences may remain.
+        self.assertEqual(re.sub(r"\x1b\[[0-9;]*m", "", result.stdout),
+                         " [TOPIC: hi]52;c;aGk=there] [DIR: /tmp/a[2Jb]")
+
 
 if __name__ == "__main__":
     unittest.main()

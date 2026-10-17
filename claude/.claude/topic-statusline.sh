@@ -21,8 +21,12 @@ if [[ -f "$TRANSCRIPT" ]]; then
             else . end
         ) | .manual // .auto // empty
     ' "$TRANSCRIPT" 2>/dev/null)
+    # Titles derive from conversation content: never pass escape sequences
+    # (e.g. OSC 52 clipboard writes) through to the terminal.
+    TOPIC=$(printf '%s' "$TOPIC" | tr -d '[:cntrl:]')
     [[ -n "$TOPIC" ]] && printf ' \033[38;5;180m[TOPIC: %s]\033[0m' "$TOPIC"
 fi
+DIR=$(printf '%s' "$DIR" | tr -d '[:cntrl:]')
 case "$DIR" in
     "$HOME") DIR='~' ;;
     "$HOME"/*) DIR="~${DIR#"$HOME"}" ;;

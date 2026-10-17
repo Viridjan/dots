@@ -125,8 +125,8 @@ class MenuTerminalTests(unittest.TestCase):
 _tui_start() { :; }
 _tui_end() { :; }
 MACHINE=desktop
-rc=0
-_bootstrap_multiselect || rc=$?
+_bootstrap_multiselect
+rc=0; [[ "$_MS_STATUS" == ok ]] || rc=1
 printf '\\nMENU_DONE:%s\\n' "$rc"
 if ((rc == 0)); then cat "$_MS_RESULT"; fi
 '''

@@ -634,7 +634,11 @@ install_all() {
 
     # Force-remove known conflicting packages before installing.
     # -Rdd skips dep checks so replacements (e.g. wine→wine-cachyos) don't block.
-    if [[ -f "$DOTS_DIR/.paru-R.list" ]]; then
+    local _conflicts
+    if [[ -f "$DOTS_DIR/.paru-R.list" ]] && ! _conflicts=$(_pkg_list "$DOTS_DIR/.paru-R.list"); then
+        _record "conflict-removal" fail "cannot read .paru-R.list"
+        warn "Cannot read .paru-R.list — conflicting packages were not removed"
+    elif [[ -n "${_conflicts:-}" ]]; then
         info "Removing flagged packages..."
         while IFS= read -r pkg; do
             local out
@@ -645,7 +649,7 @@ install_all() {
             else
                 warn "failed to remove: $pkg — $out"
             fi
-        done < <(_pkg_list "$DOTS_DIR/.paru-R.list")
+        done <<< "$_conflicts"
     fi
 
     info "Upgrading existing packages..."
@@ -685,9 +689,14 @@ install_all() {
         _record "packages" ok
     fi
 
-    if command -v flatpak &>/dev/null; then
+    local _apps
+    if command -v flatpak &>/dev/null && ! _apps=$(_pkg_list "$DOTS_DIR/.flatpak-S.list"); then
+        _record "flatpak" fail "cannot read .flatpak-S.list"
+        warn "Cannot read .flatpak-S.list — flatpak apps were not installed"
+    elif command -v flatpak &>/dev/null; then
         info "Installing flatpak apps..."
         while IFS= read -r app; do
+            [[ -n "$app" ]] || continue
             if flatpak info "$app" &>/dev/null; then
                 ok "already installed: $app"
             else
@@ -695,7 +704,7 @@ install_all() {
                     && ok "installed: $app" \
                     || warn "failed to install: $app"
             fi
-        done < <(_pkg_list "$DOTS_DIR/.flatpak-S.list")
+        done <<< "$_apps"
         info "Updating flatpak apps..."
         flatpak update -y &>/dev/null && ok "flatpaks up to date" || warn "flatpak update had warnings"
     fi
@@ -1030,8 +1039,12 @@ automount_disks() {
         read -rp "  Mount point [$_default_mp]: " _mp
         _mp="${_mp:-$_default_mp}"
 
-        if [[ "$_mp" != /* || "$_mp" == *$'\n'* || "$_mp" == *$'\r'* || "$_mp" == *,* ]]; then
-            warn "Mount point must be absolute and contain no newline, carriage return or comma"
+        # Data mounts only: a typo like /usr or /mnt/../boot would shadow a
+        # system path and can make the machine unbootable.
+        if [[ "$_mp" != /mnt/?* && "$_mp" != /media/?* && "$_mp" != /run/media/?* ]] \
+            || [[ "/$_mp/" == */./* || "/$_mp/" == */../* ]] \
+            || [[ "$_mp" == *$'\n'* || "$_mp" == *$'\r'* || "$_mp" == *,* ]]; then
+            warn "Mount point must be under /mnt, /media or /run/media, without . or .. components, newline, carriage return or comma"
             continue
         fi
         local _escaped_mp _uid _gid
@@ -1978,7 +1991,7 @@ print_manual_steps() {
     echo "       # 3. Connect headset via USB-C, accept 'Allow USB debugging' on headset"
     echo "       # 4. Download ALVR client APK from GitHub releases (match server version):"
     echo "       #      https://github.com/alvr-org/ALVR/releases"
-    echo "       #    Check server version: open ALVR dashboard → version shown in UI"
+    echo "       #    Check server version: pacman -Q alvr"
     echo "       # 5. Sideload the APK:"
     echo "       #      adb devices                          # verify headset detected"
     echo "       #      adb install alvr_client_android.apk"
@@ -2264,10 +2277,13 @@ _multiselect() {
     _menu_defaults
     for group in "${MENU_GROUP_IDS[@]}"; do MENU_OPEN[$group]=false; done
     MENU_OPEN[routine]=true
-    _MS_RESULT=$(mktemp) || return 1
+    _MS_RESULT=$(mktemp)
+    # Status, not exit code: callers must not wrap the menu in `||`/`if`,
+    # which would disable errexit for the whole menu call tree.
+    _MS_STATUS=ok
     if ! { : </dev/tty; } 2>/dev/null || [[ "${TERM:-dumb}" == dumb ]]; then
-        warn 'Interactive menu needs a terminal; use --yes or --dry-run.'
-        return 1
+        _MS_STATUS=notty
+        return 0
     fi
     _tui_start
     _MENU_STTY=$(stty -g </dev/tty)
@@ -2288,10 +2304,10 @@ _multiselect() {
         _menu_draw
         _menu_read_key
         key="$_MENU_KEY"
-        [[ "$key" != cancel ]] || { _menu_leave; _tui_end; return 1; }
+        [[ "$key" != cancel ]] || { _menu_leave; _tui_end; _MS_STATUS=cancel; return 0; }
         # A too-small terminal permits cancellation and resize only.
         if ((MENU_HEIGHT < 12 || MENU_WIDTH < 40)); then
-            [[ "$key" != q && "$key" != escape && "$key" != $'\x03' ]] || { _menu_leave; _tui_end; return 1; }
+            [[ "$key" != q && "$key" != escape && "$key" != $'\x03' ]] || { _menu_leave; _tui_end; _MS_STATUS=cancel; return 0; }
             continue
         fi
         if $MENU_SEARCH; then
@@ -2300,18 +2316,18 @@ _multiselect() {
                 escape) MENU_QUERY=""; MENU_SEARCH=false ;;
                 $'\x7f'|$'\b') MENU_QUERY="${MENU_QUERY%?}" ;;
                 tick|ignored|up|down|left|right|home|end|pageup|pagedown) ;;
-                $'\x03') _menu_leave; _tui_end; return 1 ;;
+                $'\x03') _menu_leave; _tui_end; _MS_STATUS=cancel; return 0 ;;
                 *) [[ "$key" == [[:print:]] ]] && MENU_QUERY+="$key" ;;
             esac
             MENU_CURSOR=0; MENU_OFFSET=0
             continue
         fi
         case "$key" in
-            q|$'\x03') _menu_leave; _tui_end; return 1 ;;
+            q|$'\x03') _menu_leave; _tui_end; _MS_STATUS=cancel; return 0 ;;
             escape)
                 if $MENU_REVIEW; then MENU_REVIEW=false
                 elif [[ -n "$MENU_QUERY" ]]; then MENU_QUERY=""
-                else _menu_leave; _tui_end; return 1; fi
+                else _menu_leave; _tui_end; _MS_STATUS=cancel; return 0; fi
                 MENU_CURSOR=0; MENU_OFFSET=0 ;;
             up|k) ((MENU_CURSOR<=0)) || MENU_CURSOR=$((MENU_CURSOR-1)) ;;
             down|j) ((MENU_CURSOR>=length-1)) || MENU_CURSOR=$((MENU_CURSOR+1)) ;;
@@ -2483,7 +2499,12 @@ bootstrap() {
         SKIP_PHASES=""
         local _selected
         detect_machine
-        _bootstrap_multiselect || { warn "Aborted."; exit 0; }
+        _MS_STATUS=ok
+        _bootstrap_multiselect
+        case "$_MS_STATUS" in
+            cancel) warn "Aborted."; exit 0 ;;
+            notty)  die "Interactive menu needs a terminal; use --yes or --dry-run." ;;
+        esac
         _selected=$(cat "$_MS_RESULT")
         _ensure_dots_repo
 

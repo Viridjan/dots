@@ -864,5 +864,53 @@ exit 0
         self.assertEqual(r.stdout, r"/mnt/a\011b\134c")
 
 
+class ReviewFollowupTests(FixtureCase):
+    def test_menu_without_terminal_fails_and_cancel_succeeds(self):
+        base = 'detect_machine() { MACHINE=desktop; }\n_ensure_dots_repo() { echo BAD_CONTINUED; }\n'
+        r = self.shell('TERM=dumb\n' + base + 'bootstrap')
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn('needs a terminal', r.stderr)
+        self.assertNotIn('BAD_CONTINUED', r.stdout)
+        r = self.shell(base + '_bootstrap_multiselect() { _MS_RESULT=$(mktemp); _MS_STATUS=cancel; }\nbootstrap')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn('Aborted', r.stdout + r.stderr)
+        self.assertNotIn('BAD_CONTINUED', r.stdout)
+
+    def test_unreadable_conflict_and_flatpak_lists_fail(self):
+        repo = self.home / "Projects/dots"
+        repo.mkdir(parents=True)
+        (repo / ".paru-R.list").write_text("conflict\n")
+        self.mock("flatpak", 'echo "flatpak $*" >> "$CALLS"')
+        r = self.shell('''
+_pkg_list() { return 1; }
+_syuu() { return 0; }
+_install_list() { return 0; }
+clean_caches() { :; }
+MACHINE=desktop
+install_all
+print_recap
+''')
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("cannot read .paru-R.list", r.stdout)
+        self.assertIn("cannot read .flatpak-S.list", r.stdout)
+        calls = Path(self.env["CALLS"])
+        self.assertFalse(calls.exists() and "flatpak install" in calls.read_text())
+
+    def test_automount_rejects_system_paths(self):
+        self.mock("id", 'echo 1000')
+        self.mock("lsblk", '''
+case "$*" in
+    '-rno NAME,MOUNTPOINT') echo 'testdrive /unused' ;;
+    '-Pno NAME,FSTYPE,LABEL,UUID') echo 'NAME="testdrive" FSTYPE="vfat" LABEL="Test" UUID="vjupdate-test-unique-uuid"' ;;
+esac
+''')
+        self.mock("sudo", '[[ "$1" != tee ]] || cat >> "$CALLS"; exit 0')
+        for bad in ("/usr", "/", "/mnt", "/mnt/../boot", "/mnt/./x", "/home/data"):
+            r = self.shell(f'_confirm() {{ return 0; }}; automount_disks <<< {shlex.quote(bad)}')
+            calls = Path(self.env["CALLS"])
+            self.assertFalse(calls.exists() and "UUID=" in calls.read_text(), bad)
+            self.assertIn("must be under /mnt", r.stdout + r.stderr, bad)
+
+
 if __name__ == "__main__":
     unittest.main()
