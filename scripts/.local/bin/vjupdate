@@ -2084,7 +2084,7 @@ _bootstrap_multiselect() {
         "dms-import — Copy repo DMS overrides → live" \
         "dotfiles-export — Review and upload dotfile changes (commit + push)" \
         "dotfiles-import — Copy repo DMS overrides → live" \
-        "stow-symlinks — Deploy Stow and Niri symlinks" \
+        "+stow-symlinks — Deploy Stow and Niri symlinks (restow; conflicts reported, never adopted)" \
         ":  Shell & tools ───────────────────────────" \
         "fish — Set up fish shell and tide theme" \
         "install-scripts — Run custom install scripts" \

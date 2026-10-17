@@ -332,6 +332,8 @@ esac
         self.assertLess(section.index('dotfiles-export —'), section.index('dotfiles-import —'))
         self.assertLess(section.index('dotfiles-import —'), section.index('stow-symlinks —'))
         self.assertNotIn('+dotfiles', section)
+        # Restow on every run so new files in stowed packages get linked.
+        self.assertIn('+stow-symlinks —', section)
         self.assertNotIn('dotfiles —', r.stdout)
         self.assertNotIn('dotfiles-upload', r.stdout)
 
