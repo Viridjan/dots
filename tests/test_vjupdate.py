@@ -322,20 +322,19 @@ case "$1" in
 esac
 ''')
 
-    def test_menu_groups_dotfiles_and_upload_under_dms(self):
-        r = self.shell('_multiselect() { printf "%s\\n" "$@"; }\n_bootstrap_multiselect')
+    def test_menu_uses_stable_ids_and_one_dms_import(self):
+        r = self.shell('''
+_menu_catalog
+printf '%s\\n' "${MENU_IDS[@]}"
+''')
         self.assertEqual(r.returncode, 0, r.stderr)
-        section = r.stdout.split(':  DMS & Stow', 1)[1].split(':  Shell & tools', 1)[0]
-        self.assertIn('dotfiles-export —', section)
-        self.assertIn('dotfiles-import —', section)
-        self.assertIn('stow-symlinks —', section)
-        self.assertLess(section.index('dotfiles-export —'), section.index('dotfiles-import —'))
-        self.assertLess(section.index('dotfiles-import —'), section.index('stow-symlinks —'))
-        self.assertNotIn('+dotfiles', section)
-        # Restow on every run so new files in stowed packages get linked.
-        self.assertIn('+stow-symlinks —', section)
-        self.assertNotIn('dotfiles —', r.stdout)
-        self.assertNotIn('dotfiles-upload', r.stdout)
+        ids = r.stdout.splitlines()
+        self.assertIn('stow-symlinks', ids)
+        self.assertIn('dms-export', ids)
+        self.assertIn('dotfiles-export', ids)
+        self.assertEqual(ids.count('dms-import'), 1)
+        self.assertNotIn('dotfiles-import', ids)
+        self.assertNotIn('dotfiles', ids)
 
     def test_declined_staging_does_not_modify_or_push(self):
         r = self.shell('_confirm() { return 1; }\nexport_dotfiles\nprint_recap')
@@ -736,6 +735,133 @@ echo 'safe-pkg 1-1 -> 2-1'
         self.assertIn("vectorcraft-bin", r.stdout)
         self.assertEqual(before, sorted(str(p.relative_to(self.home)) for p in self.home.rglob("*")))
         self.assertFalse(Path(self.env["CALLS"]).exists())
+
+
+class FollowupReviewTests(FixtureCase):
+    def repo(self):
+        repo = self.home / "Projects/dots"
+        repo.mkdir(parents=True, exist_ok=True)
+        return repo
+
+    def test_missing_list_and_failed_index_do_not_install(self):
+        repo = self.repo()
+        self.mock("pacman", "exit 0")
+        r = self.shell('_install_list "$DOTS_DIR/missing.list"')
+        self.assertNotEqual(r.returncode, 0)
+        (repo / "packages.list").write_text("wanted\n")
+        self.mock("pacman", "exit 19")
+        r = self.shell('if _install_list "$DOTS_DIR/packages.list"; then echo BAD; fi; echo "READY:$_PKG_INDEX_READY"')
+        self.assertNotIn("BAD", r.stdout)
+        self.assertIn("READY:false", r.stdout)
+        self.assertFalse(Path(self.env["CALLS"]).exists())
+
+    def test_retry_requeries_partial_install(self):
+        (self.repo() / "packages.list").write_text("first\nsecond\n")
+        self.mock("pacman", '[[ ! -f "$CALLS.partial" ]] || echo first; exit 0')
+        self.mock("paru", '''
+printf '%s\n' "$*" >> "$CALLS"
+if [[ ! -f "$CALLS.partial" ]]; then
+    : > "$CALLS.partial"
+    exit 1
+fi
+''')
+        r = self.shell('if _install_list "$DOTS_DIR/packages.list"; then exit 99; fi; _install_list "$DOTS_DIR/packages.list"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(Path(self.env["CALLS"]).read_text().splitlines(),
+                         ["-S --needed --noconfirm first second", "-S --needed --noconfirm second"])
+
+    def test_installer_cannot_consume_next_command(self):
+        (self.repo() / ".install-scripts.list").write_text(
+            'read -r consumed || true; echo FIRST\necho SECOND')
+        r = self.shell('run_install_scripts; print_recap')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("\nFIRST\n", r.stdout)
+        self.assertIn("\nSECOND\n", r.stdout)
+        self.assertEqual(r.stdout.count("✓ installer:"), 2)
+
+    def test_malware_gate_requires_lists_and_detects_campaign(self):
+        repo = self.repo()
+        campaign = self.home / ".local/share/aur-malware-check/data/campaigns/example"
+        campaign.mkdir(parents=True)
+        (campaign / "packages.txt").write_text("bad.pkg\n")
+        common = repo / ".paru-S-common.list"
+        common.write_text("safe\n")
+        surface = repo / ".paru-S-desktop.list"
+        surface.write_text("# comment\nbad.pkg\n")
+        body = '_update_malware_defs() { :; }; MACHINE=desktop; _check_packages_against_malware'
+        r = self.shell(body)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("MALWARE GATE", r.stderr)
+        surface.write_text("safe-too\n")
+        r = self.shell(body)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        common.unlink()
+        r = self.shell(body)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("cannot read", r.stderr)
+
+    def test_database_failure_reaches_recap(self):
+        self.mock("pacman", 'echo "error: broken dependency"; exit 1')
+        r = self.shell('check_pacman_db; echo CONTINUED; print_recap')
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("CONTINUED", r.stdout)
+        self.assertIn("✗ pacman-database", r.stdout)
+        self.assertIn("broken dependency", r.stdout)
+
+    def test_firmware_exit_codes_and_refresh_failure(self):
+        for refresh, query, failed in [(0, 0, False), (0, 2, False), (2, 2, False),
+                                        (1, 2, True), (0, 1, True), (0, 3, True)]:
+            with self.subTest(refresh=refresh, query=query):
+                self.mock("fwupdmgr", f'if [[ "$1" == refresh ]]; then exit {refresh}; fi; echo QUERY; exit {query}')
+                r = self.shell('check_firmware; echo CONTINUED; print_recap')
+                self.assertEqual(r.returncode != 0, failed, r.stdout + r.stderr)
+                self.assertIn("CONTINUED", r.stdout)
+                if query not in (0, 2):
+                    self.assertNotIn("no firmware updates", r.stdout)
+
+    def test_update_preserves_failure_detail(self):
+        r = self.shell('''
+_swap_pkg() { :; }
+refresh_mirrors() { :; }
+_syuu() { SYUU_FAIL_DETAIL="AUR build failed: example"; return 1; }
+system_update
+print_recap
+''')
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("(AUR build failed: example)", r.stdout)
+
+    def test_batch_malware_matching_is_literal_and_fails_on_missing_file(self):
+        definitions = self.root / "definitions"
+        definitions.write_text("bad.pkg\nother\n")
+        body = f'_infected_packages {shlex.quote(str(definitions))} <<< $\'badXpkg\\nbad.pkg\\nsafe\''
+        r = self.shell(body)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout, "bad.pkg\n")
+        r = self.shell('_infected_packages "$HOME/missing" <<< safe')
+        self.assertNotEqual(r.returncode, 0)
+
+    def test_automount_escapes_fields_and_uses_user_ids(self):
+        self.mock("id", '[[ "$1" == -u ]] && echo 1234 || echo 2345')
+        self.mock("lsblk", '''
+case "$*" in
+    '-rno NAME,MOUNTPOINT') echo 'testdrive /unused' ;;
+    '-Pno NAME,FSTYPE,LABEL,UUID') echo 'NAME="testdrive" FSTYPE="vfat" LABEL="Test" UUID="vjupdate-test-unique-uuid"' ;;
+esac
+''')
+        self.mock("sudo", '''
+if [[ "$1" == tee ]]; then
+    cat >> "$CALLS"
+fi
+exit 0
+''')
+        r = self.shell('_confirm() { return 0; }; automount_disks <<< "/mnt/My Disk"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        written = Path(self.env["CALLS"]).read_text()
+        self.assertIn(r"/mnt/My\040Disk", written)
+        self.assertNotIn("/mnt/My Disk", written)
+        self.assertIn("uid=1234,gid=2345", written)
+        r = self.shell("_fstab_escape $'/mnt/a\\tb\\\\c'")
+        self.assertEqual(r.stdout, r"/mnt/a\011b\134c")
 
 
 if __name__ == "__main__":

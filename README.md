@@ -92,8 +92,11 @@ When working on dots inside a Claude session, just `cd ~/Projects/dots` from wit
 
 The statusline is assembled by `~/.claude/statusline.sh`, which runs each segment
 script (caveman, ponytail, model, topic + directory) and glues the output together.
-`[TOPIC: …]` is the session title (`/rename` name, else the auto-generated one);
-`[DIR: …]` is the working directory with `~` for home. Both need `jq`. Plugin paths are
+`[TOPIC: …]` uses the latest nonempty manual `/rename` title, falling back to
+an automatic title only when no manual title exists. Transcript JSON spacing
+is irrelevant; incomplete or malformed lines are skipped.
+`[DIR: …]` abbreviates the home directory and its descendants with `~`, while
+similarly named sibling directories retain their full paths. Both tags need `jq`. Plugin paths are
 resolved at runtime, so a plugin update never requires touching `settings.json`.
 
 To add a segment, add one line to `statusline.sh` — nothing else needs changing.
@@ -171,25 +174,37 @@ already-working symlinks.
 
 ### Review and upload changes
 
-The interactive menu's **DMS & Stow** section contains:
+The interactive menu groups routine maintenance separately from optional system,
+DMS/Git, shell and AI/VM configuration. Routine maintenance starts expanded;
+other groups start collapsed with selected counts. Labels stay short, and the
+highlighted action has a detail panel. The list scrolls to fit the terminal and
+adapts when it is resized (minimum 40 columns × 12 rows).
 
-- **dms-export** — copy live DMS overrides into the repository, excluding colors.
-- **dms-import** — apply repository DMS overrides, including colors.
-- **dotfiles-export** — review repository changes, commit, and push.
-- **dotfiles-import** — copy repository DMS overrides to the live directory, including colors.
-- **stow-symlinks** — deploy Stow and Niri links, without copying DMS overrides.
+- **Move:** arrows or j/k, Home/End, Page Up/Down.
+- **Choose:** Space toggles an action; Space or Left/Right folds a group.
+- **Select a group:** `s` or Ctrl+A toggles the focused group only.
+- **Search:** `/`, then type; Enter finishes filtering, Escape clears it.
+- **Reset:** `c` clears all actions; `r` restores the default selection.
+- **Run:** Enter opens the resolved execution order; Enter again starts it.
+  `b` returns to editing and `q` cancels. Individual action confirmations remain.
 
-**stow-symlinks** starts checked, so every run restows and links any file
-newly added to a stowed package; the other options start unchecked. Ordinary Stow-linked settings already live in
-the repository; no export is needed for them. Select **dms-export** as well when
-you want to save live DMS overrides. Selected actions save/export first, then
-deploy symlinks, and finally copy DMS overrides. The old combined
-**dotfiles** menu item has been removed. Noninteractive `--yes` retains its
-existing `dotfiles` phase (deployment plus DMS import).
+Selecting an audit repair option also selects the system health check. Clearing
+that check clears its repair options. The review lists actions in execution order,
+including the malware gate when required. No system actions start while editing
+the menu or reviewing the plan. The terminal screen and cursor are restored on exit.
 
-`dotfiles-import` performs the same local copy as `dms-import`; if both are
-selected, the copy runs only once. It does not download from Git or deploy
-symlinks. Select **stow-symlinks** separately to create or refresh those links.
+**Refresh configuration links** starts checked so new tracked settings get linked.
+It does not copy DMS overrides; conflicts remain untouched unless `--adopt` was
+explicitly passed. Optional **DMS settings & Git** actions are:
+
+- **Save live DMS settings to repository** — copy overrides except curated colors.
+- **Apply repository DMS settings** — overwrite all seven live overrides, including colors.
+- **Review and upload Git changes** — review changes, commit and push with confirmations.
+- **Install DMS plugins** — install configured plugins.
+
+There is one DMS import entry. Save/export runs before Git upload, followed by
+configuration links and DMS import. DMS import neither pulls Git nor deploys links.
+Noninteractive `--yes` retains its existing dotfiles phase (links plus DMS import).
 
 Upload first asks whether to stage **all non-ignored repository changes**, then
 shows the staged diff, asks for a commit message, and confirms commit/push to
@@ -341,7 +356,7 @@ vjupdate --steam-launchers
 ```
 
 Re-run after installing new games. Launchers land in `~/.local/share/applications/`.
-Runs automatically as part of the interactive menu (checked by default under "Launchers").
+Runs automatically as part of the interactive menu (checked by default under "Routine maintenance").
 
 ### App launcher cleanup
 
@@ -354,7 +369,7 @@ app, deleted script), and reports installed apps not mirrored into
 vjupdate --app-launchers
 ```
 
-Also checked by default under "Launchers" in the interactive menu.
+Also checked by default under "Routine maintenance" in the interactive menu.
 
 ### MTG Arena Tool
 

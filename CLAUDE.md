@@ -327,28 +327,50 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
 
 ## vjupdate behaviour notes
 
+- **Input and failure handling.** Package lists and installed-package queries
+  must be read successfully before installation. Malware package matching reads
+  definitions once per batch and fails if a required input cannot be read.
+  A partial paru failure invalidates
+  the installed-package index so retries query the actual installed state.
+  Installer lists use a separate file descriptor, closed in child shells, so
+  installers cannot consume subsequent commands. Installer stdin stays available.
+- **Audit results.** Pacman database errors record failed results. Firmware
+  refresh/query failures are reported separately; fwupdmgr exit 2 means successful
+  execution with nothing to do. Independent checks continue, but the recap exits
+  nonzero for failed checks. Update and bootstrap both show AUR failure details.
+- **Automount paths.** Mount points must be absolute, without newlines, carriage
+  returns or commas. Escape spaces, tabs and backslashes in fstab fields and
+  preserve those escapes when writing bind entries. Ownership options use the
+  selected user's actual UID/GID rather than assuming 1000.
+
 - **Held packages.** `.paru-hold.list` excludes named packages from system
   upgrades (including retries) and both rebuild paths. First installation is
   unchanged. Audit and update runs warn about pending held AUR updates with
   review and manual upgrade commands; dry runs list the holds.
-- **DMS & Stow menu.** The old combined `dotfiles` menu item is replaced by
-  `dotfiles-import` and `stow-symlinks`, immediately after `dotfiles-export`
-  (formerly `dotfiles-upload`). `stow-symlinks` is pre-selected so every
-  interactive run restows (linking files newly added to stowed packages);
-  the others are opt-in because they overwrite or upload. `dotfiles-export` runs near
-  the end of `phase_configure`, after any selected `dms-export`. Ordinary Stow
-  edits already reside in the repository. Upload asks before staging all
-  non-ignored repository changes, displays the staged diff, requests a commit
-  message and confirms commit/push to the configured remote upstream. It keeps
-  normal Git hooks enabled, never force-pushes, and preserves local commits if
-  pushing fails. Cancellation after staging leaves the index staged. A clean
-  tree can retry pushing existing commits. It is skipped in noninteractive runs.
-  `dotfiles-import` calls `dms_import`: it copies the seven repository DMS
-  overrides to the live directory, including colors. It does not pull from Git
-  or deploy links. It and the existing `dms-import` menu item share one call,
-  even when both are checked. Selected execution order is DMS export → Git
-  export → Stow symlinks → DMS import. The legacy `dotfiles` phase still deploys and imports
-  DMS for noninteractive `--yes`; the interactive menu never selects that phase.
+- **Interactive menu.** Stable action IDs are separate from labels and descriptions.
+  Routine maintenance starts expanded; optional configuration groups start collapsed
+  with selected counts. Defaults preserve sources, package installs, health checks,
+  orphan removal, rebuilds, configuration links and launcher maintenance. Space
+  toggles an action or expands a group; arrows or j/k move; Home/End and Page Up/Down
+  scroll. Left/Right collapse/expand; `/` filters labels, details and IDs; Enter
+  finishes search, then opens review. `s` (or Ctrl+A) selects/clears only the focused
+  group, `c` clears all, and `r` restores defaults. Escape clears search, returns
+  from review, or cancels the menu. Review shows resolved execution order; Enter
+  starts, `b` returns, and `q` cancels. Small terminals require resizing before run.
+  Rendering diffs cached rows and writes changed rows as one batch; idle polls
+  never repaint or clear the live screen. The alternate screen and cursor are
+  restored on exit. A health-check repair
+  selection visibly enables audit; clearing audit clears its repair selections.
+  `_MS_RESULT` contains IDs, never display labels. Legacy `id — description`
+  payloads remain accepted by selection consumers for compatibility.
+- **DMS and Git actions.** One `dms-import` entry applies the seven repository
+  overrides including colors. It does not pull Git or deploy links. `dms-export`
+  saves live settings except colors. Git export follows DMS export and precedes
+  Stow and DMS import. It requires interactive staging, diff review, commit-message
+  entry and push confirmation; normal hooks stay enabled and local commits survive
+  push failures. The menu itself never commits or pushes. Configuration-link
+  deployment starts selected; adoption requires explicit `--adopt`. Noninteractive
+  `--yes` retains the legacy dotfiles phase (deploy and DMS import).
 - **Brave policy package (`brave/`, added 2026-10-11).** Stowed to `/` by the
   same root-target loop as `ollama` in `deploy_dotfiles`. It sets
   `LoopbackNetworkAllowedForUrls: ["https://discord.com"]` so Discord invite
@@ -417,7 +439,7 @@ a saved snapshot. Keep system-changing commands mocked and fixtures temporary.
 
 Phases use stamps in `~/.local/state/dots/` — heavy phases skip automatically if run recently: keyrings within 48h, mirror ranking within 30 days. A mirror run that fails on both arch and CachyOS is not stamped, so it retries next run.
 
-The keyrings phase wipes `/etc/pacman.d/gnupg/`, so every third-party pacman repo key must be listed in `_REPO_KEYS` (repo name → key ID): `reset_keyrings` re-imports them all right after the wipe. A repo missing from that map breaks the plain `pacman -Syy` in the mirrors step with "unknown trust" — only `_syuu` has the auto-recover retry.
+The keyrings phase wipes `/etc/pacman.d/gnupg/`, so every third-party pacman repo key must be listed in `_REPO_KEYS` (repo name → key ID): `reset_keyrings` re-imports them all right after the wipe. Both `_syy` (mirror database sync) and `_syuu` (system upgrade) attempt one recovery for "unknown trust" using that map; unknown repo keys still require manual intervention.
 
 ```
 sources → install → dotfiles → configure → audit
@@ -431,7 +453,11 @@ sources → install → dotfiles → configure → audit
 | `configure` | system services, snapper, keyboard, greeter, keyring-pam (user-prompted); DMS plugins, install scripts, fish, claude, VMs (first-run prompted) |
 | `audit` | orphan packages, flatpak cleanup, rebuild check, pacnew files, firmware updates |
 
-Interactive mode (default, or `-i`) opens a built-in terminal TUI (no external deps) showing phases and configure items in one screen. Sources, install and audit are pre-selected, along with orphan removal, Python rebuilds, rebuilds and launcher maintenance. `stow-symlinks` is pre-selected too; the other DMS & Stow actions and one-time configure items are opt-in. Keys: `↑↓` navigate, `space` toggle, `ctrl+a` select/deselect all, `enter` confirm, `q` abort. Update and audit also run via `vjupdate --update` and `vjupdate --check`.
+Interactive mode (default, or `-i`) opens a scrollable, dependency-free terminal
+menu with collapsible groups, search, an item detail panel and an execution-order
+review. Defaults include routine maintenance and configuration links. Optional
+system configuration and DMS/Git actions remain opt-in. The terminal must be at
+least 40 columns by 12 rows. `--update` and `--check` remain direct actions.
 
 ## Shell script linting
 
@@ -473,6 +499,11 @@ It **globs the plugin paths at runtime**, because the cache dirs carry version h
 one-liner and nothing needs regenerating after a plugin update. `setup_claude`
 deliberately contains no statusline wiring. Add a segment by adding one line to
 `statusline.sh`.
+
+`topic-statusline.sh` parses transcript JSONL with jq, keeping the latest
+nonempty manual title ahead of automatic titles regardless of record order.
+Malformed/incomplete lines are skipped. Directory abbreviation applies only to
+`$HOME` itself and paths below it, never a sibling sharing the same prefix.
 
 ## npm global prefix
 
