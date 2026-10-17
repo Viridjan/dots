@@ -21,7 +21,7 @@ Memory and project context are scoped to the working directory at launch. Openin
 dots/
   alacritty/      → ~/.config/alacritty/
   brave/          → /etc/brave/policies/managed/  (Brave managed policy; stow -t /)
-  claude/         → ~/.claude/  (settings.json, hooks/, keybindings.json, statusline.sh)
+  claude/         → ~/.claude/  (settings.json, hooks/, keybindings.json, statusline.sh + segment scripts)
   DankMaterialShell/ → ~/.config/DankMaterialShell/
   desktop/        → ~/.config/niri/cfg/display.kdl + input.kdl + surface-layout.kdl  (tower only)
   fish/           → ~/.config/fish/  (Arch logo override for fastfetch — see fish_greeting in config.fish)
@@ -333,7 +333,9 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   review and manual upgrade commands; dry runs list the holds.
 - **DMS & Stow menu.** The old combined `dotfiles` menu item is replaced by
   `dotfiles-import` and `stow-symlinks`, immediately after `dotfiles-export`
-  (formerly `dotfiles-upload`). All are opt-in. `dotfiles-export` runs near
+  (formerly `dotfiles-upload`). `stow-symlinks` is pre-selected so every
+  interactive run restows (linking files newly added to stowed packages);
+  the others are opt-in because they overwrite or upload. `dotfiles-export` runs near
   the end of `phase_configure`, after any selected `dms-export`. Ordinary Stow
   edits already reside in the repository. Upload asks before staging all
   non-ignored repository changes, displays the staged diff, requests a commit
@@ -429,7 +431,7 @@ sources → install → dotfiles → configure → audit
 | `configure` | system services, snapper, keyboard, greeter, keyring-pam (user-prompted); DMS plugins, install scripts, fish, claude, VMs (first-run prompted) |
 | `audit` | orphan packages, flatpak cleanup, rebuild check, pacnew files, firmware updates |
 
-Interactive mode (default, or `-i`) opens a built-in terminal TUI (no external deps) showing phases and configure items in one screen. Sources, install and audit are pre-selected, along with orphan removal, Python rebuilds, rebuilds and launcher maintenance. DMS & Stow actions and other one-time configure items are opt-in. Keys: `↑↓` navigate, `space` toggle, `ctrl+a` select/deselect all, `enter` confirm, `q` abort. Update and audit also run via `vjupdate --update` and `vjupdate --check`.
+Interactive mode (default, or `-i`) opens a built-in terminal TUI (no external deps) showing phases and configure items in one screen. Sources, install and audit are pre-selected, along with orphan removal, Python rebuilds, rebuilds and launcher maintenance. `stow-symlinks` is pre-selected too; the other DMS & Stow actions and one-time configure items are opt-in. Keys: `↑↓` navigate, `space` toggle, `ctrl+a` select/deselect all, `enter` confirm, `q` abort. Update and audit also run via `vjupdate --update` and `vjupdate --check`.
 
 ## Shell script linting
 

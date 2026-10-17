@@ -91,7 +91,9 @@ When working on dots inside a Claude session, just `cd ~/Projects/dots` from wit
 ### Statusline
 
 The statusline is assembled by `~/.claude/statusline.sh`, which runs each segment
-script (caveman, ponytail, model) and glues the output together. Plugin paths are
+script (caveman, ponytail, model, topic + directory) and glues the output together.
+`[TOPIC: …]` is the session title (`/rename` name, else the auto-generated one);
+`[DIR: …]` is the working directory with `~` for home. Both need `jq`. Plugin paths are
 resolved at runtime, so a plugin update never requires touching `settings.json`.
 
 To add a segment, add one line to `statusline.sh` — nothing else needs changing.
@@ -177,7 +179,8 @@ The interactive menu's **DMS & Stow** section contains:
 - **dotfiles-import** — copy repository DMS overrides to the live directory, including colors.
 - **stow-symlinks** — deploy Stow and Niri links, without copying DMS overrides.
 
-These options start unchecked. Ordinary Stow-linked settings already live in
+**stow-symlinks** starts checked, so every run restows and links any file
+newly added to a stowed package; the other options start unchecked. Ordinary Stow-linked settings already live in
 the repository; no export is needed for them. Select **dms-export** as well when
 you want to save live DMS overrides. Selected actions save/export first, then
 deploy symlinks, and finally copy DMS overrides. The old combined
