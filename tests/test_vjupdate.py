@@ -44,11 +44,13 @@ class FixtureCase(unittest.TestCase):
 
     def shell(self, body):
         return subprocess.run(["/usr/bin/bash", "-c", 'source "$SCRIPT"\n' + body],
-                              env=self.env, text=True, capture_output=True, timeout=10)
+                              env=self.env, text=True, capture_output=True, timeout=10,
+                              stdin=subprocess.DEVNULL)
 
     def cli(self, *args):
         return subprocess.run(["/usr/bin/bash", str(SCRIPT), *args], env=self.env,
-                              text=True, capture_output=True, timeout=10)
+                              text=True, capture_output=True, timeout=10,
+                              stdin=subprocess.DEVNULL)
 
     def fixture_repo(self):
         repo = self.home / "Projects/dots"
@@ -485,7 +487,8 @@ print_recap
         # The real Stow is only allowed to simulate against temporary fixtures.
         r = subprocess.run(["/usr/bin/stow", "-n", "-d", str(repo), "-t",
                             str(self.home), "sample"], env=self.env,
-                           text=True, capture_output=True, timeout=10)
+                           text=True, capture_output=True, timeout=10,
+                              stdin=subprocess.DEVNULL)
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.mock("stow", "printf '%s' " + shlex.quote(r.stdout + r.stderr) + "; exit 1")
         r = self.shell('cd "$DOTS_DIR"\n_adopt_backup -t "$HOME" sample')
