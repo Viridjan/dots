@@ -139,6 +139,8 @@ ttf-space-mono-nerd
 awesome-terminal-fonts
 
 # CLI tools
+# jq: used by the Claude Code statusline segments (model, topic, dir)
+jq
 ripgrep
 btop
 duf
