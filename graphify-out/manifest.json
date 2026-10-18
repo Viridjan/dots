@@ -1,0 +1,237 @@
+{
+  ".claude/settings.local.json": {
+    "mtime": 1786744020.2615964,
+    "ast_hash": "1174bc86628ac3450cb7df6477e5afbb",
+    "semantic_hash": "1174bc86628ac3450cb7df6477e5afbb"
+  },
+  ".githooks/pre-commit": {
+    "mtime": 1790341691.532768,
+    "ast_hash": "2de3d0bbb09498ad516c8fc35f36f924",
+    "semantic_hash": "2de3d0bbb09498ad516c8fc35f36f924"
+  },
+  "DankMaterialShell/.config/DankMaterialShell/monitors.json": {
+    "mtime": 1787072111.6168768,
+    "ast_hash": "4c33fb9568c9c2070d567b5c84a9db1f",
+    "semantic_hash": "4c33fb9568c9c2070d567b5c84a9db1f"
+  },
+  "DankMaterialShell/.config/DankMaterialShell/settings.json": {
+    "mtime": 1792156428.9029999,
+    "ast_hash": "252599f7cb9877869d9b6bca169e8018",
+    "semantic_hash": "252599f7cb9877869d9b6bca169e8018"
+  },
+  "VSCodium/.config/VSCodium/CachedConfigurations/defaults/__default__profile__-configurationDefaultsOverrides/configuration.json": {
+    "mtime": 1786104431.6988275,
+    "ast_hash": "cfc2f6131db2b27f3fabcf31e70024eb",
+    "semantic_hash": "cfc2f6131db2b27f3fabcf31e70024eb"
+  },
+  "VSCodium/.config/VSCodium/User/History/-535d568d/entries.json": {
+    "mtime": 1786104432.607864,
+    "ast_hash": "d0c7b51e0cd807d2fdef2d8e5c3ecc9c",
+    "semantic_hash": "d0c7b51e0cd807d2fdef2d8e5c3ecc9c"
+  },
+  "VSCodium/.config/VSCodium/User/History/-535d568d/m3kb.json": {
+    "mtime": 1786104432.053208,
+    "ast_hash": "59e896bed103799321d220efffe3529a",
+    "semantic_hash": "59e896bed103799321d220efffe3529a"
+  },
+  "VSCodium/.config/VSCodium/User/History/-535d568d/z7pS.json": {
+    "mtime": 1785226450.6991928,
+    "ast_hash": "59e896bed103799321d220efffe3529a",
+    "semantic_hash": "59e896bed103799321d220efffe3529a"
+  },
+  "VSCodium/.config/VSCodium/User/History/-7b75374/YZgv.py": {
+    "mtime": 1785220654.1790614,
+    "ast_hash": "96b92738cf120cd9c50d602523ed875b",
+    "semantic_hash": "96b92738cf120cd9c50d602523ed875b"
+  },
+  "VSCodium/.config/VSCodium/User/History/-7b75374/entries.json": {
+    "mtime": 1785220954.2436216,
+    "ast_hash": "250f5e4f7ed930c8a75cfafaea3f9cd0",
+    "semantic_hash": "250f5e4f7ed930c8a75cfafaea3f9cd0"
+  },
+  "VSCodium/.config/VSCodium/User/chatLanguageModels.json": {
+    "mtime": 1781790991.3243737,
+    "ast_hash": "d751713988987e9331980363e24189ce",
+    "semantic_hash": "d751713988987e9331980363e24189ce"
+  },
+  "VSCodium/.config/VSCodium/User/globalStorage/ms-python.python/pythonrc.py": {
+    "mtime": 1786104432.1683981,
+    "ast_hash": "b7acc4adf0a03f65de42f75130811908",
+    "semantic_hash": "b7acc4adf0a03f65de42f75130811908"
+  },
+  "VSCodium/.config/VSCodium/User/globalStorage/storage.json": {
+    "mtime": 1786104432.6528656,
+    "ast_hash": "a68e12751318c8565f7f47c96225e32e",
+    "semantic_hash": "a68e12751318c8565f7f47c96225e32e"
+  },
+  "VSCodium/.config/VSCodium/User/settings.json": {
+    "mtime": 1786104432.0318408,
+    "ast_hash": "59e896bed103799321d220efffe3529a",
+    "semantic_hash": "59e896bed103799321d220efffe3529a"
+  },
+  "VSCodium/.config/VSCodium/languagepacks.json": {
+    "mtime": 1786104431.463818,
+    "ast_hash": "99914b932bd37a50b983c5e7c90ae93b",
+    "semantic_hash": "99914b932bd37a50b983c5e7c90ae93b"
+  },
+  "brave/etc/brave/policies/managed/discord-loopback.json": {
+    "mtime": 1791731958.8705487,
+    "ast_hash": "5ad464f7ad6d6ea762f54609a43bc917",
+    "semantic_hash": "5ad464f7ad6d6ea762f54609a43bc917"
+  },
+  "cave/.cave/agent/extensions/ollama.ts": {
+    "mtime": 1789423104.1778686,
+    "ast_hash": "a72d02f315a052a744fef5cf7a3f75ef",
+    "semantic_hash": "a72d02f315a052a744fef5cf7a3f75ef"
+  },
+  "cave/.cave/agent/settings.json": {
+    "mtime": 1782118126.560272,
+    "ast_hash": "63a342047c05933fad8c03caa86e7ffc",
+    "semantic_hash": "63a342047c05933fad8c03caa86e7ffc"
+  },
+  "caveman/.config/caveman/config.json": {
+    "mtime": 1781971258.8545773,
+    "ast_hash": "dc99b17fc837298b820d242bf5261147",
+    "semantic_hash": "dc99b17fc837298b820d242bf5261147"
+  },
+  "claude/.claude/hooks/caveman-activate.js": {
+    "mtime": 1781790991.3285253,
+    "ast_hash": "0a77df0018325d52608c362754786451",
+    "semantic_hash": "0a77df0018325d52608c362754786451"
+  },
+  "claude/.claude/hooks/caveman-config.js": {
+    "mtime": 1781790991.3287227,
+    "ast_hash": "a0166a65e117ec9ddcec646e481e5185",
+    "semantic_hash": "a0166a65e117ec9ddcec646e481e5185"
+  },
+  "claude/.claude/hooks/caveman-mode-tracker.js": {
+    "mtime": 1781790991.3287227,
+    "ast_hash": "4946e31570eac0b8fe763d429978dbdc",
+    "semantic_hash": "4946e31570eac0b8fe763d429978dbdc"
+  },
+  "claude/.claude/hooks/caveman-stats.js": {
+    "mtime": 1781790991.3287227,
+    "ast_hash": "2c88a17ff88451629d3edafe474cfff0",
+    "semantic_hash": "2c88a17ff88451629d3edafe474cfff0"
+  },
+  "claude/.claude/hooks/caveman-statusline.sh": {
+    "mtime": 1781790991.3287227,
+    "ast_hash": "bdd702f9e8566fb73d5cae73d989b9ea",
+    "semantic_hash": "bdd702f9e8566fb73d5cae73d989b9ea"
+  },
+  "claude/.claude/hooks/package.json": {
+    "mtime": 1781790991.3287227,
+    "ast_hash": "df9ffc6aa3f78a5491736d441c4258a8",
+    "semantic_hash": "df9ffc6aa3f78a5491736d441c4258a8"
+  },
+  "claude/.claude/keybindings.json": {
+    "mtime": 1781790991.3287227,
+    "ast_hash": "7e5036620ff9eec5d9e1b183a5641077",
+    "semantic_hash": "7e5036620ff9eec5d9e1b183a5641077"
+  },
+  "claude/.claude/model-statusline.sh": {
+    "mtime": 1785451795.4309819,
+    "ast_hash": "b220eabfa8b699872212d55345719489",
+    "semantic_hash": "b220eabfa8b699872212d55345719489"
+  },
+  "claude/.claude/settings.json": {
+    "mtime": 1787652252.2247403,
+    "ast_hash": "d38da8ed36982a214f890900781c20ee",
+    "semantic_hash": "d38da8ed36982a214f890900781c20ee"
+  },
+  "claude/.claude/statusline.sh": {
+    "mtime": 1792230999.868351,
+    "ast_hash": "79edca3f29cb8b15c674bd9aa727b751",
+    "semantic_hash": "79edca3f29cb8b15c674bd9aa727b751"
+  },
+  "claude/.claude/topic-statusline.sh": {
+    "mtime": 1792248855.8187563,
+    "ast_hash": "7f1563cbe43252967644be0336f50fb8",
+    "semantic_hash": "7f1563cbe43252967644be0336f50fb8"
+  },
+  "micro/.config/micro/bindings.json": {
+    "mtime": 1781791257.4447079,
+    "ast_hash": "99914b932bd37a50b983c5e7c90ae93b",
+    "semantic_hash": "99914b932bd37a50b983c5e7c90ae93b"
+  },
+  "micro/.config/micro/settings.json": {
+    "mtime": 1781790436.3299723,
+    "ast_hash": "d46b30ff6b5fb942a2c3e74ee6d9bf5f",
+    "semantic_hash": "d46b30ff6b5fb942a2c3e74ee6d9bf5f"
+  },
+  "scripts/.local/bin/start-keep": {
+    "mtime": 1791844272.7971869,
+    "ast_hash": "fa6261b1f94d41b647f184e4131084a5",
+    "semantic_hash": "fa6261b1f94d41b647f184e4131084a5"
+  },
+  "scripts/.local/bin/start-open-notebook": {
+    "mtime": 1786813379.5476007,
+    "ast_hash": "e4da4c8b11b93a5c3a24f8cdaacec647",
+    "semantic_hash": "e4da4c8b11b93a5c3a24f8cdaacec647"
+  },
+  "scripts/.local/bin/start-windows": {
+    "mtime": 1786813370.964259,
+    "ast_hash": "e7a42f85d092161ef517539da1685ec1",
+    "semantic_hash": "e7a42f85d092161ef517539da1685ec1"
+  },
+  "scripts/.local/bin/vjupdate": {
+    "mtime": 1792333242.6226056,
+    "ast_hash": "f4dcdf9e0a584b916cf396ce259af064",
+    "semantic_hash": "f4dcdf9e0a584b916cf396ce259af064"
+  },
+  "surface-sync.sh": {
+    "mtime": 1791844282.3159702,
+    "ast_hash": "704d0c92da723c3a161e9722f347abdf",
+    "semantic_hash": "704d0c92da723c3a161e9722f347abdf"
+  },
+  "tests/test_topic_statusline.py": {
+    "mtime": 1792248821.0737271,
+    "ast_hash": "732dd84720189d2f75ae6e7e66484690",
+    "semantic_hash": "732dd84720189d2f75ae6e7e66484690"
+  },
+  "tests/test_vjupdate.py": {
+    "mtime": 1792333287.3833413,
+    "ast_hash": "318c3104417178922056b176bd52d018",
+    "semantic_hash": "318c3104417178922056b176bd52d018"
+  },
+  "tests/test_vjupdate_menu.py": {
+    "mtime": 1792248821.0738015,
+    "ast_hash": "e9cf0153b4026a13d76730c4daaf2884",
+    "semantic_hash": "e9cf0153b4026a13d76730c4daaf2884"
+  },
+  "vesktop/.config/vesktop/settings.json": {
+    "mtime": 1781824350.1150126,
+    "ast_hash": "1f53cfbc94a5230122d6121694652d58",
+    "semantic_hash": "1f53cfbc94a5230122d6121694652d58"
+  },
+  "vesktop/.config/vesktop/settings/settings.json": {
+    "mtime": 1787581232.2828214,
+    "ast_hash": "096f09a79d47e951ed90c2f640bcbbfe",
+    "semantic_hash": "096f09a79d47e951ed90c2f640bcbbfe"
+  },
+  "CLAUDE.md": {
+    "mtime": 1792333300.160521,
+    "ast_hash": "f28753a5a91b818530d430c7cc339692",
+    "semantic_hash": "f28753a5a91b818530d430c7cc339692"
+  },
+  "README.md": {
+    "mtime": 1792333300.1597667,
+    "ast_hash": "261291f4c50e8545598b36e97100a358",
+    "semantic_hash": "261291f4c50e8545598b36e97100a358"
+  },
+  "TODO.md": {
+    "mtime": 1792174066.7717905,
+    "ast_hash": "65ef9012691c5f56d8951675ab047012",
+    "semantic_hash": "65ef9012691c5f56d8951675ab047012"
+  },
+  "claude/.claude/skills/sync/SKILL.md": {
+    "mtime": 1781790991.3292487,
+    "ast_hash": "3b0f59baec389323f871c48ff96602f6",
+    "semantic_hash": "3b0f59baec389323f871c48ff96602f6"
+  },
+  "windows/docker-compose.yml": {
+    "mtime": 1781790991.3390656,
+    "ast_hash": "b586fbdea65bfc9a9bb5f9815ae853e7",
+    "semantic_hash": "b586fbdea65bfc9a9bb5f9815ae853e7"
+  }
+}
