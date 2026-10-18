@@ -421,6 +421,12 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   failed to build. `install_all` folds that into both the `full-upgrade` recap
   note and the `warn`, so one broken AUR package is visible at the end instead of
   buried in 2000 lines of upgrade output.
+- **AUR build-time estimate.** Before each `_syuu`, `_estimate_aur_builds`
+  sums past build durations for pending `paru -Qua` upgrades (holds excluded)
+  and names packages with no history. `_syuu` runs paru with `LC_TIME=C` so
+  makepkg's `%c` timestamps parse; `_record_build_times` stores the first
+  `Making package` → `Finished making` span per package (latest wins) in
+  `~/.local/state/dots/aur-build-times.tsv`, including from failed runs.
 - **Exit status is meaningful.** Phases record ok/fail/skip; `print_recap`
   prints the table and returns non-zero if anything failed. Unexpected phase
   failures abort and print a recap through the runtime ERR trap. Never wrap

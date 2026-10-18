@@ -332,6 +332,57 @@ _syy() {
     return "$rc"
 }
 
+# ─── AUR build-time estimate ─────────────────────────────
+# makepkg logs "==> Making package: <pkg> <ver> (<date>)" several times per
+# build (fetch, prepare, build) and "==> Finished making: ..." once. The span
+# from the first Making to Finished is the wall time the user waits, so record
+# it per package and sum the history before the next upgrade. paru runs with
+# LC_TIME=C so `date -d` can parse makepkg's %c timestamps.
+BUILD_TIMES="$STAMP_DIR/aur-build-times.tsv"
+
+_record_build_times() {
+    local log="$1" pkg start end s e new=""
+    while IFS=$'\t' read -r pkg start end; do
+        s=$(date -d "$start" +%s 2>/dev/null) || continue
+        e=$(date -d "$end" +%s 2>/dev/null) || continue
+        (( e >= s )) && new+="$pkg"$'\t'"$((e - s))"$'\n'
+    done < <(sed 's/\x1b\[[0-9;]*m//g' "$log" | awk '
+        match($0, /^==> Making package: [^ ]+ [^ ]+ \(.*\)$/) {
+            split($0, f, " "); d = $0; sub(/^[^(]*\(/, "", d); sub(/\)$/, "", d)
+            if (!(f[4] in start)) start[f[4]] = d
+        }
+        match($0, /^==> Finished making: [^ ]+ [^ ]+ \(.*\)$/) {
+            split($0, f, " "); d = $0; sub(/^[^(]*\(/, "", d); sub(/\)$/, "", d)
+            if (f[4] in start) { print f[4] "\t" start[f[4]] "\t" d; delete start[f[4]] }
+        }')
+    [[ -n "$new" ]] || return 0
+    mkdir -p "$STAMP_DIR"
+    # Latest duration wins; one line per package.
+    { [[ -f "$BUILD_TIMES" ]] && cat "$BUILD_TIMES"; printf '%s' "$new"; } \
+        | awk -F'\t' '{ t[$1] = $2 } END { for (p in t) print p "\t" t[p] }' \
+        | sort > "$BUILD_TIMES.tmp" && mv "$BUILD_TIMES.tmp" "$BUILD_TIMES"
+}
+
+# Print a rough wall-clock estimate for pending AUR upgrades from past builds.
+# ponytail: last build time only, no averaging — a version bump that changes
+# build size skews one run, then self-corrects.
+_estimate_aur_builds() {
+    local pending
+    pending=$(paru -Qua 2>/dev/null | awk '{ print $1 }' | _without_held_packages) || true
+    [[ -n "$pending" ]] || return 0
+    awk -F'\t' -v times="$BUILD_TIMES" '
+        BEGIN { while ((getline line < times) > 0) { split(line, f, "\t"); t[f[1]] = f[2] } }
+        NF { n++; if ($1 in t) { sum += t[$1]; parts = parts sprintf("%s %dm, ", $1, (t[$1] + 30) / 60) }
+             else unknown = unknown " " $1 }
+        END {
+            msg = sprintf("%d AUR build%s pending", n, n == 1 ? "" : "s")
+            if (sum) msg = msg sprintf(" — est. ~%d min", (sum + 30) / 60)
+            if (parts) { sub(/, $/, "", parts); msg = msg " (" parts ")" }
+            if (unknown) msg = msg "; no history:" unknown
+            print msg
+        }' <<< "$pending" | while IFS= read -r line; do info "$line"; done
+}
+
 # paru -Syuu wrapper: auto-recovers from untrusted-signature errors once.
 _syuu() {
     local held
@@ -341,7 +392,7 @@ _syuu() {
     [[ -n "$held" ]] && args+=(--ignore "$held")
     local logfile; logfile=$(mktemp)
     local rc=0
-    paru "${args[@]}" 2>&1 | tee "$logfile" || rc=$?
+    LC_TIME=C paru "${args[@]}" 2>&1 | tee "$logfile" || rc=$?
     if (( rc != 0 )); then
         local out; out=$(<"$logfile")
         if echo "$out" | grep -q "is unknown trust" && _fix_untrusted_keys "$out"; then
@@ -349,9 +400,11 @@ _syuu() {
             rc=0
             # Retry output is tee'd too — it used to be discarded, so a failure
             # here left nothing to report.
-            paru "${args[@]}" 2>&1 | tee "$logfile" || rc=$?
+            LC_TIME=C paru "${args[@]}" 2>&1 | tee "$logfile" || rc=$?
         fi
     fi
+    # Partial runs still recorded: every finished build is a valid data point.
+    _record_build_times "$logfile" || true
     if (( rc == 0 )); then
         rm -f "$logfile"
         return 0
@@ -652,6 +705,7 @@ install_all() {
         done <<< "$_conflicts"
     fi
 
+    _estimate_aur_builds
     info "Upgrading existing packages..."
     # Never announce success unconditionally: this used to print
     # "upgraded: system" even when _syuu had just failed.
@@ -1548,6 +1602,7 @@ system_update() {
 
     refresh_mirrors
 
+    _estimate_aur_builds
     info "Updating all packages..."
     # Match install_all: a failed upgrade must not abort the run before
     # clean_caches and print_recap get to report what happened.

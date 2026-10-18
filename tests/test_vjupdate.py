@@ -583,6 +583,52 @@ class UpgradeFailureReportingTests(FixtureCase):
         self.assertIn("DETAIL=[]", r.stdout)
 
 
+class BuildTimeEstimateTests(FixtureCase):
+    """Past makepkg spans drive the pre-upgrade AUR time estimate."""
+
+    def times(self):
+        return (self.home / ".state/dots/aur-build-times.tsv").read_text()
+
+    def test_upgrade_records_first_making_to_finished_span(self):
+        self.mock("paru", "\n".join([
+            'echo "==> Making package: foo 1-1 (Sun Oct 18 14:00:00 2026)"',
+            'echo "==> Making package: foo 1-1 (Sun Oct 18 14:00:05 2026)"',
+            'echo "==> Finished making: foo 1-1 (Sun Oct 18 14:06:00 2026)"',
+            'echo "==> Making package: bar 2-1 (Sun Oct 18 14:06:10 2026)"',
+            'echo "==> Finished making: bar 2-1 (Sun Oct 18 14:07:10 2026)"',
+            'echo "==> Making package: broken 1-1 (Sun Oct 18 14:08:00 2026)"',
+            'echo "error: packages failed to build: broken-1-1"',
+            "exit 1",
+        ]))
+        r = self.shell('_syuu || true')
+        self.assertEqual(self.times(), "bar\t60\nfoo\t360\n", r.stdout + r.stderr)
+        # Rerun replaces, never duplicates.
+        self.mock("paru", "\n".join([
+            'echo "==> Making package: foo 1-2 (Sun Oct 18 15:00:00 2026)"',
+            'echo "==> Finished making: foo 1-2 (Sun Oct 18 15:02:00 2026)"',
+        ]))
+        self.shell('_syuu')
+        self.assertEqual(self.times(), "bar\t60\nfoo\t120\n")
+
+    def test_estimate_sums_history_skips_holds_and_names_unknown(self):
+        repo = self.home / "Projects/dots"
+        repo.mkdir(parents=True)
+        (repo / ".paru-hold.list").write_text("held\n")
+        state = self.home / ".state/dots"
+        state.mkdir(parents=True)
+        (state / "aur-build-times.tsv").write_text("foo\t360\nbar\t60\nheld\t9999\n")
+        self.mock("paru", 'printf "foo 1 -> 2\nbar 1 -> 2\nnew 0 -> 1\nheld 1 -> 2\n"')
+        r = self.shell('_estimate_aur_builds')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("3 AUR builds pending — est. ~7 min (foo 6m, bar 1m); no history: new",
+                      r.stdout)
+
+    def test_estimate_silent_when_nothing_pending(self):
+        self.mock("paru", "exit 1")
+        r = self.shell('_estimate_aur_builds')
+        self.assertEqual((r.returncode, r.stdout), (0, ""), r.stderr)
+
+
 class SyyRecoveryTests(FixtureCase):
     """The mirrors-step database sync must recover from an untrusted repo key."""
 

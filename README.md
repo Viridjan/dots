@@ -213,6 +213,14 @@ Cancelling after staging leaves changes staged. Commit failures prevent pushing;
 push failures preserve local commits, and rerunning upload can retry a clean
 working tree. It never force-pushes and does not run automatically with `--yes`.
 
+### AUR build-time estimate
+
+Before upgrading, bootstrap and `--update` print how long pending AUR builds
+should take, e.g. `12 AUR builds pending — est. ~75 min (…); no history: newpkg`.
+The figure is each package's last build time, recorded automatically in
+`~/.local/state/dots/aur-build-times.tsv`. Held packages are excluded; packages
+never built under this feature show as "no history" until their first upgrade.
+
 ### Only one run at a time
 
 `vjupdate` takes an flock on `~/.local/state/dots/vjupdate.lock` before it
