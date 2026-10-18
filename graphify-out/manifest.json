@@ -94,36 +94,6 @@
     "ast_hash": "dc99b17fc837298b820d242bf5261147",
     "semantic_hash": "dc99b17fc837298b820d242bf5261147"
   },
-  "claude/.claude/hooks/caveman-activate.js": {
-    "mtime": 1781790991.3285253,
-    "ast_hash": "0a77df0018325d52608c362754786451",
-    "semantic_hash": "0a77df0018325d52608c362754786451"
-  },
-  "claude/.claude/hooks/caveman-config.js": {
-    "mtime": 1781790991.3287227,
-    "ast_hash": "a0166a65e117ec9ddcec646e481e5185",
-    "semantic_hash": "a0166a65e117ec9ddcec646e481e5185"
-  },
-  "claude/.claude/hooks/caveman-mode-tracker.js": {
-    "mtime": 1781790991.3287227,
-    "ast_hash": "4946e31570eac0b8fe763d429978dbdc",
-    "semantic_hash": "4946e31570eac0b8fe763d429978dbdc"
-  },
-  "claude/.claude/hooks/caveman-stats.js": {
-    "mtime": 1781790991.3287227,
-    "ast_hash": "2c88a17ff88451629d3edafe474cfff0",
-    "semantic_hash": "2c88a17ff88451629d3edafe474cfff0"
-  },
-  "claude/.claude/hooks/caveman-statusline.sh": {
-    "mtime": 1781790991.3287227,
-    "ast_hash": "bdd702f9e8566fb73d5cae73d989b9ea",
-    "semantic_hash": "bdd702f9e8566fb73d5cae73d989b9ea"
-  },
-  "claude/.claude/hooks/package.json": {
-    "mtime": 1781790991.3287227,
-    "ast_hash": "df9ffc6aa3f78a5491736d441c4258a8",
-    "semantic_hash": "df9ffc6aa3f78a5491736d441c4258a8"
-  },
   "claude/.claude/keybindings.json": {
     "mtime": 1781790991.3287227,
     "ast_hash": "7e5036620ff9eec5d9e1b183a5641077",
@@ -210,14 +180,14 @@
     "semantic_hash": "096f09a79d47e951ed90c2f640bcbbfe"
   },
   "CLAUDE.md": {
-    "mtime": 1792333300.160521,
-    "ast_hash": "f28753a5a91b818530d430c7cc339692",
-    "semantic_hash": "f28753a5a91b818530d430c7cc339692"
+    "mtime": 1792338415.8013184,
+    "ast_hash": "96bb04cd021b1a1f701db6ab22cb3d33",
+    "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1792333300.1597667,
-    "ast_hash": "261291f4c50e8545598b36e97100a358",
-    "semantic_hash": "261291f4c50e8545598b36e97100a358"
+    "mtime": 1792338415.8003473,
+    "ast_hash": "998075f04f196fcf8c770ec98ef3ade4",
+    "semantic_hash": ""
   },
   "TODO.md": {
     "mtime": 1792174066.7717905,
@@ -233,5 +203,10 @@
     "mtime": 1781790991.3390656,
     "ast_hash": "b586fbdea65bfc9a9bb5f9815ae853e7",
     "semantic_hash": "b586fbdea65bfc9a9bb5f9815ae853e7"
+  },
+  "scripts/.local/share/icons/hicolor/512x512/apps/mtgatool.png": {
+    "mtime": 1788536487.6175938,
+    "ast_hash": "9ec3c6e381148979a3574fc6206c1111",
+    "semantic_hash": ""
   }
 }
