@@ -366,7 +366,7 @@ _record_build_times() {
 # Print a rough wall-clock estimate for pending AUR upgrades from past builds.
 # ponytail: last build time only, no averaging — a version bump that changes
 # build size skews one run, then self-corrects.
-_estimate_aur_builds() {
+_aur_estimate_text() {
     local pending
     pending=$(paru -Qua 2>/dev/null | awk '{ print $1 }' | _without_held_packages) || true
     [[ -n "$pending" ]] || return 0
@@ -380,7 +380,13 @@ _estimate_aur_builds() {
             if (parts) { sub(/, $/, "", parts); msg = msg " (" parts ")" }
             if (unknown) msg = msg "; no history:" unknown
             print msg
-        }' <<< "$pending" | while IFS= read -r line; do info "$line"; done
+        }' <<< "$pending"
+}
+
+_estimate_aur_builds() {
+    local msg
+    msg=$(_aur_estimate_text)
+    [[ -z "$msg" ]] || info "$msg"
 }
 
 # paru -Syuu wrapper: auto-recovers from untrusted-signature errors once.
@@ -2170,6 +2176,12 @@ _menu_plan() {
         for i in "${!MENU_IDS[@]}"; do
             if [[ "${MENU_IDS[$i]}" == "$id" ]]; then MENU_PLAN+=("${MENU_LABELS[$i]}"); break; fi
         done
+        # Show the AUR build estimate in review, before anything runs. paru -Qua
+        # hits the network, so query once per menu session.
+        if [[ "$id" == install ]]; then
+            [[ -n "${_MENU_AUR_EST+x}" ]] || _MENU_AUR_EST=$(_aur_estimate_text)
+            [[ -z "$_MENU_AUR_EST" ]] || MENU_PLAN[-1]+=" — $_MENU_AUR_EST"
+        fi
     done
 }
 _menu_leave() {

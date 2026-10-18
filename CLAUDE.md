@@ -5,6 +5,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 GNU Stow dotfiles for CachyOS + niri. All config files live here and are
 symlinked into `$HOME` via stow.
 
+## Commands
+
+```bash
+python3 -B -m unittest discover -s tests -v                      # all tests (mocked; no system changes)
+python3 -B -m unittest tests.test_vjupdate.HoldTests             # one class
+python3 -B -m unittest tests.test_vjupdate.HoldTests.test_upgrade_holds_on_first_attempt_and_retry
+VJUPDATE_SCRIPT=/path/to/snapshot python3 -B -m unittest ...     # run tests against a saved script copy
+shellcheck -S warning scripts/.local/bin/vjupdate                 # pre-commit enforces -S error
+bash -n scripts/.local/bin/vjupdate
+niri validate -c ~/.config/niri/config.kdl; echo $?               # check exit code before reloading
+```
+
+Tests `source` vjupdate (main is guarded by a `BASH_SOURCE` check) with a
+restricted `PATH` where pacman/paru/sudo/stow/git are mocks.
+
+**Don't edit vjupdate in place while it runs** (`pgrep -af vjupdate`): bash reads
+scripts by byte offset and `~/.local/bin/vjupdate` links to the repo file, so an
+in-place write corrupts a live upgrade. Write a temp file and `mv` it over.
+
 ## Claude Code launch
 
 Always open Claude Code from `~/Projects`, not `~/Projects/dots`:
@@ -47,6 +66,7 @@ dots/
   windows/        ← NOT a stow package — Docker Compose for Windows 11 VM (dockur/windows, port 8006)
   .githooks/      ← NOT a stow package — git hooks; registered via core.hooksPath
   tests/          ← NOT a stow package — vjupdate unittest suite (mocked system commands)
+  graphify-out/   ← NOT a stow package — tracked /graphify knowledge graph; corpus filter in .graphifyignore
   surface-sync.sh ← TEMPORARY one-shot Surface catch-up; delete once TODO.md's checklist is ticked
 ```
 
@@ -273,9 +293,12 @@ Result: `~/.config/<pkg>` becomes a directory symlink into the repo. App writes 
 
 `projects.list` — list of git repos (SSH URLs) cloned into `~/Projects/` during the `clone_projects` bootstrap phase. Add new repos here to have them auto-cloned on fresh installs.
 
-`TODO.md` — pending work tracked in the repo; currently lists pacman packages with available Flatpak equivalents to migrate.
+`TODO.md` — pending work tracked in the repo (manual-confirm checklists for other-machine work, pending package migrations).
 
-Package install priority: **pacman > flatpak > paru**. If a package is available in official Arch/CachyOS repos, prefer pacman. Flatpak over AUR when both exist. AUR only as last resort.
+Package install priority: **pacman > flatpak > paru**. If a package is available in official Arch/CachyOS repos, prefer pacman. Flatpak over AUR when both exist. AUR only as last resort. Within AUR, prefer the source package over `-bin` —
+unless the name is on the malware blocklist: install aborts if any listed package
+appears in `~/.local/share/aur-malware-check/data/campaigns/*/packages*.txt`
+(refreshed each run; e.g. `alvr`, hijacked June 2026). Check new AUR names there first.
 
 Package management uses flat text files (one package per line, `#` comments):
 
@@ -421,8 +444,9 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   failed to build. `install_all` folds that into both the `full-upgrade` recap
   note and the `warn`, so one broken AUR package is visible at the end instead of
   buried in 2000 lines of upgrade output.
-- **AUR build-time estimate.** Before each `_syuu`, `_estimate_aur_builds`
-  sums past build durations for pending `paru -Qua` upgrades (holds excluded)
+- **AUR build-time estimate.** `_aur_estimate_text` is shown on the menu review
+  screen (appended to the install row, queried once per menu session) and
+  printed by `_estimate_aur_builds` before each `_syuu`. It sums past build durations for pending `paru -Qua` upgrades (holds excluded)
   and names packages with no history. `_syuu` runs paru with `LC_TIME=C` so
   makepkg's `%c` timestamps parse; `_record_build_times` stores the first
   `Making package` → `Finished making` span per package (latest wins) in
@@ -434,12 +458,9 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   call tree, allowing failed keyring operations to be stamped successful.
   Recoverable failures must be handled and recorded at their call sites.
 
-Verification after the 2026-09-15 follow-up: 27 isolated tests passed, including
-five new regressions covering these four fixes. Each new regression failed
-against the saved pre-fix script. Bash syntax, ShellCheck at error and warning
-levels, and temporary assembled desktop/surface niri profiles also passed.
-Run `python3 -B -m unittest discover -s tests -v`; use `VJUPDATE_SCRIPT` to test
-a saved snapshot. Keep system-changing commands mocked and fixtures temporary.
+New regressions should fail against the pre-fix script (`VJUPDATE_SCRIPT`
+pointing at `git show HEAD:scripts/.local/bin/vjupdate`). Keep system-changing
+commands mocked and fixtures temporary.
 
 ## vjupdate bootstrap phases
 

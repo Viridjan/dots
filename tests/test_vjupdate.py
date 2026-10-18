@@ -623,6 +623,17 @@ class BuildTimeEstimateTests(FixtureCase):
         self.assertIn("3 AUR builds pending — est. ~7 min (foo 6m, bar 1m); no history: new",
                       r.stdout)
 
+    def test_review_plan_shows_estimate_once(self):
+        state = self.home / ".state/dots"
+        state.mkdir(parents=True)
+        (state / "aur-build-times.tsv").write_text("foo\t600\n")
+        self.mock("paru", 'printf "%s\\n" "$*" >> "$CALLS"; echo "foo 1 -> 2"')
+        r = self.shell('declare -A MENU_SELECTED=([sources]=false [install]=true [kernels]=false [orphan-removal]=false [rebuild]=false [python-rebuild]=false)\n'
+                       'MENU_ORDER=(install); MENU_IDS=(install); MENU_LABELS=("Upgrade")\n'
+                       '_menu_plan; _menu_plan; printf "%s\\n" "${MENU_PLAN[@]}"')
+        self.assertIn("Upgrade — 1 AUR build pending — est. ~10 min (foo 10m)", r.stdout, r.stderr)
+        self.assertEqual(Path(self.env["CALLS"]).read_text().splitlines(), ["-Qua"])
+
     def test_estimate_silent_when_nothing_pending(self):
         self.mock("paru", "exit 1")
         r = self.shell('_estimate_aur_builds')

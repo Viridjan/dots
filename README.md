@@ -215,10 +215,11 @@ working tree. It never force-pushes and does not run automatically with `--yes`.
 
 ### AUR build-time estimate
 
-Before upgrading, bootstrap and `--update` print how long pending AUR builds
-should take, e.g. `12 AUR builds pending — est. ~75 min (…); no history: newpkg`.
+The interactive menu's review screen (before anything runs) appends it to the
+"Upgrade and install packages" line; bootstrap and `--update` also print it
+right before upgrading. It shows how long pending AUR builds should take, e.g. `12 AUR builds pending — est. ~75 min (…); no history: newpkg`.
 The figure is each package's last build time, recorded automatically in
-`~/.local/state/dots/aur-build-times.tsv`. Held packages are excluded; packages
+`~/.local/state/dots/aur-build-times.tsv`. Nothing shows when no unheld AUR updates are pending. Held packages are excluded; packages
 never built under this feature show as "no history" until their first upgrade.
 
 ### Only one run at a time
