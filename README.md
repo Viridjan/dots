@@ -420,20 +420,6 @@ gamescope -f -W 3440 -H 1440 -w 1920 -h 1080 -r 165 -- %command%
 gamescope -f -W 2880 -H 1920 -r 60 -- %command%
 ```
 
-### VR — Pico 4 Ultra (desktop only)
-
-Wireless PC VR via ALVR (`alvr` in `.paru-S-desktop.list`, built from source).
-
-One-time setup:
-1. Enable developer mode on headset: Settings → General → About device → tap Software version 7×
-2. Enable USB debugging in Developer options
-3. Download ALVR client APK from [github.com/alvr-org/ALVR/releases](https://github.com/alvr-org/ALVR/releases) — match the server version from `pacman -Q alvr`
-4. Sideload: `adb install alvr_client_android.apk`
-5. Open ALVR app on headset → connect to server IP shown in ALVR dashboard
-6. Launch SteamVR from ALVR dashboard
-
-Both devices must be on the same WiFi network (WiFi 6 recommended).
-
 ---
 
 ## Btrfs snapshots
