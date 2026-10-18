@@ -21,7 +21,7 @@ Memory and project context are scoped to the working directory at launch. Openin
 dots/
   alacritty/      → ~/.config/alacritty/
   brave/          → /etc/brave/policies/managed/  (Brave managed policy; stow -t /)
-  claude/         → ~/.claude/  (settings.json, hooks/, keybindings.json, statusline.sh + segment scripts)
+  claude/         → ~/.claude/  (settings.json, keybindings.json, statusline.sh + segment scripts)
   DankMaterialShell/ → ~/.config/DankMaterialShell/
   desktop/        → ~/.config/niri/cfg/display.kdl + input.kdl + surface-layout.kdl  (tower only)
   fish/           → ~/.config/fish/  (Arch logo override for fastfetch — see fish_greeting in config.fish)

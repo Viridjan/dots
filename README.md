@@ -339,7 +339,7 @@ bash scripts/.local/bin/vjupdate
 | `vesktop` | `~/.config/vesktop/` — settings.json + settings/ (Vencord config + quickCss) |
 | `mimeapps` | `~/.config/mimeapps.list` |
 | `paru` | `~/.config/paru/paru.conf` |
-| `claude` | `~/.claude/settings.json` + `hooks/` + `statusline.sh` (Claude Code + caveman plugin) |
+| `claude` | `~/.claude/settings.json` + `statusline.sh` (Claude Code + caveman plugin) |
 | `caveman` | `~/.config/caveman/config.json` — caveman plugin `defaultMode: ultra` |
 | `fonts` | `~/.local/share/fonts/` — user fonts (Luminari) |
 | `mpd` | `~/.config/mpd/mpd.conf` |
