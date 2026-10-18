@@ -570,9 +570,6 @@
         "MusicRichPresence": {
             "enabled": false
         },
-        "TenorGifSearch": {
-            "enabled": false
-        },
         "NoTrack": {
             "enabled": true,
             "disableAnalytics": true
@@ -599,6 +596,9 @@
         },
         "WebContextMenus": {
             "enabled": true
+        },
+        "GifProviderSwitcher": {
+            "enabled": false
         }
     },
     "uiElements": {
@@ -615,6 +615,7 @@
         "authenticated": false,
         "url": "https://api.vencord.dev/",
         "settingsSync": false,
-        "settingsSyncVersion": 1787581232282
-    }
+        "settingsSyncVersion": 1792338864836
+    },
+    "nativeTitleBar": false
 }
