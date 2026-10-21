@@ -1025,5 +1025,44 @@ class RunPlanTests(FixtureCase):
         self.assertNotIn("skipped", calls.replace("skipped (skip list)", ""))
 
 
+class ActionsTests(FixtureCase):
+    """`--actions` runs exactly the given menu IDs without the menu (used by vj)."""
+
+    STUBS = ('_ensure_dots_repo() { :; }\n_check_packages_against_malware() { :; }\n'
+             'check_aur_malware() { :; }\nprint_recap() { :; }\n'
+             'run_install_scripts() { echo BAD_INSTALLERS; }\n')
+
+    def test_runs_only_selected_and_records_result(self):
+        result = self.root / "result.tsv"
+        r = self.shell(self.STUBS + f'VJ_RESULT_FILE={shlex.quote(str(result))}\n'
+                       'setup_fish() { echo RAN_FISH; }\nVJ_ACTIONS=fish\nbootstrap')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("RAN_FISH", r.stdout)
+        self.assertNotIn("BAD_INSTALLERS", r.stdout)
+        self.assertIn("action:fish\tok", result.read_text())
+
+    def test_unknown_action_dies(self):
+        r = self.shell(self.STUBS + 'VJ_ACTIONS="fish,bogus"\nbootstrap; echo BAD_CONTINUED')
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("unknown action: bogus", r.stderr)
+        self.assertNotIn("BAD_CONTINUED", r.stdout)
+
+    def test_phases_follow_selected_ids(self):
+        r = self.shell(self.STUBS + '_run_phase() { [[ " $SKIP_PHASES " == *" $1 "* ]] || echo "RUN:$1"; }\n'
+                       'VJ_ACTIONS="sources,audit"\nbootstrap')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual([l for l in r.stdout.split() if l.startswith("RUN:")], ["RUN:sources", "RUN:audit"])
+
+    def test_cli_rejects_unknown_and_missing_value(self):
+        for args in (("--actions=bogus",), ("--actions", "bogus")):
+            with self.subTest(args=args):
+                r = self.cli(*args)
+                self.assertNotEqual(r.returncode, 0)
+                self.assertIn("unknown action: bogus", r.stdout + r.stderr)
+        r = self.cli("--actions")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("--actions needs", r.stdout + r.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -113,6 +113,8 @@ _RECAP_FAILURE_REPORTED=false
 _record() {
     _RESULT_NAMES+=("$1"); _RESULT_STATES+=("$2"); _RESULT_NOTES+=("${3:-}")
     [[ "$2" == fail ]] && _FAILED=1
+    # vj reads this to stamp one-time tasks as done.
+    [[ -z "${VJ_RESULT_FILE:-}" ]] || printf '%s\t%s\n' "$1" "$2" >> "$VJ_RESULT_FILE"
     return 0
 }
 # ─── Dry-run helper ──────────────────────────────────────
@@ -2502,6 +2504,10 @@ export_dotfiles() {
     return 0
 }
 
+# Run one selected action and record it, so vj can stamp one-time tasks.
+# A failure aborts through errexit before the ok record, as before.
+_act() { local id="$1"; shift; "$@"; _record "action:$id" ok; }
+
 phase_configure() {
     local _selected
 
@@ -2517,30 +2523,30 @@ phase_configure() {
 
     _sel() { _selected_action "$1" "$_selected"; }
 
-    _sel "services"        && enable_services
-    _sel "snapper"         && setup_snapper
-    _sel "automount"       && automount_disks
-    _sel "optimize"        && optimize_system
-    _sel "keyboard"        && setup_keyboard
-    _sel "kernels"         && manage_kernels
-    _sel "greeter"         && setup_greeter
-    _sel "keyring-pam"     && setup_keyring_pam
-    _sel "install-scripts" && run_install_scripts
-    _sel "fish"            && setup_fish
-    _sel "dms-plugins"     && install_dms_plugins
-    _sel "dms-export"      && dms_export
-    _sel "claude"          && setup_claude
-    _sel "caveman-code"    && setup_caveman_code
-    _sel "ollama"          && setup_ollama
-    _sel "vms"             && setup_vms
+    _sel "services"        && _act services enable_services
+    _sel "snapper"         && _act snapper setup_snapper
+    _sel "automount"       && _act automount automount_disks
+    _sel "optimize"        && _act optimize optimize_system
+    _sel "keyboard"        && _act keyboard setup_keyboard
+    _sel "kernels"         && _act kernels manage_kernels
+    _sel "greeter"         && _act greeter setup_greeter
+    _sel "keyring-pam"     && _act keyring-pam setup_keyring_pam
+    _sel "install-scripts" && _act install-scripts run_install_scripts
+    _sel "fish"            && _act fish setup_fish
+    _sel "dms-plugins"     && _act dms-plugins install_dms_plugins
+    _sel "dms-export"      && _act dms-export dms_export
+    _sel "claude"          && _act claude setup_claude
+    _sel "caveman-code"    && _act caveman-code setup_caveman_code
+    _sel "ollama"          && _act ollama setup_ollama
+    _sel "vms"             && _act vms setup_vms
     # Audit-dependent actions are resolved in bootstrap() from the AUDIT_ACTIONS
     # table (which also enables the audit phase); nothing to set here.
-    _sel "steam-launchers" && setup_steam_launchers
-    _sel "app-launchers"   && check_app_launchers
+    _sel "steam-launchers" && _act steam-launchers setup_steam_launchers
+    _sel "app-launchers"   && _act app-launchers check_app_launchers
     # Save/export first, then deploy links and copy DMS overrides.
     # The old import alias remains accepted in programmatic payloads.
-    _sel "dotfiles-export" && export_dotfiles
-    _sel "stow-symlinks"   && deploy_dotfiles
+    _sel "dotfiles-export" && _act dotfiles-export export_dotfiles
+    _sel "stow-symlinks"   && _act stow-symlinks deploy_dotfiles
     if _sel "dotfiles-import" || _sel "dms-import"; then
         dms_import
     fi
@@ -2556,13 +2562,24 @@ bootstrap() {
         SKIP_PHASES=""
         local _selected
         detect_machine
-        _MS_STATUS=ok
-        _bootstrap_multiselect
-        case "$_MS_STATUS" in
-            cancel) warn "Aborted."; exit 0 ;;
-            notty)  die "Interactive menu needs a terminal; use --yes or --dry-run." ;;
-        esac
-        _selected=$(cat "$_MS_RESULT")
+        if [[ -n "${VJ_ACTIONS:-}" ]]; then
+            # Chosen in vj (or on the command line): same IDs as the menu, no menu.
+            _menu_catalog
+            local _id
+            _selected=""
+            for _id in ${VJ_ACTIONS//,/ }; do
+                [[ " ${MENU_IDS[*]} " == *" $_id "* ]] || die "unknown action: $_id"
+                _selected+="$_id"$'\n'
+            done
+        else
+            _MS_STATUS=ok
+            _bootstrap_multiselect
+            case "$_MS_STATUS" in
+                cancel) warn "Aborted."; exit 0 ;;
+                notty)  die "Interactive menu needs a terminal; use --yes or --dry-run." ;;
+            esac
+            _selected=$(cat "$_MS_RESULT")
+        fi
         _ensure_dots_repo
 
         local _phase_keys=(sources install dotfiles audit)
@@ -2905,6 +2922,7 @@ usage() {
     echo "                      Space toggle; / search; Enter review/run; q cancel."
     echo "  --interactive, -i   Same as no args (explicit)"
     echo "  --yes, -y           Full bootstrap, non-interactive"
+    echo "  --actions A,B,...   Run exactly these menu action IDs, no menu (used by vj)"
     echo "  --update, -u        Update packages + clean caches"
     echo "  --check, -c         Audit: orphans, rebuilds, pacnew, firmware"
     echo "  --kernels           Interactively install or remove CachyOS kernels"
@@ -2958,6 +2976,16 @@ while [[ $# -gt 0 ]]; do
         --adopt)            STOW_ADOPT=true ;;
         --clean-aggressive) CLEAN_AGGRESSIVE=true ;;
         --help|-h)          ACTION=help ;;
+        --actions=*|--actions)
+            [[ -n "$ACTION" ]] && die "More than one action given ($ACTION, $1). Use --help."
+            if [[ "$1" == --actions ]]; then
+                [[ $# -ge 2 && -n "$2" ]] || die "--actions needs a comma-separated list of action IDs"
+                VJ_ACTIONS="$2"; shift
+            else
+                VJ_ACTIONS="${1#--actions=}"
+                [[ -n "$VJ_ACTIONS" ]] || die "--actions needs a comma-separated list of action IDs"
+            fi
+            ACTION=--actions ;;
         "")                 ;;
         -*|*)
             [[ -n "$ACTION" ]] && die "More than one action given ($ACTION, $1). Use --help."
@@ -2980,6 +3008,7 @@ fi
 
 case "$ACTION" in
     --interactive|-i)    _init_runtime; INTERACTIVE=true;  bootstrap ;;
+    --actions)           _init_runtime; INTERACTIVE=true;  bootstrap ;;
     --yes|-y)            _init_runtime; INTERACTIVE=false; bootstrap ;;
     --update|-u)         _init_runtime; update ;;
     --check|-c)          _init_runtime; check ;;
