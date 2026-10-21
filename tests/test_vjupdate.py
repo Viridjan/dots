@@ -24,7 +24,8 @@ class FixtureCase(unittest.TestCase):
         # Restricted PATH: system/package commands cannot accidentally run.
         for name in ("bash", "cat", "grep", "sed", "awk", "cut", "tail", "head",
                      "tr", "sort", "tee", "date", "mkdir", "cp", "rm", "dirname",
-                     "basename", "mktemp", "python3", "flock", "mv", "ln", "du", "xargs", "echo"):
+                     "basename", "mktemp", "python3", "flock", "mv", "ln", "du", "xargs", "echo",
+                     "nice", "ionice"):
             (self.bin / name).symlink_to(Path("/usr/bin") / name)
         for name in ("pacman", "paru", "sudo", "systemctl", "stow", "git",
                      "flatpak", "paccache", "curl", "pacman-key", "makepkg"):
@@ -1130,6 +1131,29 @@ class DotsetTests(FixtureCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(r.stdout.count("no dotfile set"), 2, r.stdout)
         self.assertEqual((live / "binds.kdl").read_text(), "live")
+
+
+class BuildPriorityTests(FixtureCase):
+    """Package builds must not outrank games: lowest CPU and idle I/O priority."""
+
+    def setUp(self):
+        super().setUp()
+        self.mock("paru", 'echo "paru NICE=$(nice) LC=${LC_TIME:-unset} $*" >> "$CALLS"; exit 0')
+        self.mock("pacman", "exit 0")
+
+    def calls(self):
+        return [l for l in Path(self.env["CALLS"]).read_text().splitlines() if l.startswith("paru ")]
+
+    def test_install_runs_paru_at_lowest_priority(self):
+        self.plan("pkgs.list", "one\n")
+        r = self.shell('_install_list "$VJ_PLAN_DIR/pkgs.list"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("paru NICE=19", self.calls()[0])
+
+    def test_upgrade_runs_at_lowest_priority_with_c_time(self):
+        r = self.shell('_estimate_aur_builds() { :; }\n_syuu')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue(self.calls()[0].startswith("paru NICE=19 LC=C -Syuu"), self.calls())
 
 
 if __name__ == "__main__":

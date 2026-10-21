@@ -493,6 +493,11 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   `aur:<pkg>` in the repo's `build-times.tsv`, including from failed runs.
   `_install_list` / the flatpak loop also record `@pacman-per-pkg` /
   `@flatpak-per-pkg` (one average per call). Commit the file to share history.
+- **Builds run at the lowest priority.** Every building `paru` call goes
+  through `_paru` (`nice` to an absolute 19 + `ionice -c 3`). Shells from
+  alacritty inherit ananicy-cpp's nice −4, so an unwrapped AUR build (rustc on
+  all cores) outranked games — MTG Arena lagged during an update (2026-10-21).
+  Use `_paru` for any new build call; plain `nice -n 19` is relative (→ 15).
 - **Exit status is meaningful.** Phases record ok/fail/skip; `print_recap`
   prints the table and returns non-zero if anything failed. Unexpected phase
   failures abort and print a recap through the runtime ERR trap. Never wrap

@@ -412,6 +412,12 @@ _estimate_aur_builds() {
     [[ -z "$msg" ]] || info "$msg"
 }
 
+# Run paru (and the makepkg/compiler tree under it) at the lowest CPU priority
+# and idle I/O, so AUR builds never outrank a game. `nice -n` is relative and
+# shells started from alacritty inherit ananicy-cpp's negative niceness (-4),
+# so compute the step that lands on an absolute 19.
+_paru() { nice -n "$(( 19 - $(nice) ))" ionice -c 3 paru "$@"; }
+
 # paru -Syuu wrapper: auto-recovers from untrusted-signature errors once.
 _syuu() {
     local held
@@ -421,7 +427,7 @@ _syuu() {
     [[ -n "$held" ]] && args+=(--ignore "$held")
     local logfile; logfile=$(mktemp)
     local rc=0
-    LC_TIME=C paru "${args[@]}" 2>&1 | tee "$logfile" || rc=$?
+    LC_TIME=C _paru "${args[@]}" 2>&1 | tee "$logfile" || rc=$?
     if (( rc != 0 )); then
         local out; out=$(<"$logfile")
         if echo "$out" | grep -q "is unknown trust" && _fix_untrusted_keys "$out"; then
@@ -429,7 +435,7 @@ _syuu() {
             rc=0
             # Retry output is tee'd too — it used to be discarded, so a failure
             # here left nothing to report.
-            LC_TIME=C paru "${args[@]}" 2>&1 | tee "$logfile" || rc=$?
+            LC_TIME=C _paru "${args[@]}" 2>&1 | tee "$logfile" || rc=$?
         fi
     fi
     # Partial runs still recorded: every finished build is a valid data point.
@@ -569,7 +575,7 @@ _install_list() {
         # ponytail: one average over the whole call (repo + AUR mixed); AUR
         # builds also get exact per-package spans from _record_build_times.
         local _t0=$SECONDS
-        if ! paru -S --needed --noconfirm "${to_install[@]}"; then
+        if ! _paru -S --needed --noconfirm "${to_install[@]}"; then
             # paru can install some targets before a later target fails.
             _PKG_INDEX_READY=false
             return 1
@@ -1613,7 +1619,7 @@ _swap_pkg() {
     if pacman -Qi "$old" &>/dev/null; then
         info "Swapping $old → $new..."
         sudo pacman -Rdd --noconfirm "$old" 2>/dev/null || true
-        paru -S --needed --noconfirm "$new"
+        _paru -S --needed --noconfirm "$new"
         ok "swapped: $old → $new"
     fi
 }
@@ -1772,7 +1778,7 @@ check_python_rebuilds() {
     warn "Packages needing Python rebuild: $unique_packages"
     if ! $AUDIT_PYTHON_REBUILD; then warn "Python rebuild skipped — enable via configure checklist"; return; fi
     # shellcheck disable=SC2086  # word-split intended: multiple package args
-    paru -S --noconfirm $unique_packages
+    _paru -S --noconfirm $unique_packages
     ok "python packages rebuilt"
 }
 
@@ -1798,7 +1804,7 @@ check_rebuilds() {
     warn "Packages needing rebuild: $packages"
     if ! $AUDIT_REBUILD; then warn "Rebuild skipped — enable via configure checklist"; return; fi
     # shellcheck disable=SC2086  # word-split intended: multiple package args
-    paru -S --noconfirm $packages
+    _paru -S --noconfirm $packages
     ok "packages rebuilt"
 }
 
