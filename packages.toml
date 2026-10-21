@@ -239,7 +239,6 @@ skip = [
 [flatpak]
 install = [
     # Flatpak apps — both machines
-    # Feed to flatpak: while read -r app; do flatpak install -y flathub "$app"; done < .flatpak-S.list
 
     # Applications
     "com.usebottles.bottles",
