@@ -34,6 +34,16 @@ class FixtureCase(unittest.TestCase):
                     "CALLS": str(self.root / "calls"), "SCRIPT": str(SCRIPT)}
         self.env.pop("BASH_ENV", None)
         self.env.pop("SKIP_PHASES", None)
+        # Run plan written by `vj plan`; tests write the list files directly.
+        self.plan_dir = self.root / "plan"
+        self.plan_dir.mkdir()
+        self.env["VJ_PLAN_DIR"] = str(self.plan_dir)
+        (self.plan_dir / "env").write_text("VJ_PROFILE=desktop\n")
+
+    def plan(self, name, content):
+        path = self.plan_dir / name
+        path.write_text(content)
+        return path
 
     def mock(self, name, body):
         f = self.bin / name
@@ -611,9 +621,7 @@ class BuildTimeEstimateTests(FixtureCase):
         self.assertEqual(self.times(), "bar\t60\nfoo\t120\n")
 
     def test_estimate_sums_history_skips_holds_and_names_unknown(self):
-        repo = self.home / "Projects/dots"
-        repo.mkdir(parents=True)
-        (repo / ".paru-hold.list").write_text("held\n")
+        self.plan("paru-hold.list", "held\n")
         state = self.home / ".state/dots"
         state.mkdir(parents=True)
         (state / "aur-build-times.tsv").write_text("foo\t360\nbar\t60\nheld\t9999\n")
@@ -667,11 +675,7 @@ class SyyRecoveryTests(FixtureCase):
 
 class HoldTests(FixtureCase):
     def holds(self, content="vectorcraft-bin\n"):
-        repo = self.home / "Projects/dots"
-        repo.mkdir(parents=True, exist_ok=True)
-        path = repo / ".paru-hold.list"
-        path.write_text(content)
-        return path
+        return self.plan("paru-hold.list", content)
 
     def calls(self):
         return Path(self.env["CALLS"]).read_text().splitlines()
@@ -780,11 +784,11 @@ echo 'safe-pkg 1-1 -> 2-1'
         self.assertFalse(Path(self.env["CALLS"]).exists())
 
     def test_first_install_kept_and_dry_run_lists_hold_without_writes(self):
-        repo = self.holds().parent
-        (repo / "packages.list").write_text("vectorcraft-bin\n")
+        self.holds()
+        self.plan("packages.list", "vectorcraft-bin\n")
         self.mock("pacman", 'exit 0')
         self.mock("paru", 'printf "%s\\n" "$*" >> "$CALLS"')
-        r = self.shell('_install_list "$DOTS_DIR/packages.list"')
+        r = self.shell('_install_list "$VJ_PLAN_DIR/packages.list"')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(self.calls(), ["-S --needed --noconfirm vectorcraft-bin"])
         Path(self.env["CALLS"]).unlink()
@@ -844,15 +848,12 @@ fi
         campaign = self.home / ".local/share/aur-malware-check/data/campaigns/example"
         campaign.mkdir(parents=True)
         (campaign / "packages.txt").write_text("bad.pkg\n")
-        common = repo / ".paru-S-common.list"
-        common.write_text("safe\n")
-        surface = repo / ".paru-S-desktop.list"
-        surface.write_text("# comment\nbad.pkg\n")
-        body = '_update_malware_defs() { :; }; MACHINE=desktop; _check_packages_against_malware'
+        common = self.plan("paru-install.list", "safe\n# comment\nbad.pkg\n")
+        body = '_update_malware_defs() { :; }; _check_packages_against_malware'
         r = self.shell(body)
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("MALWARE GATE", r.stderr)
-        surface.write_text("safe-too\n")
+        common.write_text("safe\nsafe-too\n")
         r = self.shell(body)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         common.unlink()
@@ -937,9 +938,7 @@ class ReviewFollowupTests(FixtureCase):
         self.assertNotIn('BAD_CONTINUED', r.stdout)
 
     def test_unreadable_conflict_and_flatpak_lists_fail(self):
-        repo = self.home / "Projects/dots"
-        repo.mkdir(parents=True)
-        (repo / ".paru-R.list").write_text("conflict\n")
+        self.plan("paru-remove.list", "conflict\n")
         self.mock("flatpak", 'echo "flatpak $*" >> "$CALLS"')
         r = self.shell('''
 _pkg_list() { return 1; }
@@ -951,8 +950,8 @@ install_all
 print_recap
 ''')
         self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("cannot read .paru-R.list", r.stdout)
-        self.assertIn("cannot read .flatpak-S.list", r.stdout)
+        self.assertIn("cannot read paru-remove.list", r.stdout)
+        self.assertIn("cannot read flatpak-install.list", r.stdout)
         calls = Path(self.env["CALLS"])
         self.assertFalse(calls.exists() and "flatpak install" in calls.read_text())
 
@@ -970,6 +969,60 @@ esac
             calls = Path(self.env["CALLS"])
             self.assertFalse(calls.exists() and "UUID=" in calls.read_text(), bad)
             self.assertIn("must be under /mnt", r.stdout + r.stderr, bad)
+
+
+class RunPlanTests(FixtureCase):
+    """vjupdate reads package lists and profile features from the vj run plan."""
+
+    def fixture_vj_repo(self):
+        repo = self.home / "Projects/dots"
+        (repo / "profiles").mkdir(parents=True)
+        (repo / "vj").symlink_to(Path(__file__).resolve().parents[1] / "vj")
+        (repo / "packages.toml").write_text('[paru]\ninstall = ["fish"]\n')
+        (repo / "profiles/desktop.toml").write_text(
+            'hostname = "desktop"\ndotset = "none"\nfeatures = ["amd-gpu-tuning", "windows-vm"]\n')
+        del self.env["VJ_PLAN_DIR"]
+        return repo
+
+    def test_has_feature(self):
+        r = self.shell('VJ_FEATURES="amd-gpu-tuning windows-vm"\n'
+                       '_has_feature windows-vm && echo YES; _has_feature windows && echo BAD; _has_feature linux-surface || echo NO')
+        self.assertEqual(r.stdout.split(), ["YES", "NO"], r.stderr)
+
+    def test_ensure_plan_generates_plan_and_profile(self):
+        self.fixture_vj_repo()
+        r = self.shell('_ensure_plan; echo "M=$MACHINE F=$VJ_FEATURES"; cat "$VJ_PLAN_DIR/paru-install.list"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("M=desktop F=amd-gpu-tuning windows-vm", r.stdout)
+        self.assertIn("fish", r.stdout)
+
+    def test_unknown_host_without_config_stops_with_hint(self):
+        self.fixture_vj_repo()
+        self.env["HOSTNAME"] = "friends-laptop"
+        r = self.cli("--check")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("run 'vj'", r.stdout + r.stderr)
+        self.assertFalse(Path(self.env["CALLS"]).exists())
+
+    def test_existing_plan_env_is_sourced(self):
+        self.plan("env", "VJ_PROFILE=surface\nVJ_FEATURES=linux-surface\n")
+        r = self.shell('_ensure_plan; echo "M=$MACHINE"; _has_feature linux-surface && echo SURF')
+        self.assertEqual(r.stdout.split(), ["M=surface", "SURF"], r.stderr)
+
+    def test_install_all_installs_plan_list_honouring_skip(self):
+        self.plan("paru-install.list", "fish\nskipped\n")
+        self.plan("paru-skip.list", "skipped\n")
+        self.plan("paru-remove.list", "")
+        self.plan("flatpak-install.list", "")
+        self.mock("pacman", 'exit 0')
+        self.mock("paru", 'printf "%s\\n" "paru $*" >> "$CALLS"; exit 0')
+        r = self.shell('_syuu() { return 0; }\n_estimate_aur_builds() { :; }\nclean_caches() { :; }\n'
+                       'command() { [[ "$2" == flatpak ]] && return 1; builtin command "$@"; }\n'
+                       'MACHINE=desktop; install_all')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        calls = Path(self.env["CALLS"]).read_text()
+        self.assertIn("paru -S --needed --noconfirm fish", calls)
+        self.assertNotIn("skipped", calls.replace("skipped (skip list)", ""))
 
 
 if __name__ == "__main__":

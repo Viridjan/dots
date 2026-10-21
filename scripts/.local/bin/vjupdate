@@ -53,6 +53,32 @@ STOW_ADOPT=false
 LOG_FILE="$STAMP_DIR/vjupdate.log"
 LOCK_FILE="$STAMP_DIR/vjupdate.lock"
 
+# ─── Run plan (written by `vj`) ──────────────────────────
+# Package lists, projects, stow selection and the profile's features come from
+# a plan directory written by the Python side (`python3 -m vj plan DIR`). The
+# TUI passes VJ_PLAN_DIR; a standalone run builds a throwaway plan from
+# ~/.config/vjupdate/config.toml, or from the hostname when there is none.
+VJ_PLAN_DIR="${VJ_PLAN_DIR:-}"
+_PLAN_OWNED=false
+_ensure_plan() {
+    if [[ -z "$VJ_PLAN_DIR" ]]; then
+        VJ_PLAN_DIR=$(mktemp -d "${TMPDIR:-/tmp}/vjupdate-plan.XXXXXX")
+        _PLAN_OWNED=true
+        local err
+        if ! err=$(VJ_DOTS="$DOTS_DIR" PYTHONPATH="$DOTS_DIR" python3 -B -m vj plan "$VJ_PLAN_DIR" 2>&1); then
+            die "${err:-could not build the run plan (python3 -m vj plan)}"
+        fi
+    fi
+    if [[ -r "$VJ_PLAN_DIR/env" ]]; then
+        # shellcheck source=/dev/null
+        source "$VJ_PLAN_DIR/env"
+    fi
+    MACHINE="${VJ_PROFILE:-}"
+    export VJ_PLAN_DIR
+}
+# Profile switches, e.g. `_has_feature linux-surface` (profiles/<name>.toml).
+_has_feature() { [[ " ${VJ_FEATURES:-} " == *" $1 "* ]]; }
+
 # ─── Audit-dependent actions ─────────────────────────────
 # Single source of truth: checklist name → flag variable. Every one of these
 # only sets a flag consumed inside phase_audit, so selecting one must also
@@ -113,6 +139,7 @@ _cleanup() {
         tput cnorm >/dev/tty 2>/dev/null || true
     fi
     [[ -n "${_MS_RESULT:-}" ]] && rm -f "${_MS_RESULT}"
+    ${_PLAN_OWNED:-false} && rm -rf "${VJ_PLAN_DIR:?}"
     if [[ -n "${_TEE_PID:-}" ]]; then
         exec 1>&- 2>&- || true
         wait "$_TEE_PID" 2>/dev/null || true
@@ -214,22 +241,8 @@ _mark_done() { touch "$STAMP_DIR/$1"; }
 
 # ─── Phase 1: Machine detection ──────────────────────────
 detect_machine() {
-    local h="${HOSTNAME:-$(uname -n)}"
-    if [[ "$h" == *desktop* ]]; then
-        MACHINE="desktop"
-    elif [[ "$h" == *surface* ]]; then
-        MACHINE="surface"
-    else
-        warn "Hostname '$h' contains neither 'desktop' nor 'surface'."
-        echo "Set hostname first:  sudo hostnamectl set-hostname desktop"
-        echo "                 or: sudo hostnamectl set-hostname surface"
-        echo ""
-        read -rp "Continue anyway with which profile? [desktop/surface/abort]: " choice
-        case "$choice" in
-            desktop|surface) MACHINE="$choice" ;;
-            *) die "Aborted." ;;
-        esac
-    fi
+    _ensure_plan
+    [[ -n "$MACHINE" ]] || die "no profile chosen — run 'vj' to choose one"
     ok "profile: $MACHINE"
 }
 
@@ -274,7 +287,7 @@ reset_keyrings() {
             && sudo pacman-key --lsign-key "$key" \
             || warn "could not trust repo key $key"
     done
-    if [[ "${MACHINE:-}" == surface ]]; then
+    if _has_feature linux-surface; then
         curl -sf https://raw.githubusercontent.com/linux-surface/linux-surface/master/pkg/keys/surface.asc \
             | sudo pacman-key --add -
         sudo pacman-key --finger 56C464BAAC421453
@@ -422,7 +435,7 @@ _syuu() {
 
 # ─── Phase 2c: linux-surface repo ───────────────────────
 setup_linux_surface_repo() {
-    [[ "${MACHINE:-}" != "surface" ]] && return
+    _has_feature linux-surface || return 0
 
     if grep -q '^\[linux-surface\]' /etc/pacman.conf; then
         ok "already added: linux-surface repo"
@@ -445,8 +458,8 @@ _pkg_list() {
 }
 
 _held_packages() {
-    if [[ -f "$DOTS_DIR/.paru-hold.list" ]]; then
-        _pkg_list "$DOTS_DIR/.paru-hold.list"
+    if [[ -f "$VJ_PLAN_DIR/paru-hold.list" ]]; then
+        _pkg_list "$VJ_PLAN_DIR/paru-hold.list"
     fi
 }
 
@@ -492,15 +505,15 @@ _init_pkg_index() {
 
     local pkg installed skipped=""
     installed=$(pacman -Qq) || return 1
-    if [[ -f "$DOTS_DIR/.paru-skip.list" ]]; then
-        skipped=$(_pkg_list "$DOTS_DIR/.paru-skip.list") || return 1
+    if [[ -f "$VJ_PLAN_DIR/paru-skip.list" ]]; then
+        skipped=$(_pkg_list "$VJ_PLAN_DIR/paru-skip.list") || return 1
     fi
     _INSTALLED_PKGS=(); _SKIPPED_PKGS=()
     while IFS= read -r pkg; do
         [[ -n "$pkg" ]] && _INSTALLED_PKGS["$pkg"]=1
     done <<< "$installed"
 
-    if [[ -f "$DOTS_DIR/.paru-skip.list" ]]; then
+    if [[ -f "$VJ_PLAN_DIR/paru-skip.list" ]]; then
         while IFS= read -r pkg; do
             [[ -n "$pkg" ]] && _SKIPPED_PKGS["$pkg"]=1
         done <<< "$skipped"
@@ -588,11 +601,9 @@ _check_packages_against_malware() {
     [[ -e "${campaign_pkgs[0]}" ]] || die "malware gate: definitions missing after fetch — aborting install"
     info "Pre-install malware gate: scanning package lists..."
     local requested="" contents list matches
-    local lists=("$DOTS_DIR/.paru-S-common.list" "$DOTS_DIR/.paru-S-${MACHINE}.list")
-    for list in "${lists[@]}"; do
-        contents=$(_pkg_list "$list") || die "malware gate: cannot read $list"
-        requested+="$contents"$'\n'
-    done
+    list="$VJ_PLAN_DIR/paru-install.list"
+    contents=$(_pkg_list "$list") || die "malware gate: cannot read $list"
+    requested+="$contents"$'\n'
     matches=$(_infected_packages "${campaign_pkgs[@]}" <<< "$requested") \
         || die "malware gate: cannot read definitions"
     if [[ -n "$matches" ]]; then
@@ -694,9 +705,9 @@ install_all() {
     # Force-remove known conflicting packages before installing.
     # -Rdd skips dep checks so replacements (e.g. wine→wine-cachyos) don't block.
     local _conflicts
-    if [[ -f "$DOTS_DIR/.paru-R.list" ]] && ! _conflicts=$(_pkg_list "$DOTS_DIR/.paru-R.list"); then
-        _record "conflict-removal" fail "cannot read .paru-R.list"
-        warn "Cannot read .paru-R.list — conflicting packages were not removed"
+    if [[ -f "$VJ_PLAN_DIR/paru-remove.list" ]] && ! _conflicts=$(_pkg_list "$VJ_PLAN_DIR/paru-remove.list"); then
+        _record "conflict-removal" fail "cannot read paru-remove.list"
+        warn "Cannot read paru-remove.list — conflicting packages were not removed"
     elif [[ -n "${_conflicts:-}" ]]; then
         info "Removing flagged packages..."
         while IFS= read -r pkg; do
@@ -723,10 +734,8 @@ install_all() {
     fi
 
     _do_install() {
-        info "Installing common packages..."
-        _install_list "$DOTS_DIR/.paru-S-common.list" || return 1
-        info "Installing $MACHINE-specific packages..."
-        _install_list "$DOTS_DIR/.paru-S-${MACHINE}.list" || return 1
+        info "Installing packages (profile: ${MACHINE:-?})..."
+        _install_list "$VJ_PLAN_DIR/paru-install.list" || return 1
     }
 
     local _pkg_ok=true
@@ -750,9 +759,9 @@ install_all() {
     fi
 
     local _apps
-    if command -v flatpak &>/dev/null && ! _apps=$(_pkg_list "$DOTS_DIR/.flatpak-S.list"); then
-        _record "flatpak" fail "cannot read .flatpak-S.list"
-        warn "Cannot read .flatpak-S.list — flatpak apps were not installed"
+    if command -v flatpak &>/dev/null && ! _apps=$(_pkg_list "$VJ_PLAN_DIR/flatpak-install.list"); then
+        _record "flatpak" fail "cannot read flatpak-install.list"
+        warn "Cannot read flatpak-install.list — flatpak apps were not installed"
     elif command -v flatpak &>/dev/null; then
         info "Installing flatpak apps..."
         while IFS= read -r app; do
@@ -984,14 +993,14 @@ enable_services() {
     local _svc
     for _svc in "${SERVICES[@]}"; do _enable "$_svc"; done
 
-    if [[ "$MACHINE" == desktop ]]; then
+    if _has_feature desktop-services; then
         for _svc in "${SERVICES_DESKTOP[@]}"; do _enable "$_svc"; done
         sudo systemctl daemon-reload 2>/dev/null || true
         sudo usermod -aG libvirt "$USER" 2>/dev/null || true
         sudo usermod -aG docker "$USER" 2>/dev/null || true
     fi
 
-    if [[ "$MACHINE" == surface ]]; then
+    if _has_feature linux-surface; then
         info "Enabling Surface-specific services..."
         _enable iptsd
         _enable tlp
@@ -1237,7 +1246,7 @@ optimize_system() {
     section "system optimisations"
 
     # 1. CPU governor → performance (desktop only; laptops want powersave on battery)
-    if [[ "$MACHINE" == desktop ]]; then
+    if _has_feature cpu-performance; then
         local _conf=/etc/default/cpupower-service.conf
         if [[ -f "$_conf" ]] && ! grep -q "^GOVERNOR='performance'" "$_conf"; then
             if grep -q "^#\?GOVERNOR=" "$_conf"; then
@@ -1286,7 +1295,7 @@ optimize_system() {
     fi
 
     # 5. AMD GPU performance level (desktop only; persistent udev rule)
-    if [[ "$MACHINE" == desktop ]] && lspci 2>/dev/null | grep -qi "VGA.*AMD\|Display.*AMD\|VGA.*ATI"; then
+    if _has_feature amd-gpu-tuning && lspci 2>/dev/null | grep -qi "VGA.*AMD\|Display.*AMD\|VGA.*ATI"; then
         local _rule=/etc/udev/rules.d/99-amdgpu-performance.rules
         if [[ ! -f "$_rule" ]]; then
             printf 'ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x1002", ATTR{class}=="0x030000", ATTR{power_dpm_force_performance_level}="high"\n' \
@@ -1422,8 +1431,8 @@ setup_ollama() {
         return
     fi
 
-    if [[ "${MACHINE:-}" != "desktop" ]]; then
-        warn "ollama model pull skipped on $MACHINE — see TODO.md for surface model decision"
+    if ! _has_feature ollama-model; then
+        warn "ollama model pull skipped on ${MACHINE:-this profile} (no ollama-model feature) — see TODO.md"
         return
     fi
 
@@ -1461,7 +1470,7 @@ setup_vms() {
 setup_fish() {
     command -v fish &>/dev/null || { warn "fish not installed — skipping fish setup"; return; }
     if ! fish -c 'functions -q fisher' 2>/dev/null; then
-        warn "fisher not found — add 'fisher' to .paru-S-common.list; skipping"
+        warn "fisher not found — add 'fisher' to packages.toml; skipping"
         return
     fi
 
@@ -1567,8 +1576,8 @@ setup_caveman_code() {
 
 # ─── Phase 8: Projects ───────────────────────────────────
 clone_projects() {
-    local list="$DOTS_DIR/projects.list"
-    [[ -f "$list" ]] || { warn "projects.list not found — skipping"; return; }
+    local list="$VJ_PLAN_DIR/projects.list"
+    [[ -f "$list" ]] || { warn "projects.list not in run plan — skipping"; return; }
 
     info "Cloning projects into ~/Projects/..."
     mkdir -p "$HOME/Projects"
@@ -2026,7 +2035,7 @@ print_manual_steps() {
     echo "  6. YubiKey: set PIN if not already configured"
     echo "       ykman fido access change-pin"
     echo ""
-    if [[ "${MACHINE:-}" == surface ]]; then
+    if _has_feature linux-surface; then
         echo "  7. Surface Secure Boot:"
         echo "       # Enroll linux-surface MOK key to allow the kernel to boot"
         echo "       # Follow: https://github.com/linux-surface/linux-surface/wiki/Installation-and-Setup"
@@ -2036,7 +2045,7 @@ print_manual_steps() {
     echo "       start-open-notebook"
     echo "       # First launch auto-creates .env and starts containers"
     echo ""
-    if [[ "${MACHINE:-}" == desktop ]]; then
+    if _has_feature windows-vm; then
     echo "  8b. Virtual machines (images pre-pulled, run on demand):"
     echo "       start-windows   # Windows 11 — opens at http://localhost:8006"
     echo "       # Stop VM: cd ~/Projects/dots/windows && docker compose down"
@@ -2044,7 +2053,7 @@ print_manual_steps() {
     echo "       #   Map network drive in Windows: This PC → Map network drive → \\\\host.lan\\Data"
     fi
     echo ""
-    if [[ "${MACHINE:-}" == surface ]]; then
+    if _has_feature linux-surface; then
     echo "  9. Steam games — per-game launch option for forced fullscreen (2880x1920 @ 60Hz):"
     echo "       gamescope -f -W 2880 -H 1920 -r 60 -- %command%"
     else
@@ -2827,28 +2836,26 @@ plan_preview() {
     if [[ " ${SKIP_PHASES:-} " != *" install "* ]]; then
         info "Packages that would be installed:"
         local installed list pkg missing=0
-        if [[ -r "$DOTS_DIR/.paru-S-common.list" ]] && installed=$(pacman -Qq 2>/dev/null); then
+        if [[ -r "$VJ_PLAN_DIR/paru-install.list" ]] && installed=$(pacman -Qq 2>/dev/null); then
             local -A present=() skipped=()
             while IFS= read -r pkg; do
                 [[ -n "$pkg" ]] && present["$pkg"]=1
             done <<< "$installed"
-            if [[ -f "$DOTS_DIR/.paru-skip.list" ]]; then
-                while IFS= read -r pkg; do skipped["$pkg"]=1; done < <(_pkg_list "$DOTS_DIR/.paru-skip.list")
+            if [[ -f "$VJ_PLAN_DIR/paru-skip.list" ]]; then
+                while IFS= read -r pkg; do skipped["$pkg"]=1; done < <(_pkg_list "$VJ_PLAN_DIR/paru-skip.list")
             fi
-            for list in "$DOTS_DIR/.paru-S-common.list" "$DOTS_DIR/.paru-S-${MACHINE}.list"; do
-                [[ -r "$list" ]] || { _unknown "unreadable list: $list"; continue; }
-                while IFS= read -r pkg; do
-                    [[ -v skipped["$pkg"] ]] && continue
-                    [[ -v present["$pkg"] ]] || { echo "      + $pkg"; (( missing++ )) || true; }
-                done < <(_pkg_list "$list")
-            done
+            list="$VJ_PLAN_DIR/paru-install.list"
+            while IFS= read -r pkg; do
+                [[ -v skipped["$pkg"] ]] && continue
+                [[ -v present["$pkg"] ]] || { echo "      + $pkg"; (( missing++ )) || true; }
+            done < <(_pkg_list "$list")
             (( missing == 0 )) && ok "all listed packages present"
         else
             _unknown "package lists or installed-package query unavailable"
         fi
-        echo "      Would remove installed packages listed in .paru-R.list, then upgrade the system."
+        echo "      Would remove installed packages listed in packages.toml [paru].remove, then upgrade the system."
         _preview_holds
-        echo "      Would install .flatpak-S.list and update Flatpak apps."
+        echo "      Would install the planned Flatpak apps and update Flatpak apps."
         _unknown "available upgrades and malware verdict: network checks have not run"
     fi
 
@@ -2961,6 +2968,7 @@ done
 
 # --help and --dry-run are read-only: no lock, no log rotation, no stamps.
 if [[ "$ACTION" == help ]]; then usage; exit 0; fi
+_ensure_plan
 if $DRY_RUN; then
     case "$ACTION" in
         ""|--interactive|-i|--yes|-y|--update|-u|--check|-c)
