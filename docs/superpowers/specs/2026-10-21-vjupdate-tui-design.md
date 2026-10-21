@@ -11,7 +11,7 @@ machines into a terminal app (TUI) that:
   (configs), both selectable and extendable by friends;
 - keeps per-machine choices in one sorted local config file
   (`~/.config/vjupdate/config.toml`), never scattered on disk;
-- runs a **first-run wizard** when that file is missing;
+- runs a **setup screen** (profile + dotfile set) when that file is missing;
 - shows every batch action (packages, repos, dotfiles, one-time setup) as a
   checklist, pre-ticked from repo defaults, then from the user's last choices;
 - remembers declined packages and never pre-ticks them again;
@@ -85,8 +85,8 @@ Comments from the `.list` files are carried over as TOML comments.
 
 ```toml
 description = "Tower — AMD RX 6700 XT, i5-13400F"
-dotset      = "viridjan"          # default set offered in the wizard
-hostname    = "desktop"           # substring; wizard pre-selects a match
+dotset      = "viridjan"          # default set offered on the setup screen
+hostname    = "desktop"           # substring; setup screen pre-selects a match
 features    = ["amd-gpu-tuning", "ollama-model", "steam-launchers"]
 
 [paru]
@@ -184,10 +184,9 @@ vj/
   resolve.py      resolution order, estimates
   bridge.py       writes the run plan, runs bash backend
   screens/
-    wizard.py     first-run
-    home.py       main menu
+    setup.py      profile + dotfile set picker (first run / settings)
+    home.py       menu + live review panel
     checklist.py  one generic checklist screen reused by every submenu
-    review.py     pre-run summary + estimate
 ```
 
 Launcher `scripts/.local/bin/vj` runs `python3 -m vj` with the repo on
@@ -195,42 +194,41 @@ Launcher `scripts/.local/bin/vj` runs `python3 -m vj` with the repo on
 
 ### Screens
 
-**Wizard** (only when `config.toml` is missing, or `vj --setup`):
-1. Profile: list of `profiles/*.toml` with description; hostname match pre-selected.
-2. Dotfile set: list of `dotsets/*/` + `none`; profile's default pre-selected.
-3. Packages: resolved install list, all ticked; unticked → `[declined]`.
-4. One-time setup: all once-tasks listed; user ticks what to run now, marks
-   others "already done" or "skip".
-5. Save config → Home.
+**Setup screen** (only when `config.toml` is missing, or via the
+"Profile / dotfile set" menu entry): one screen, two columns side by side —
+profiles (`profiles/*.toml` + description; hostname match pre-highlighted) and
+dotfile sets (`dotsets/*/` + `none`; profile's default pre-highlighted). Tab
+switches column, Enter confirms both, saves config, lands on **Home**. No
+further wizard steps: packages and one-time tasks are reached from Home.
 
-**Home** — status line (profile, dotset, pending once-tasks count) and menu:
+**Home** — one screen, three parts top to bottom:
 
-| Entry | Opens |
-|---|---|
-| Run maintenance | Checklist of routine actions (today's `routine` group) |
-| Packages | Checklist: paru + flatpak, grouped; `a` adds a package locally, `x` marks for removal |
-| Git repositories | Checklist of `projects.toml` repos to clone/pull |
-| Dotfiles | Checklist of stow packages in the chosen set |
-| One-time setup | Checklist of once-tasks with done date / skip status |
-| DMS & Git | dms-import, dms-export, dotfiles-export |
-| Settings | Change profile, dotset; re-run wizard |
-| Review & run | Review screen |
+1. Status line: profile, dotset, count of never-run one-time tasks.
+2. Menu: Maintenance actions · Packages · Git repositories · Dotfiles ·
+   One-time setup · DMS & Git · Profile / dotfile set. Enter opens the
+   checklist for that entry; Esc in a checklist returns straight to Home.
+3. **Review panel** (always visible, updates on every return to Home):
+   actions in run order, packages to install (only those not yet installed,
+   AUR ones marked, each with its estimate), packages to remove, declined
+   list, total estimate.
+
+Keys on Home: `r` = run everything in the review panel, `q` = quit.
 
 **Checklist** (generic): items with id, label, detail, ticked. Keys: Space
-toggle, `/` filter, `a` all, `n` none, `r` repo defaults, Enter/Esc back.
-Initial ticks: `[last]` if present, else repo defaults; for packages,
+toggle, `/` filter, `a` all, `n` none, `r` repo defaults, Esc saves and goes
+back to Home. Packages checklist adds `+` add a local package, `x` mark for
+removal. Initial ticks: `[last]` if present, else repo defaults; for packages,
 `declined` overrides both.
 
-**Review**: ordered list of actions; packages to install / remove (names, with
-AUR packages marked); estimate per group and total:
+Estimate format:
 
 | Estimate | Shown as |
 |---|---|
 | < 10 s | `< 10 s` |
 | < 60 s | `< 1 min` |
-| otherwise | `~N min`, plus names of packages with no history |
+| otherwise | `~N min`, plus count of packages with no history |
 
-Enter runs, `b` back, `q` quit. On run, `[last]` and `[declined]` are saved.
+On run, `[last]` and `[declined]` are saved first.
 
 ### One-time tasks
 
@@ -238,8 +236,10 @@ Once-tasks = today's `system` group (services, snapper, automount, optimize,
 keyboard, greeter, keyring-pam) + `tools` + `ai` groups + `dms-plugins`.
 Kernels and manual-steps are not once-tasks (repeatable/informational).
 
-At startup, if any once-task has no `[once]` entry, Home opens a prompt:
-"N setup tasks never run on this machine" → the One-time setup checklist.
+If any once-task has no `[once]` entry, Home's status line shows
+"N setup tasks never run" (highlighted); they are listed in the One-time
+setup checklist, unticked. Unticking-and-leaving marks nothing; the checklist
+has `s` = mark highlighted task "skip" and `d` = mark "already done".
 A task is stamped with today's date only when its backend result is `ok`.
 
 ## 4. Bridge to bash
@@ -272,7 +272,7 @@ Bash changes (kept small, all covered by the existing test suite + new tests):
    `packages.toml`/profile itself via `python3 -m vj resolve` so
    `vjupdate --yes` keeps working standalone.
 3. `MACHINE` comes from `VJ_PROFILE`; machine checks become `_has_feature X`.
-   Hostname detection moves to the wizard.
+   Hostname detection moves to the setup screen.
 4. Stow runs from `VJ_DOTSET_DIR` (skipped when dotset is `none`), restricted
    to `stow.list`. `scripts` is always stowed from repo root.
 5. `_record` results additionally appended to `VJ_RESULT_FILE`
@@ -301,8 +301,8 @@ recap.
 - `tests/test_vj_resolve.py`: resolution order, declined, local add/remove,
   estimate buckets.
 - `tests/test_vj_config.py`: round-trip load/save, atomic write, missing file.
-- `tests/test_vj_screens.py`: Textual `run_test()` pilot — wizard writes the
-  expected config; checklist initial ticks follow last/declined/default.
+- `tests/test_vj_screens.py`: Textual `run_test()` pilot — setup screen writes
+  the expected config; checklist initial ticks follow last/declined/default.
 - `tests/test_vjupdate.py`: new cases for `--actions`, `VJ_PLAN_DIR`,
   `_has_feature`, result file. Existing suite must stay green.
 - No test touches the real system (existing mocked-PATH approach).
@@ -314,7 +314,7 @@ recap.
 | A | TOML files, profiles, `vj/config.py` + `resolve.py`, bash reads plan dir / features / `--actions` | yes — `vjupdate` behaves as before on new files |
 | B | Repo migration to `dotsets/viridjan/`, stow from dotset | yes |
 | C | TUI: Home, Checklist, Review, bridge, `[last]`/`[declined]` | yes — `vj` usable |
-| D | Wizard + once-tasks prompt | yes |
+| D | Setup screen + once-task tracking | yes |
 | E | Estimates in review + `build-times.tsv` in repo | yes |
 
 Each stage: tests green, shellcheck clean, committed separately.
