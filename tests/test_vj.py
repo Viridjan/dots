@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from vj import config  # noqa: E402
+from vj import config, resolve  # noqa: E402
 
 
 def fixture_repo(root: Path) -> Path:
@@ -98,6 +98,83 @@ class ConfigTests(Tmp):
         self.assertFalse(config.valid_choice(cfg, repo))
         cfg.update(profile="gone", dotset="mine")
         self.assertFalse(config.valid_choice(cfg, repo))
+
+
+class ResolveTests(Tmp):
+    def setUp(self):
+        super().setUp()
+        self.repo = config.load_repo(self.dots)
+        self.cfg = config.load_local(self.cfg_path)
+        self.cfg.update(profile="desktop", dotset="mine")
+
+    def test_repo_plus_profile_minus_skip_deduped(self):
+        r = resolve.resolve(self.repo, self.cfg)
+        self.assertEqual(r["paru_install"], ["fish", "steam", "vulkan-radeon"])
+        self.assertEqual(r["paru_hold"], ["vectorcraft"])
+        self.assertEqual(r["paru_skip"], ["git"])
+        self.assertEqual(r["flatpak_install"], ["com.spotify.Client"])
+
+    def test_local_add_remove_and_declined(self):
+        self.cfg["paru"] = {"add": ["obs"], "remove": ["steam"]}
+        self.cfg["declined"]["paru"] = ["fish"]
+        self.cfg["declined"]["flatpak"] = ["com.spotify.Client"]
+        r = resolve.resolve(self.repo, self.cfg)
+        self.assertEqual(r["paru_install"], ["vulkan-radeon", "obs"])
+        self.assertEqual(r["flatpak_install"], [])
+        # local remove is a removal; declined is only "don't install"
+        self.assertEqual(r["paru_remove"], ["wine", "steam"])
+        self.assertNotIn("fish", r["paru_remove"])
+
+    def test_features(self):
+        self.assertEqual(resolve.features(self.repo, self.cfg), ["amd-gpu-tuning"])
+
+    def test_fmt_boundaries(self):
+        self.assertEqual([resolve.fmt(s) for s in (0, 9, 10, 59, 60, 400)],
+                         ["< 10 s", "< 10 s", "< 1 min", "< 1 min", "~1 min", "~7 min"])
+
+    def test_fmt_c_colours(self):
+        self.assertIn("#5fd75f", resolve.fmt_c(9))
+        self.assertIn("#ffd75f", resolve.fmt_c(10))
+        self.assertIn("#ff8700", resolve.fmt_c(60))
+        self.assertIn("?", resolve.fmt_c(3, guessed=True))
+
+    def test_estimate_precedence(self):
+        times = {"aur:godot": 400, "@pacman-per-pkg": 5}
+        self.assertEqual(resolve.estimate("paru", "godot", times), (400, False))
+        self.assertEqual(resolve.estimate("paru", "fish", times), (5, False))
+        self.assertEqual(resolve.estimate("flatpak", "x", times), (10, True))
+        self.assertEqual(resolve.estimate("paru", "fish", {}), (3, True))
+
+    def test_load_times(self):
+        (self.dots / "build-times.tsv").write_text("aur:godot\t400\n@pacman-per-pkg\t5\nbad line\n")
+        self.assertEqual(resolve.load_times(self.dots), {"aur:godot": 400, "@pacman-per-pkg": 5})
+
+    def test_write_plan_files_and_env(self):
+        out = self.root / "plan"
+        resolve.write_plan(self.repo, self.cfg, out)
+        read = lambda n: (out / n).read_text().split()
+        self.assertEqual(read("paru-install.list"), ["fish", "steam", "vulkan-radeon"])
+        self.assertEqual(read("paru-remove.list"), ["wine"])
+        self.assertEqual(read("projects.list"), ["git@x:dots.git"])
+        self.assertEqual(read("stow.list"), ["alacritty", "fish"])
+        env = subprocess.run(["bash", "-c", f'source "{out}/env"; echo "$VJ_PROFILE|$VJ_DOTSET|$VJ_DOTSET_DIR|$VJ_FEATURES"'],
+                             capture_output=True, text=True, check=True).stdout.strip()
+        self.assertEqual(env, f"desktop|mine|{self.dots}/dotsets/mine|amd-gpu-tuning")
+
+    def test_write_plan_selections(self):
+        out = self.root / "plan"
+        resolve.write_plan(self.repo, self.cfg, out, stow_selected=["fish"], repos_selected=[])
+        self.assertEqual((out / "stow.list").read_text().split(), ["fish"])
+        self.assertEqual((out / "projects.list").read_text().split(), [])
+
+    def test_write_plan_dotset_none(self):
+        self.cfg["dotset"] = "none"
+        out = self.root / "plan"
+        resolve.write_plan(self.repo, self.cfg, out)
+        self.assertEqual((out / "stow.list").read_text(), "")
+        env = subprocess.run(["bash", "-c", f'source "{out}/env"; echo "[$VJ_DOTSET_DIR]"'],
+                             capture_output=True, text=True, check=True).stdout.strip()
+        self.assertEqual(env, "[]")
 
 
 if __name__ == "__main__":
