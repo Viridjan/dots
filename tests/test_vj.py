@@ -69,6 +69,14 @@ class ConfigTests(Tmp):
         config.save_local(cfg, self.cfg_path)
         self.assertEqual(config.load_local(self.cfg_path), cfg)
 
+    def test_broken_toml_gives_clear_error_not_traceback(self):
+        self.cfg_path.parent.mkdir()
+        self.cfg_path.write_text('profile = "desktop\n')  # unterminated string
+        with self.assertRaises(config.ConfigError) as ctx:
+            config.load_local(self.cfg_path)
+        self.assertIn(str(self.cfg_path), str(ctx.exception))
+        self.assertIn("fix or delete", str(ctx.exception))
+
     def test_save_is_atomic_no_leftovers(self):
         config.save_local(config.load_local(self.cfg_path), self.cfg_path)
         self.assertEqual([p.name for p in self.cfg_path.parent.iterdir()], ["config.toml"])
@@ -209,6 +217,12 @@ class PlanCommandTests(Tmp):
         r, out = self.run_plan("desktop", 'profile = "deleted"\ndotset = "mine"\n')
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(self.profile_of(out), "desktop mine")
+
+    def test_broken_config_fails_clearly(self):
+        r, _ = self.run_plan("desktop", 'profile = [\n')
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("fix or delete", r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
 
     def test_unknown_host_without_config_fails_clearly(self):
         r, out = self.run_plan("friends-laptop")

@@ -21,8 +21,17 @@ DEFAULTS = {
 }
 
 
+class ConfigError(Exception):
+    """A TOML file vj needs cannot be parsed; message says which and what to do."""
+
+
 def _toml(path: Path) -> dict:
-    return tomllib.loads(path.read_text()) if path.exists() else {}
+    if not path.exists():
+        return {}
+    try:
+        return tomllib.loads(path.read_text())
+    except tomllib.TOMLDecodeError as e:
+        raise ConfigError(f"{path} is not valid TOML ({e}) — fix or delete it") from None
 
 
 @dataclass

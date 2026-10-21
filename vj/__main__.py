@@ -40,4 +40,8 @@ def main(argv) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except config.ConfigError as e:
+        print(f"vj: {e}", file=sys.stderr)
+        sys.exit(2)
