@@ -195,13 +195,13 @@ Launcher `scripts/.local/bin/vj` runs `python3 -m vj` with the repo on
 ### Screens
 
 **Setup screen** (only when `config.toml` is missing, or via the
-"Profile / dotfile set" menu entry): one screen, two columns side by side —
+"Profile / dotfile set" menu entry): one screen, two titled boxes stacked —
 profiles (`profiles/*.toml` + description; hostname match pre-highlighted) and
 dotfile sets (`dotsets/*/` + `none`; profile's default pre-highlighted). Tab
-switches column, Enter confirms both, saves config, lands on **Home**. No
+switches box, Enter confirms both, saves config, lands on **Home**. No
 further wizard steps: packages and one-time tasks are reached from Home.
 
-**Home** — one screen, three parts top to bottom:
+**Home** — one screen, three parts top to bottom (menu and review each in a titled box):
 
 1. Status line: profile, dotset, count of never-run one-time tasks.
 2. Menu: Maintenance actions · Packages · Git repositories · Dotfiles ·
