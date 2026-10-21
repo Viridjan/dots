@@ -184,7 +184,7 @@ vj/
   resolve.py      resolution order, estimates
   bridge.py       writes the run plan, runs bash backend
   screens/
-    home.py       the one screen: menu, inline submenu slot, recap
+    home.py       the one screen: menu with per-row recap, inline submenu slot
     setup.py      profile + dotfile set submenu panel
     checklist.py  generic checklist submenu panel
 ```
@@ -196,25 +196,28 @@ Launcher `scripts/.local/bin/vj` runs `python3 -m vj` with the repo on
 
 Everything happens on **one screen (Home)**, top to bottom:
 
-1. **Status line:** profile, dotset, count of never-run one-time tasks.
-2. **Menu box:** Maintenance actions · Packages · Git repositories · Dotfiles ·
-   One-time setup · DMS & Git · Profile / dotfile set. Always visible.
-3. **Submenu box:** Enter on a menu entry opens that submenu *inline, below
-   the menu*, filling the space down to the recap. One submenu open at a
-   time; opening another replaces it. Esc closes it and focus returns to the
-   menu. Every change takes effect immediately (recap updates live).
-4. **Recap box**, pinned to the bottom: always **10% of the terminal height**
-   (minimum 4 rows). Summary only — counts and time, no names (names and
-   per-package times live in the submenus). Example:
+1. **Menu box** with two columns per row: entry label on the left, that
+   entry's recap on the right, on the same row — so each summary sits next to
+   the place where it is changed. Always visible.
 
    ```
-   Install 3 packages · Remove 1 package · 7 maintenance actions · 2 setup tasks
-   Install time ~4 min (upgrades and actions not included)
+   Maintenance actions     │ run 7 of 8 actions
+   Packages                │ install 1 package < 10 s · 1 declined
+   Git repositories        │ clone / pull 8 repos
+   Dotfiles                │ link 21 of 21 from viridjan
+   One-time setup          │ run 2 · 9 never run
+   DMS & Git               │ nothing
+   Profile / dotfile set   │ desktop · viridjan
+   ▶ Run                   │ press r · install time < 10 s (upgrades/actions extra)
    ```
-   "Install" counts only packages not yet installed (pacman *and* flatpak).
+   Recaps are counts and times only, no names. "install" counts only packages
+   not yet installed (pacman *and* flatpak). Recaps refresh on every change.
+2. **Submenu box:** Enter on a menu entry opens that submenu *inline, below
+   the menu*, filling the rest of the screen. One at a time; opening another
+   replaces it. Esc closes it and focus returns to the menu.
 
-Keys: `r` = run everything in the recap (any time, unless typing in a filter),
-`q` = quit.
+Keys: `r` (or Enter on "▶ Run") = run everything selected, unless typing in
+a filter; `q` = quit.
 
 **Profile / dotfile set submenu:** two titled boxes stacked — profiles
 (`profiles/*.toml` + description; hostname match pre-highlighted) and dotfile
@@ -238,7 +241,7 @@ Estimate format:
 | otherwise | `~N min` | orange |
 
 Shown per package in the Packages checklist (first column); the recap shows
-only the coloured total. Packages with no history use a flat guess
+only the coloured total on the Packages and Run rows. Packages with no history use a flat guess
 (paru 3 s, flatpak 10 s) marked with `?`; guessed values are included in the total.
 
 On run, `[last]` and `[declined]` are saved first.
