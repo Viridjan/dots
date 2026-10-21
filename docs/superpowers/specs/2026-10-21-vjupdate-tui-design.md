@@ -222,11 +222,16 @@ removal. Initial ticks: `[last]` if present, else repo defaults; for packages,
 
 Estimate format:
 
-| Estimate | Shown as |
-|---|---|
-| < 10 s | `< 10 s` |
-| < 60 s | `< 1 min` |
-| otherwise | `~N min`, plus count of packages with no history |
+| Estimate | Shown as | Colour |
+|---|---|---|
+| < 10 s | `< 10 s` | green |
+| < 60 s | `< 1 min` | yellow |
+| otherwise | `~N min` | orange |
+
+Shown per package in the Packages checklist (first column) and the review
+panel, plus the coloured total. Packages with no history use a flat guess
+(paru 3 s, flatpak 10 s) marked with `?`; the review also shows the count of
+guessed packages.
 
 On run, `[last]` and `[declined]` are saved first.
 
