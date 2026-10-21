@@ -599,7 +599,12 @@ class BuildTimeEstimateTests(FixtureCase):
     """Past makepkg spans drive the pre-upgrade AUR time estimate."""
 
     def times(self):
-        return (self.home / ".state/dots/aur-build-times.tsv").read_text()
+        return (self.home / "Projects/dots/build-times.tsv").read_text()
+
+    def write_times(self, text):
+        repo = self.home / "Projects/dots"
+        repo.mkdir(parents=True, exist_ok=True)
+        (repo / "build-times.tsv").write_text(text)
 
     def test_upgrade_records_first_making_to_finished_span(self):
         self.mock("paru", "\n".join([
@@ -613,20 +618,18 @@ class BuildTimeEstimateTests(FixtureCase):
             "exit 1",
         ]))
         r = self.shell('_syuu || true')
-        self.assertEqual(self.times(), "bar\t60\nfoo\t360\n", r.stdout + r.stderr)
+        self.assertEqual(self.times(), "aur:bar\t60\naur:foo\t360\n", r.stdout + r.stderr)
         # Rerun replaces, never duplicates.
         self.mock("paru", "\n".join([
             'echo "==> Making package: foo 1-2 (Sun Oct 18 15:00:00 2026)"',
             'echo "==> Finished making: foo 1-2 (Sun Oct 18 15:02:00 2026)"',
         ]))
         self.shell('_syuu')
-        self.assertEqual(self.times(), "bar\t60\nfoo\t120\n")
+        self.assertEqual(self.times(), "aur:bar\t60\naur:foo\t120\n")
 
     def test_estimate_sums_history_skips_holds_and_names_unknown(self):
         self.plan("paru-hold.list", "held\n")
-        state = self.home / ".state/dots"
-        state.mkdir(parents=True)
-        (state / "aur-build-times.tsv").write_text("foo\t360\nbar\t60\nheld\t9999\n")
+        self.write_times("aur:foo\t360\naur:bar\t60\naur:held\t9999\n@pacman-per-pkg\t3\n")
         self.mock("paru", 'printf "foo 1 -> 2\nbar 1 -> 2\nnew 0 -> 1\nheld 1 -> 2\n"')
         r = self.shell('_estimate_aur_builds')
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -634,15 +637,27 @@ class BuildTimeEstimateTests(FixtureCase):
                       r.stdout)
 
     def test_review_plan_shows_estimate_once(self):
-        state = self.home / ".state/dots"
-        state.mkdir(parents=True)
-        (state / "aur-build-times.tsv").write_text("foo\t600\n")
+        self.write_times("aur:foo\t600\n")
         self.mock("paru", 'printf "%s\\n" "$*" >> "$CALLS"; echo "foo 1 -> 2"')
         r = self.shell('declare -A MENU_SELECTED=([sources]=false [install]=true [kernels]=false [orphan-removal]=false [rebuild]=false [python-rebuild]=false)\n'
                        'MENU_ORDER=(install); MENU_IDS=(install); MENU_LABELS=("Upgrade")\n'
                        '_menu_plan; _menu_plan; printf "%s\\n" "${MENU_PLAN[@]}"')
         self.assertIn("Upgrade — 1 AUR build pending — est. ~10 min (foo 10m)", r.stdout, r.stderr)
         self.assertEqual(Path(self.env["CALLS"]).read_text().splitlines(), ["-Qua"])
+
+    def test_record_time_merges_and_sorts(self):
+        self.write_times("aur:zed\t5\n@pacman-per-pkg\t9\n")
+        r = self.shell('_record_time @pacman-per-pkg 4; _record_time @flatpak-per-pkg 12')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.times(), "@flatpak-per-pkg\t12\n@pacman-per-pkg\t4\naur:zed\t5\n")
+
+    def test_package_install_records_per_package_time(self):
+        self.plan("pkgs.list", "one\ntwo\n")
+        self.mock("pacman", "exit 0")
+        self.mock("paru", "exit 0")
+        r = self.shell('_install_list "$VJ_PLAN_DIR/pkgs.list"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertRegex(self.times(), r"^@pacman-per-pkg\t[1-9][0-9]*\n$")
 
     def test_estimate_silent_when_nothing_pending(self):
         self.mock("paru", "exit 1")
