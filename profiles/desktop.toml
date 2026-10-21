@@ -1,0 +1,28 @@
+description = "Tower \u2014 AMD RX 6700 XT, i5-13400F"
+# Substring of the hostname; preselected on first run and used by `vjupdate` without a config.
+hostname = "desktop"
+# Default dotfile set (dotsets/<name>/); each machine may pick another.
+dotset = "viridjan"
+# Behaviour switches read by vjupdate (_has_feature).
+features = ["desktop-services", "cpu-performance", "amd-gpu-tuning", "ollama-model", "windows-vm"]
+
+[paru]
+install = [
+    # Desktop-specific packages — AMD RX 6700 XT + i5-13400F tower
+
+    # AMD GPU drivers (Wayland — xf86-video-amdgpu not needed)
+    "vulkan-radeon",
+    "lib32-vulkan-radeon",
+    "opencl-mesa",
+    "lib32-opencl-mesa",
+
+    # Desktop peripherals
+    "vial-appimage",
+
+    # AI / local LLM
+    "ollama-rocm",
+
+    # Electronics design (KiCad EDA)
+    "kicad",
+    "kicad-library",
+]

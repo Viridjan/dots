@@ -1,0 +1,33 @@
+# Git repositories cloned into ~/Projects/ by the sources phase.
+
+[[repo]]
+name = "dots"
+url = "git@github.com:Viridjan/dots.git"
+
+[[repo]]
+name = "crosses-zmk"
+url = "git@github.com:Viridjan/crosses-zmk.git"
+
+[[repo]]
+name = "Tournaments"
+url = "git@github.com:Viridjan/Tournaments.git"
+
+[[repo]]
+name = "open_notebook"
+url = "git@github.com:Viridjan/open_notebook.git"
+
+[[repo]]
+name = "Plancia_menu"
+url = "git@github.com:Viridjan/Plancia_menu.git"
+
+[[repo]]
+name = "slides"
+url = "git@github.com:Viridjan/slides.git"
+
+[[repo]]
+name = "handbook"
+url = "git@github.com:Viridjan/handbook.git"
+
+[[repo]]
+name = "webapp_detective"
+url = "git@github.com:Viridjan/webapp_detective.git"
