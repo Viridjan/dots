@@ -228,7 +228,6 @@ remove = [
 hold = [
     # Installed normally, but excluded from automatic upgrades and rebuilds.
     # Upgrade by hand after reviewing the PKGBUILD and upstream release.
-    "vectorcraft",
 ]
 
 # Skipped by install and audit even if listed above.
