@@ -1,59 +1,60 @@
 # ─────────────────────────────────────────────────────────
 # Secrets only. Everything else is tracked on purpose so a
+# (dotsets/*/ prefix: applies to every dotfile set, incl. friends' sets.)
 # fresh clone carries maximum config/state. Audited 2026-07-28
 # after an OpenVSX token leaked via workspaceStorage/state.vscdb.
 # ─────────────────────────────────────────────────────────
 
 # Credentials / API keys
-claude/.claude/.credentials.json
-cave/.cave/agent/auth.json
+dotsets/*/claude/.claude/.credentials.json
+dotsets/*/cave/.cave/agent/auth.json
 
 # Session / auth tokens
-cave/.cave/agent/sessions/
-vesktop/.config/vesktop/sessionData/
+dotsets/*/cave/.cave/agent/sessions/
+dotsets/*/vesktop/.config/vesktop/sessionData/
 
 # VSCodium — cookie / token / web-storage stores (hold auth for logged-in webviews)
-VSCodium/.config/VSCodium/Cookies
-VSCodium/.config/VSCodium/Cookies-journal
-VSCodium/.config/VSCodium/Local Storage/
-VSCodium/.config/VSCodium/Session Storage/
-VSCodium/.config/VSCodium/Trust Tokens
-VSCodium/.config/VSCodium/Trust Tokens-journal
+dotsets/*/VSCodium/.config/VSCodium/Cookies
+dotsets/*/VSCodium/.config/VSCodium/Cookies-journal
+dotsets/*/VSCodium/.config/VSCodium/Local Storage/
+dotsets/*/VSCodium/.config/VSCodium/Session Storage/
+dotsets/*/VSCodium/.config/VSCodium/Trust Tokens
+dotsets/*/VSCodium/.config/VSCodium/Trust Tokens-journal
 
 # VSCodium — per-workspace SQLite state; extensions (e.g. OpenVSX marketplace)
 # store access tokens in here (caused a leaked-secret incident 2026-07-28)
-VSCodium/.config/VSCodium/User/workspaceStorage/
+dotsets/*/VSCodium/.config/VSCodium/User/workspaceStorage/
 
 # Shell history — may contain secrets typed at the prompt
-fish/.config/fish/fish_history
+dotsets/*/fish/.config/fish/fish_history
 
 # Crash dumps — can contain credentials lifted from process memory
-vesktop/.config/vesktop/Crashpad/
-VSCodium/.config/VSCodium/Crashpad/
+dotsets/*/vesktop/.config/vesktop/Crashpad/
+dotsets/*/VSCodium/.config/VSCodium/Crashpad/
 
 # Single-instance runtime lock (socket/symlink) — a stale copy breaks vesktop launch on clone
-vesktop/.config/vesktop/Singleton*
+dotsets/*/vesktop/.config/vesktop/Singleton*
 
 # Window bounds — churns every session, no clone value
-vesktop/.config/vesktop/state.json
+dotsets/*/vesktop/.config/vesktop/state.json
 
 # VSCodium Chromium/Electron caches — regenerated on every launch, so they
 # rewrote 24 files per commit and grew history forever (41.5MB of ~60MB, 68%).
 # Not config: User/ keeps settings, keybindings, snippets and globalStorage.
-VSCodium/.config/VSCodium/Cache/
-VSCodium/.config/VSCodium/CachedData/
-VSCodium/.config/VSCodium/CachedProfilesData/
-VSCodium/.config/VSCodium/CachedExtensionVSIXs/
-VSCodium/.config/VSCodium/GPUCache/
-VSCodium/.config/VSCodium/DawnGraphiteCache/
-VSCodium/.config/VSCodium/DawnWebGPUCache/
-VSCodium/.config/VSCodium/Code Cache/
+dotsets/*/VSCodium/.config/VSCodium/Cache/
+dotsets/*/VSCodium/.config/VSCodium/CachedData/
+dotsets/*/VSCodium/.config/VSCodium/CachedProfilesData/
+dotsets/*/VSCodium/.config/VSCodium/CachedExtensionVSIXs/
+dotsets/*/VSCodium/.config/VSCodium/GPUCache/
+dotsets/*/VSCodium/.config/VSCodium/DawnGraphiteCache/
+dotsets/*/VSCodium/.config/VSCodium/DawnWebGPUCache/
+dotsets/*/VSCodium/.config/VSCodium/Code Cache/
 
 # vesktop — same Electron/Chromium V8 code cache, rewritten every launch
-vesktop/.config/vesktop/Code Cache/
+dotsets/*/vesktop/.config/vesktop/Code Cache/
 
 # Claude Code account-skill sync — re-downloaded per account (UUID-keyed path)
-claude/.claude/skills/synced/
+dotsets/*/claude/.claude/skills/synced/
 
 # Machine-local link to the VM disk on /mnt/data — setup_vms recreates it
 windows/storage

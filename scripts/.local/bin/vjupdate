@@ -787,34 +787,17 @@ install_all() {
 }
 
 # ─── Phase 4: Dotfiles ───────────────────────────────────
-COMMON_STOW_PKGS=(
-    alacritty
-    cave
-    caveman
-    DankMaterialShell
-    vesktop
-    fish
-    fonts
-    gtk-3.0
-    gtk-4.0
-    micro
-    mimeapps
-    # niri excluded — handled by _stow_niri_cfg (dir must stay real for DMS)
-    paru
-    qt5ct
-    qt6ct
-    scripts
-    spotify-player
-    VSCodium
-)
-
+# Stow packages come from the chosen dotfile set (dotsets/<name>/, VJ_DOTSET_DIR),
+# limited to the run plan's stow.list. `scripts` is tooling, not a dotfile set:
+# it is always linked from the repo root. niri, ollama and brave keep their
+# special handling below.
 _stow_niri_cfg() {
     # ~/.config/niri/ must stay a real directory — DMS writes dms/ inside it and
     # stow would fold the whole dir into a symlink, breaking DMS on regeneration.
     # So we skip stow for niri and create file-level symlinks directly.
-    local src="$DOTS_DIR/niri/.config/niri"
+    local src="$VJ_DOTSET_DIR/niri/.config/niri"
     local dst="$HOME/.config/niri"
-    local mach_src="$DOTS_DIR/$MACHINE/.config/niri"
+    local mach_src="$VJ_DOTSET_DIR/$MACHINE/.config/niri"
 
     mkdir -p "$dst/cfg"
 
@@ -823,6 +806,8 @@ _stow_niri_cfg() {
     for f in display input autostart-machine surface-layout; do
         [[ -f "$mach_src/cfg/${f}.kdl" ]] && ln -sf "$mach_src/cfg/${f}.kdl" "$dst/cfg/${f}.kdl"
     done
+    # A missing last file must not leave the loop's false test as the return status.
+    return 0
 
 }
 
@@ -876,24 +861,13 @@ deploy_dotfiles() {
     # scripts is stowed unfolded: ~/.local/bin must stay a real directory so
     # installers (npm -g, uv, codex, AppImages) write there, not into the repo.
     # Every other package is folded on purpose: app writes should land in git.
-    local _nofold
-    for pkg in "${COMMON_STOW_PKGS[@]}"; do
-        _nofold=(); [[ "$pkg" == scripts ]] && _nofold=(--no-folding)
-        [[ -d "$pkg" ]] && _deploy_pkg --restow "${_nofold[@]}" -t "$HOME" "$pkg" "$pkg" || true
-    done
-
-    _stow_niri_cfg
-    _stowed+=("niri")
-
-    _deploy_pkg --restow -t "$HOME" claude claude || true
-    [[ -d bkg ]] && { _deploy_pkg --restow -t "$HOME" bkg bkg || true; }
+    _deploy_pkg --restow --no-folding -t "$HOME" scripts scripts || true
 
     # Root-target packages (-t /, not ~HOME):
     #   ollama — systemd drop-in for ROCm GPU support
     #   brave  — managed policy letting discord.com reach Vesktop's local RPC port
-    local _rpkg
-    for _rpkg in ollama brave; do
-        [[ -d "$_rpkg" ]] || continue
+    _deploy_root_pkg() {
+        local _rpkg="$1"
         if $DRY_RUN; then
             _mutate sudo stow -t / "$_rpkg"
         elif $STOW_ADOPT; then
@@ -903,7 +877,22 @@ deploy_dotfiles() {
             sudo stow -t / "$_rpkg" && _stowed+=("$_rpkg→/") \
                 || { _record "stow:$_rpkg" fail "conflicts"; warn "stow conflict in '$_rpkg' — run 'vjupdate --adopt'"; }
         fi
-    done
+    }
+
+    if [[ -z "${VJ_DOTSET_DIR:-}" ]]; then
+        info "dotfile set: none — only scripts linked"
+    else
+        cd "$VJ_DOTSET_DIR" || die "cannot cd to dotfile set $VJ_DOTSET_DIR"
+        local pkg
+        while IFS= read -r pkg; do
+            [[ -n "$pkg" && -d "$pkg" ]] || continue
+            case "$pkg" in
+                niri)         _stow_niri_cfg; _stowed+=("niri") ;;
+                ollama|brave) _deploy_root_pkg "$pkg" || return 1 ;;
+                *)            _deploy_pkg --restow -t "$HOME" "$pkg" "$pkg" || true ;;
+            esac
+        done < <([[ -f "$VJ_PLAN_DIR/stow.list" ]] && cat "$VJ_PLAN_DIR/stow.list")
+    fi
 
     for _pkg in "${_stowed[@]}"; do ok "stowed: $_pkg"; done
     if [[ ${#_conflicts[@]} -gt 0 ]]; then
@@ -1328,7 +1317,11 @@ optimize_system() {
 #              overrides. Import DOES push repo→live, to re-apply them.
 # DMS_MANUAL : not auto-regenerated; safe to round-trip in both directions.
 DMS_LIVE="$HOME/.config/niri/dms"
-DMS_REPO="$DOTS_DIR/niri/.config/niri/dms"
+# Repo side of the DMS overrides lives in the chosen dotfile set.
+_dms_repo() {
+    [[ -n "${VJ_DOTSET_DIR:-}" ]] || { warn "no dotfile set chosen — DMS overrides not synced"; return 1; }
+    DMS_REPO="$VJ_DOTSET_DIR/niri/.config/niri/dms"
+}
 DMS_MANUAL=(alttab.kdl binds.kdl cursor.kdl layout.kdl windowrules.kdl wpblur.kdl)
 DMS_AUTO=(colors.kdl)
 
@@ -1337,6 +1330,7 @@ dms_export() {
         warn "DMS live dir not found: $DMS_LIVE — skipping"
         return
     fi
+    _dms_repo || return 0
     info "Exporting DMS config: live → repo..."
     # Only DMS_MANUAL — a blanket `cp "$DMS_LIVE"/*.kdl` also drags DMS's
     # regenerated colors.kdl into the repo, silently reverting manual theme
@@ -1359,6 +1353,7 @@ dms_import() {
         warn "DMS live dir not found: $DMS_LIVE — run 'dms setup' first"
         return
     fi
+    _dms_repo || return 0
     info "Importing DMS manual overrides: repo → live..."
     # DMS_AUTO included here on purpose: DMS regenerates these live, so pushing
     # the repo's curated copy back is the only way manual theme overrides stick.
@@ -2878,25 +2873,26 @@ plan_preview() {
 
     if [[ " ${SKIP_PHASES:-} " != *" dotfiles "* ]]; then
         info "Dotfile deployment:"
-        if [[ -d "$DOTS_DIR" ]] && cd "$DOTS_DIR" 2>/dev/null; then
-            local out rc target nofold
-            for pkg in "${COMMON_STOW_PKGS[@]}" claude bkg ollama; do
-                [[ -d "$pkg" ]] || continue
-                target="$HOME"; nofold=()
-                [[ "$pkg" == ollama ]] && target=/
-                [[ "$pkg" == scripts ]] && nofold=(--no-folding)
+        if [[ -z "${VJ_DOTSET_DIR:-}" ]]; then
+            echo "      Dotfile set: none — only scripts would be linked."
+        elif cd "$VJ_DOTSET_DIR" 2>/dev/null; then
+            local out rc target
+            while IFS= read -r pkg; do
+                [[ -n "$pkg" && -d "$pkg" && "$pkg" != niri ]] || continue
+                target="$HOME"
+                [[ "$pkg" == ollama || "$pkg" == brave ]] && target=/
                 rc=0
-                out=$(stow -n --restow "${nofold[@]}" -t "$target" "$pkg" 2>&1) || rc=$?
+                out=$(stow -n --restow -t "$target" "$pkg" 2>&1) || rc=$?
                 if (( rc != 0 )); then
                     _unknown "stow probe for $pkg failed (exit $rc): $out"
                 else
                     ok "$pkg: stow simulation passed"
                 fi
-            done
+            done < <([[ -f "$VJ_PLAN_DIR/stow.list" ]] && cat "$VJ_PLAN_DIR/stow.list")
             echo "      Would link machine-specific niri files and import DMS overrides."
             $STOW_ADOPT && echo "      Would back up live AND repo files before adoption."
         else
-            _unknown "cannot read $DOTS_DIR — stow conflicts not checked"
+            _unknown "cannot read $VJ_DOTSET_DIR — stow conflicts not checked"
         fi
     fi
     if [[ " ${SKIP_PHASES:-} " != *" configure "* ]]; then

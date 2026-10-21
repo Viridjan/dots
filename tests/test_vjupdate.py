@@ -38,7 +38,9 @@ class FixtureCase(unittest.TestCase):
         self.plan_dir = self.root / "plan"
         self.plan_dir.mkdir()
         self.env["VJ_PLAN_DIR"] = str(self.plan_dir)
-        (self.plan_dir / "env").write_text("VJ_PROFILE=desktop\n")
+        # Existing tests treat the repo root as the dotfile set (the pre-dotsets layout).
+        self.env["VJ_DOTSET_DIR"] = str(self.home / "Projects/dots")
+        (self.plan_dir / "env").write_text(f"VJ_PROFILE=desktop\nVJ_DOTSET_DIR={self.env['VJ_DOTSET_DIR']}\n")
 
     def plan(self, name, content):
         path = self.plan_dir / name
@@ -112,7 +114,7 @@ update
         self.fixture_repo()
         self.conflict_mock()
         r = self.shell('''
-COMMON_STOW_PKGS=(sample)
+echo sample > "$VJ_PLAN_DIR/stow.list"
 STOW_ADOPT=true
 git() { :; }
 _stow_niri_cfg() { :; }
@@ -130,7 +132,7 @@ print_recap
         (repo / "scripts").mkdir()
         self.mock("stow", 'printf "%s\\n" "$*" >> "$CALLS"')
         r = self.shell('''
-COMMON_STOW_PKGS=(scripts sample)
+echo sample > "$VJ_PLAN_DIR/stow.list"
 git() { :; }
 _stow_niri_cfg() { :; }
 deploy_dotfiles
@@ -259,7 +261,7 @@ case " $* " in
 esac
 ''')
         r = self.shell('''
-COMMON_STOW_PKGS=(sample)
+echo sample > "$VJ_PLAN_DIR/stow.list"
 git() { :; }
 _stow_niri_cfg() { :; }
 deploy_dotfiles
@@ -1062,6 +1064,57 @@ class ActionsTests(FixtureCase):
         r = self.cli("--actions")
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("--actions needs", r.stdout + r.stderr)
+
+
+class DotsetTests(FixtureCase):
+    """Stow packages come from the chosen dotfile set; scripts always from the repo."""
+
+    def setup_set(self):
+        repo = self.home / "Projects/dots"
+        (repo / "scripts").mkdir(parents=True)
+        dotset = self.root / "set"
+        for pkg in ("alpha", "beta"):
+            (dotset / pkg).mkdir(parents=True)
+        self.plan("stow.list", "alpha\n")
+        self.mock("stow", 'printf "%s %s\\n" "$PWD" "$*" >> "$CALLS"')
+        return repo, dotset
+
+    def test_deploy_stows_selected_set_packages_and_scripts(self):
+        repo, dotset = self.setup_set()
+        r = self.shell(f'git() {{ :; }}\nVJ_DOTSET_DIR={shlex.quote(str(dotset))}\ndeploy_dotfiles')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        calls = Path(self.env["CALLS"]).read_text().splitlines()
+        self.assertIn(f"{repo} --restow --no-folding -t {self.home} scripts", calls)
+        self.assertIn(f"{dotset} --restow -t {self.home} alpha", calls)
+        self.assertFalse(any("beta" in c for c in calls), calls)
+
+    def test_dotset_none_links_only_scripts(self):
+        repo, _ = self.setup_set()
+        r = self.shell('git() { :; }\nVJ_DOTSET_DIR=""\ndeploy_dotfiles')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        calls = Path(self.env["CALLS"]).read_text().splitlines()
+        self.assertEqual(calls, [f"{repo} --restow --no-folding -t {self.home} scripts"])
+
+    def test_niri_links_point_into_set_and_profile_dir(self):
+        dotset = self.root / "set"
+        (dotset / "niri/.config/niri").mkdir(parents=True)
+        (dotset / "niri/.config/niri/config.kdl").write_text("main")
+        (dotset / "surface/.config/niri/cfg").mkdir(parents=True)
+        (dotset / "surface/.config/niri/cfg/display.kdl").write_text("disp")
+        r = self.shell(f'VJ_DOTSET_DIR={shlex.quote(str(dotset))}\nMACHINE=surface\n_stow_niri_cfg')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        live = self.home / ".config/niri"
+        self.assertEqual(Path(os.readlink(live / "config.kdl")), dotset / "niri/.config/niri/config.kdl")
+        self.assertEqual(Path(os.readlink(live / "cfg/display.kdl")), dotset / "surface/.config/niri/cfg/display.kdl")
+
+    def test_dms_sync_without_dotset_warns_and_copies_nothing(self):
+        live = self.home / ".config/niri/dms"
+        live.mkdir(parents=True)
+        (live / "binds.kdl").write_text("live")
+        r = self.shell('VJ_DOTSET_DIR=""\ndms_import; dms_export')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(r.stdout.count("no dotfile set"), 2, r.stdout)
+        self.assertEqual((live / "binds.kdl").read_text(), "live")
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 import unittest
 
-SCRIPT = Path(__file__).resolve().parents[1] / "claude/.claude/topic-statusline.sh"
+SCRIPT = Path(__file__).resolve().parents[1] / "dotsets/viridjan/claude/.claude/topic-statusline.sh"
 
 
 class TopicStatuslineTests(unittest.TestCase):

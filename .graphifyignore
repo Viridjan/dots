@@ -1,4 +1,4 @@
 # Noise for the knowledge graph: Vesktop's cached React DevTools extension
-vesktop/.config/vesktop/ExtensionCache/
+dotsets/*/vesktop/.config/vesktop/ExtensionCache/
 # Vendored copy of graphify's own skill docs
-claude/.claude/skills/graphify/
+dotsets/*/claude/.claude/skills/graphify/
