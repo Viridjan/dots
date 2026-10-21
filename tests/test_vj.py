@@ -177,5 +177,44 @@ class ResolveTests(Tmp):
         self.assertEqual(env, "[]")
 
 
+class PlanCommandTests(Tmp):
+    def run_plan(self, host, cfg_text=None):
+        if cfg_text is not None:
+            self.cfg_path.parent.mkdir(exist_ok=True)
+            self.cfg_path.write_text(cfg_text)
+        env = {**os.environ, "VJ_CONFIG": str(self.cfg_path), "VJ_DOTS": str(self.dots),
+               "HOSTNAME": host, "PYTHONPATH": str(ROOT)}
+        out = self.root / "plan"
+        r = subprocess.run([sys.executable, "-B", "-m", "vj", "plan", str(out)],
+                           env=env, capture_output=True, text=True)
+        return r, out
+
+    def profile_of(self, out):
+        return subprocess.run(["bash", "-c", f'source "{out}/env"; echo "$VJ_PROFILE $VJ_DOTSET"'],
+                              capture_output=True, text=True).stdout.strip()
+
+    def test_hostname_match_without_config(self):
+        r, out = self.run_plan("my-surface-pro")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.profile_of(out), "surface mine")
+
+    def test_config_wins_over_hostname(self):
+        r, out = self.run_plan("my-surface-pro", 'profile = "desktop"\ndotset = "none"\n')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.profile_of(out), "desktop none")
+
+    def test_invalid_config_falls_back_to_hostname(self):
+        r, out = self.run_plan("desktop", 'profile = "deleted"\ndotset = "mine"\n')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.profile_of(out), "desktop mine")
+
+    def test_unknown_host_without_config_fails_clearly(self):
+        r, out = self.run_plan("friends-laptop")
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("no profile for host 'friends-laptop'", r.stderr)
+        self.assertIn("run 'vj'", r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
