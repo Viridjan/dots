@@ -7,7 +7,10 @@
 #      links disappear from PATH);
 #   2. bring the checkout to origin/main with `reset --hard` — this also covers
 #      the 2026-08-15 history rewrite, after which a plain pull cannot work;
-#   3. re-stow scripts (--no-folding) and the machine package, validate niri.
+#   3. relink dotfiles from the 2026-10-21 layout (dotsets/viridjan/): drop
+#      links into the old <repo>/<pkg>/ paths, write the vj config
+#      (profile = this machine), run `vjupdate --actions stow-symlinks`
+#      (asks for sudo for the /etc packages), validate niri.
 #
 # Nothing is lost: local commits get a backup branch, uncommitted work is
 # stashed. Run from a copy outside the repo, since step 2 rewrites the repo:
@@ -20,7 +23,7 @@ set -euo pipefail
 
 DOTS="${DOTS:-$HOME/Projects/dots}"
 BIN="$HOME/.local/bin"
-KEEP=" vjupdate start-windows start-open-notebook start-keep "
+KEEP=" vjupdate vj start-windows start-open-notebook start-keep "
 YES=false
 [[ "${1:-}" == -y ]] && YES=true
 
@@ -129,10 +132,32 @@ else
     ok "nothing to do"
 fi
 
-# ── 5. Re-stow ───────────────────────────────────────────────────────────────
-step "Re-stowing scripts and $MACHINE"
+# ── 5. Relink dotfiles from dotsets/viridjan ─────────────────────────────────
+step "Relinking dotfiles (dotsets/viridjan, profile $MACHINE)"
+# After the reset, links into the old layout (<repo>/<pkg>/...) dangle; stow
+# refuses to replace links it does not own, so remove exactly those first.
+n=0
+while IFS= read -r -d '' l; do
+    case "$(readlink "$l")" in *Projects/dots/dotsets/*) continue ;; esac
+    rm -- "$l"; n=$((n + 1))
+done < <(find "$HOME" -maxdepth 5 -path "$HOME/Projects" -prune -o -xtype l -lname '*Projects/dots/*' -print0 2>/dev/null)
+ok "removed $n dangling links into the old layout"
+for l in /etc/brave /etc/systemd/system/ollama.service.d; do
+    if [[ -L "$l" && ! -e "$l" ]]; then
+        sudo rm -- "$l" && ok "removed dangling $l" || warn "could not remove $l"
+    fi
+done
+CFG="${XDG_CONFIG_HOME:-$HOME/.config}/vjupdate/config.toml"
+if [[ -f "$CFG" ]]; then
+    ok "vj config exists: $CFG"
+else
+    mkdir -p "$(dirname "$CFG")"
+    printf 'profile = "%s"\ndotset = "viridjan"\n' "$MACHINE" > "$CFG"
+    ok "wrote $CFG (profile $MACHINE, dotset viridjan)"
+fi
 stow --no-folding --restow -t "$HOME" scripts && ok "scripts" || warn "stow scripts reported conflicts"
-stow --restow -t "$HOME" "$MACHINE" && ok "$MACHINE" || warn "stow $MACHINE reported conflicts"
+"$DOTS/scripts/.local/bin/vjupdate" --actions stow-symlinks \
+    && ok "dotfiles linked" || warn "vjupdate --actions stow-symlinks reported problems (see its recap)"
 
 # ── 6. niri ──────────────────────────────────────────────────────────────────
 step "Validating niri config"
@@ -155,10 +180,12 @@ fail=0
 [[ "$(readlink -f "$BIN/vjupdate")" == "$DOTS/scripts/.local/bin/vjupdate" ]] \
     && ok "vjupdate links into the repo" || { warn "vjupdate link wrong"; fail=1; }
 dangling=$(find "$BIN" -maxdepth 1 -xtype l -printf '%f ' 2>/dev/null)
+old=$(find "$HOME" -maxdepth 5 -path "$HOME/Projects" -prune -o -xtype l -lname '*Projects/dots/*' -print 2>/dev/null | head -5)
+[[ -z "$old" ]] && ok "no dangling dotfile links" || { warn "dangling dotfile links remain: $old"; fail=1; }
 [[ -z "$dangling" ]] && ok "no dangling links in ~/.local/bin" || warn "dangling (pre-existing? remove if unused): $dangling"
 [[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]] \
     && ok "checkout = origin/main ($(git log -1 --format=%h))" || { warn "checkout differs from origin/main"; fail=1; }
-leftover=$(git ls-files scripts/.local/bin | grep -v -E '/(vjupdate|start-windows|start-open-notebook|start-keep)$' || true)
+leftover=$(git ls-files scripts/.local/bin | grep -v -E '/(vjupdate|vj|start-windows|start-open-notebook|start-keep)$' || true)
 [[ -z "$leftover" ]] && ok "no installer links tracked" || { warn "unexpected tracked files: $leftover"; fail=1; }
 
 echo

@@ -3,11 +3,18 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 GNU Stow dotfiles for CachyOS + niri. All config files live here and are
-symlinked into `$HOME` via stow.
+symlinked into `$HOME` via stow. `vj` (Textual TUI, `vj/`) drives `vjupdate`
+(bash backend). Machines are **profiles** (`profiles/*.toml`), configs are
+**dotfile sets** (`dotsets/<name>/`), per-machine choices live in
+`~/.config/vjupdate/config.toml` (not in git). Design:
+`docs/superpowers/specs/2026-10-21-vjupdate-tui-design.md`.
 
 ## Commands
 
 ```bash
+vj                                                                # the TUI (needs python-textual)
+python3 -B -m vj plan /tmp/plan                                   # write the run plan vjupdate reads
+vjupdate --actions sources,install                                # run menu IDs without a menu (what vj does)
 python3 -B -m unittest discover -s tests -v                      # all tests (mocked; no system changes)
 python3 -B -m unittest tests.test_vjupdate.HoldTests             # one class
 python3 -B -m unittest tests.test_vjupdate.HoldTests.test_upgrade_holds_on_first_attempt_and_retry
@@ -38,39 +45,79 @@ Memory and project context are scoped to the working directory at launch. Openin
 
 ```
 dots/
-  alacritty/      → ~/.config/alacritty/
-  brave/          → /etc/brave/policies/managed/  (Brave managed policy; stow -t /)
-  claude/         → ~/.claude/  (settings.json, keybindings.json, statusline.sh + segment scripts)
-  DankMaterialShell/ → ~/.config/DankMaterialShell/
-  desktop/        → ~/.config/niri/cfg/display.kdl + input.kdl + surface-layout.kdl  (tower only)
-  fish/           → ~/.config/fish/  (Arch logo override for fastfetch — see fish_greeting in config.fish)
-  fonts/          → ~/.local/share/fonts/  (user fonts)
-  gtk-3.0/        → ~/.config/gtk-3.0/
-  gtk-4.0/        → ~/.config/gtk-4.0/
-  micro/          → ~/.config/micro/
-  mpd/            → ~/.config/mpd/  (Music Player Daemon config)
-  mimeapps/       → ~/.config/mimeapps.list
-  niri/           → ~/.config/niri/  (common kdl files, cfg/ minus display+input+surface-layout)
-  paru/           → ~/.config/paru/
-  qt5ct/          → ~/.config/qt5ct/
-  qt6ct/          → ~/.config/qt6ct/
-  scripts/        → ~/.local/bin/  (vjupdate, start-windows, start-open-notebook, start-keep; stowed --no-folding)
+  packages.toml   ← package lists shared by every profile: [paru] install/remove/hold/skip, [flatpak] install
+  profiles/       ← one TOML per machine type: description, hostname match, default dotset,
+                    features (switches read by vjupdate's _has_feature), [paru]/[flatpak] install
+  projects.toml   ← [[repo]] name/url cloned into ~/Projects by the sources phase
+  build-times.tsv ← committed timing history: aur:<pkg>, @pacman-per-pkg, @flatpak-per-pkg (seconds)
+  vj/             ← Python: config.py (repo + local config), resolve.py (lists, estimates, run plan),
+                    state.py (everything the TUI shows/changes), ui.py (Textual), __main__.py (CLI)
+  dotsets/
+    viridjan/     ← my dotfile set; every subdir is a stow package except profile-named dirs:
+      alacritty/      → ~/.config/alacritty/
+      brave/          → /etc/brave/policies/managed/  (Brave managed policy; stow -t /)
+      claude/         → ~/.claude/  (settings.json, keybindings.json, statusline.sh + segment scripts)
+      DankMaterialShell/ → ~/.config/DankMaterialShell/
+      desktop/        → ~/.config/niri/cfg/{display,input,autostart-machine,surface-layout}.kdl (profile desktop; ln, not stow)
+      fish/           → ~/.config/fish/  (Arch logo override for fastfetch — see fish_greeting in config.fish)
+      fonts/          → ~/.local/share/fonts/  (user fonts)
+      gtk-3.0/ gtk-4.0/ micro/ paru/ qt5ct/ qt6ct/ VSCodium/ → ~/.config/<same>/
+      mpd/            → ~/.config/mpd/  (deployed since 2026-10-21; was never in the old stow list)
+      mimeapps/       → ~/.config/mimeapps.list
+      niri/           → ~/.config/niri/  (file-level links, see below)
+      spotify-player/ → ~/.config/spotify-player/  (app.toml + keymap.toml)
+      surface/        → same files as desktop/, for profile surface
+      vesktop/        → ~/.config/vesktop/  (settings.json + settings/)
+      cave/           → ~/.cave/  (Cave AI agent config + ollama extension)
+      caveman/        → ~/.config/caveman/  (caveman plugin defaultMode = ultra)
+      ollama/         → /etc/systemd/system/ollama.service.d/  (ROCm drop-in; stow -t /)
+  scripts/        → ~/.local/bin/  (vjupdate, vj, start-windows, start-open-notebook, start-keep; stowed --no-folding,
+                    always from the repo root — tooling, not part of a dotfile set)
                   + ~/.local/share/applications/  (.desktop launchers)
-  spotify-player/ → ~/.config/spotify-player/  (app.toml + keymap.toml)
-  surface/        → ~/.config/niri/cfg/display.kdl + input.kdl + surface-layout.kdl  (Surface Pro 9 only)
-  vesktop/        → ~/.config/vesktop/  (settings.json + settings/)
-  VSCodium/       → ~/.config/VSCodium/
-  cave/           → ~/.cave/  (Cave AI agent config + ollama extension)
-  caveman/        → ~/.config/caveman/  (caveman plugin defaultMode = ultra)
-  ollama/         → /etc/systemd/system/ollama.service.d/  (ROCm drop-in; stow -t /)
   windows/        ← NOT a stow package — Docker Compose for Windows 11 VM (dockur/windows, port 8006)
   .githooks/      ← NOT a stow package — git hooks; registered via core.hooksPath
-  tests/          ← NOT a stow package — vjupdate unittest suite (mocked system commands)
+  tests/          ← NOT a stow package — vjupdate + vj unittest suites (mocked system commands)
+  docs/superpowers/ ← specs and plans
   graphify-out/   ← NOT a stow package — tracked /graphify knowledge graph; corpus filter in .graphifyignore
-  surface-sync.sh ← TEMPORARY one-shot Surface catch-up; delete once TODO.md's checklist is ticked
+  surface-sync.sh ← TEMPORARY one-shot Surface catch-up (unfold ~/.local/bin, reset, relink from dotsets/); delete once TODO.md's checklist is ticked
 ```
 
-`niri` uses **file-level symlinks** — the `cfg/` and `dms/` directories are real, but individual `.kdl` files are symlinked. `scripts` is stowed `--no-folding`: `~/.local/bin` is a real directory with per-file links to the 4 tracked scripts, so installers (npm -g, uv, codex, AppImages) write there and never into the repo. All other packages use directory-level symlinks.
+Paths like `niri/.config/niri/…`, `desktop/…`, `claude/…` further down are
+relative to `dotsets/viridjan/` (moved there 2026-10-21).
+
+### Profiles, dotfile sets, local config (2026-10-21)
+
+- **Run plan.** `python3 -m vj plan DIR` resolves `packages.toml` + profile +
+  local config into `paru-install.list paru-remove.list paru-hold.list
+  paru-skip.list flatpak-install.list projects.list stow.list env`. vjupdate
+  reads only these (`VJ_PLAN_DIR`). vj passes its own plan; a standalone
+  `vjupdate` builds a temporary one (`_ensure_plan`), choosing the profile from
+  `config.toml`, else the profile whose `hostname` is a substring of the host,
+  else dies with "run 'vj'". `env` sets `VJ_PROFILE` (= `MACHINE`),
+  `VJ_DOTSET_DIR` (empty for `none`), `VJ_FEATURES`.
+- **Resolution:** install = packages.toml + profile + local add − local remove
+  − declined − skip. Declined ≠ removed: only `[paru].remove` (repo) and local
+  `x` marks are force-removed (`pacman -Rdd`).
+- **Features** replace every old `MACHINE == desktop|surface` check:
+  `linux-surface`, `desktop-services`, `cpu-performance`, `amd-gpu-tuning`,
+  `ollama-model`, `windows-vm`. New machine-dependent behaviour → new feature
+  name in the profile + `_has_feature <name>` in vjupdate.
+- **Stow** deploys `stow.list` (vj's Dotfiles ticks, default every package in
+  the set) from `VJ_DOTSET_DIR`; `scripts` always from the repo root. Dotset
+  `none` → only `scripts`; DMS import/export warn and skip.
+- **`--actions A,B`** runs exactly those menu IDs (same IDs as `_menu_catalog`),
+  no menu; unknown IDs die. `_record` also appends `name\tstate` to
+  `VJ_RESULT_FILE`; configure actions record `action:<id> ok` via `_act`, which
+  vj uses to stamp one-time tasks.
+- **Local config** keys: `profile`, `dotset`, `[paru]/[flatpak] add/remove`,
+  `[declined]`, `[once]` (date or "skip"), `[last]` (maint/repos/dotfiles
+  ticks). Saved atomically on every change. Override path with `VJ_CONFIG`.
+- **Adding a friend:** `profiles/<name>.toml` for their hardware and/or
+  `dotsets/<name>/` with their stow packages (+ `<profile>/` dirs for niri
+  machine files). `.gitignore` secret rules use `dotsets/*/`, so they apply to
+  every set.
+
+`niri` uses **file-level symlinks** — the `cfg/` and `dms/` directories are real, but individual `.kdl` files are symlinked. `scripts` is stowed `--no-folding`: `~/.local/bin` is a real directory with per-file links to the 5 tracked scripts (incl. `vj`), so installers (npm -g, uv, codex, AppImages) write there and never into the repo. All other packages use directory-level symlinks.
 
 Before 2026-09-25 `~/.local/bin` was a folded link into `scripts/.local/bin/`, so every installer wrote into the repo. One-time migration per machine (on the Surface: run it **before** `git pull`, since the pull deletes the tracked installer links it still serves from PATH):
 ```bash
@@ -90,12 +137,9 @@ mv -n -- "$T"/* ~/.local/bin/ && rmdir "$T"
 EOF
 ```
 
-`claude` requires `stow --adopt` (absorbs existing real files):
-```bash
-stow --adopt --restow -t ~ claude
-```
+`claude` may need `vjupdate --adopt` on a fresh machine (absorbs existing real files, backing them up first).
 
-`desktop` and `surface` are mutually exclusive — stow only the one matching the machine hostname. Machine profile is detected from `hostname`: must contain `desktop` or `surface`.
+`desktop/` and `surface/` inside a set are not stow packages: `_stow_niri_cfg` links the files of the dir named after the active profile.
 
 ## Niri config structure
 
@@ -253,20 +297,16 @@ vjupdate --app-launchers
 # are stamp names, throttled by _needs_run, not phases.
 SKIP_PHASES="sources install dotfiles configure audit" vjupdate
 
-# Re-apply all packages at once
-cd ~/Projects/dots && stow --restow -t ~ alacritty cave caveman DankMaterialShell fish \
-    fonts gtk-3.0 gtk-4.0 micro mimeapps mpd paru qt5ct qt6ct spotify-player vesktop VSCodium
-stow --no-folding --restow -t ~ scripts   # keeps ~/.local/bin a real dir
-stow --adopt --restow -t ~ claude
-stow --restow -t ~ desktop   # or: surface
-sudo stow --restow -t / ollama   # systemd drop-in; needs root target
-sudo stow --restow -t / brave    # managed policy; needs root target
+# Re-apply all packages at once (scripts, the chosen set incl. niri links + /etc packages)
+vjupdate --actions stow-symlinks
 
-# Re-apply one package after adding files
-cd ~/Projects/dots && stow --restow -t ~ <pkg>
+# By hand
+cd ~/Projects/dots && stow --no-folding --restow -t ~ scripts   # keeps ~/.local/bin a real dir
+cd ~/Projects/dots/dotsets/viridjan && stow --restow -t ~ <pkg>
+sudo stow -d ~/Projects/dots/dotsets/viridjan --restow -t / ollama brave   # root target
 
 # Remove a package
-cd ~/Projects/dots && stow -D -t ~ <pkg>
+cd ~/Projects/dots/dotsets/viridjan && stow -D -t ~ <pkg>
 ```
 
 `niri` is not stowed — DMS owns `~/.config/niri/`. Re-run `vjupdate` to refresh symlinks.
@@ -275,23 +315,23 @@ cd ~/Projects/dots && stow -D -t ~ <pkg>
 
 ```bash
 # 1. Create package structure mirroring the target path
-mkdir -p ~/Projects/dots/<pkg>/.config/<pkg>
+mkdir -p ~/Projects/dots/dotsets/viridjan/<pkg>/.config/<pkg>
 
 # 2. Copy live config into the package
-cp -r ~/.config/<pkg>/. ~/Projects/dots/<pkg>/.config/<pkg>/
+cp -r ~/.config/<pkg>/. ~/Projects/dots/dotsets/viridjan/<pkg>/.config/<pkg>/
 
 # 3. Remove the real directory so stow can create the symlink
 rm -rf ~/.config/<pkg>
 
 # 4. Stow it
-cd ~/Projects/dots && stow -t ~ <pkg>
+cd ~/Projects/dots/dotsets/viridjan && stow -t ~ <pkg>
 ```
 
-Result: `~/.config/<pkg>` becomes a directory symlink into the repo. App writes go directly into the repo from then on.
+Result: `~/.config/<pkg>` becomes a directory symlink into the repo. App writes go directly into the repo from then on. vjupdate deploys every dir in the set unless unticked in vj → Dotfiles.
 
 ## Package lists and project cloning
 
-`projects.list` — list of git repos (SSH URLs) cloned into `~/Projects/` during the `clone_projects` bootstrap phase. Add new repos here to have them auto-cloned on fresh installs.
+`projects.toml` — `[[repo]]` entries (name + SSH URL) cloned into `~/Projects/` during the `clone_projects` bootstrap phase (missing ones only; vj → Git repositories selects which).
 
 `TODO.md` — pending work tracked in the repo (manual-confirm checklists for other-machine work, pending package migrations).
 
@@ -300,17 +340,17 @@ unless the name is on the malware blocklist: install aborts if any listed packag
 appears in `~/.local/share/aur-malware-check/data/campaigns/*/packages*.txt`
 (refreshed each run; e.g. `alvr`, hijacked June 2026). Check new AUR names there first.
 
-Package management uses flat text files (one package per line, `#` comments):
+Package lists are TOML (`#` comments inside the arrays are fine):
 
-| File | Purpose |
+| Where | Purpose |
 |---|---|
-| `.paru-S-common.list` | Installed on both machines |
-| `.paru-S-desktop.list` | Desktop-only packages |
-| `.paru-S-surface.list` | Surface Pro 9-only packages |
-| `.paru-R.list` | Packages force-removed before install (conflict resolution) |
-| `.paru-skip.list` | Packages skipped by install + audit even if listed above (edit by hand) |
-| `.paru-hold.list` | Packages installed normally but excluded from automatic upgrades and rebuilds |
-| `.flatpak-S.list` | Flatpak apps |
+| `packages.toml` `[paru].install` | Installed on every profile |
+| `profiles/<name>.toml` `[paru].install` / `[flatpak].install` | Profile-only packages |
+| `packages.toml` `[paru].remove` | Force-removed (`pacman -Rdd`) before install (conflict resolution) |
+| `packages.toml` `[paru].skip` | Skipped by install + audit even if listed above |
+| `packages.toml` `[paru].hold` | Installed normally but excluded from automatic upgrades and rebuilds |
+| `packages.toml` `[flatpak].install` | Flatpak apps |
+| `~/.config/vjupdate/config.toml` | This machine's add/remove/declined (vj writes it) |
 | `.dms-plugins.list` | DankMaterialShell plugins |
 | `.install-scripts.list` | Scripts run during bootstrap |
 
@@ -340,7 +380,7 @@ If tracked bloat is ever found again, the two-step fix is `git rm -r --cached` +
 start-windows   # starts Windows 11 VM, opens noVNC at http://localhost:8006
 ```
 
-Opens Chromium `--app` at 75% of screen size (100% on Surface). Window size is machine-aware via `hostname`.
+Opens Chromium `--app` at 75% of screen size (100% on Surface). Window size is machine-aware via `hostname` (start-windows, not the vj profile).
 
 **Windows storage**: VM disk lives at `/mnt/data/windows-vm-storage` (symlinked to `windows/storage`) — kept on the data partition to avoid filling root.
 
@@ -366,7 +406,7 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   preserve those escapes when writing bind entries. Ownership options use the
   selected user's actual UID/GID rather than assuming 1000.
 
-- **Held packages.** `.paru-hold.list` excludes named packages from system
+- **Held packages.** `[paru].hold` (packages.toml) excludes named packages from system
   upgrades (including retries) and both rebuild paths. First installation is
   unchanged. Audit and update runs warn about pending held AUR updates with
   review and manual upgrade commands; dry runs list the holds.
@@ -449,8 +489,10 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   printed by `_estimate_aur_builds` before each `_syuu`. It sums past build durations for pending `paru -Qua` upgrades (holds excluded)
   and names packages with no history. `_syuu` runs paru with `LC_TIME=C` so
   makepkg's `%c` timestamps parse; `_record_build_times` stores the first
-  `Making package` → `Finished making` span per package (latest wins) in
-  `~/.local/state/dots/aur-build-times.tsv`, including from failed runs.
+  `Making package` → `Finished making` span per package (latest wins) as
+  `aur:<pkg>` in the repo's `build-times.tsv`, including from failed runs.
+  `_install_list` / the flatpak loop also record `@pacman-per-pkg` /
+  `@flatpak-per-pkg` (one average per call). Commit the file to share history.
 - **Exit status is meaningful.** Phases record ok/fail/skip; `print_recap`
   prints the table and returns non-zero if anything failed. Unexpected phase
   failures abort and print a recap through the runtime ERR trap. Never wrap

@@ -32,11 +32,13 @@ cd ~/Projects/dots && bash scripts/.local/bin/vjupdate
 ```
 
 `vjupdate` does everything:
-- installs common + machine-specific packages via paru
-- deploys all dotfiles via stow (machine profile auto-detected from hostname)
-- installs flatpak emulators
+- installs the package lists for the machine's profile via paru / flatpak
+- deploys the chosen dotfile set via stow (profile auto-detected from hostname
+  until you pick one in `vj`)
 - enables systemd services
 - sets up Claude Code plugins
+
+Afterwards, use `vj` (see below) for day-to-day maintenance.
 
 ### 4. Manual steps (after the script)
 
@@ -71,6 +73,43 @@ cd ~/Projects/dots/windows && docker compose up -d
 **Surface only:**
 - Enroll the linux-surface Secure Boot MOK key so the kernel boots with Secure Boot on
 - Follow: https://github.com/linux-surface/linux-surface/wiki/Installation-and-Setup
+
+---
+
+## vj — terminal UI
+
+```bash
+vj        # needs python-textual (in packages.toml)
+```
+
+One screen. Each menu row shows what will happen, on the same line:
+
+```
+Maintenance actions     │ run 9 of 12 actions
+Packages                │ install 1 package < 10 s · 1 declined
+Git repositories        │ clone missing · 8 of 8 repos
+Dotfiles                │ link 21 of 21 from viridjan
+One-time setup          │ 14 never run
+DMS & Git               │ nothing
+Profile / dotfile set   │ desktop · viridjan
+▶ Run                   │ press r · install time < 10 s (upgrades/actions extra)
+```
+
+Enter opens a submenu below the menu (Space ticks, `/` filters, `a` all,
+`n` none, `d` repo defaults, Esc closes). `r` runs everything selected by
+handing the terminal to `vjupdate --actions …`; `q` quits.
+
+- **Profiles** (`profiles/<name>.toml`): hardware + package lists + feature
+  switches. `desktop` and `surface` ship; add a file for another machine.
+- **Dotfile sets** (`dotsets/<name>/`): stow packages. `viridjan` is mine; a
+  friend adds `dotsets/<their-name>/` with the same shape and picks it in vj.
+  `none` = don't touch dotfiles.
+- **Local config** `~/.config/vjupdate/config.toml` (not in git): chosen
+  profile/set, your own extra packages (`+` in Packages) and removals (`x`,
+  force-removed with `pacman -Rdd`), declined packages (unticked once, never
+  pre-ticked again), one-time tasks done/skipped (`D` / `s`), last selections.
+- **Times**: package estimates come from `build-times.tsv` (committed): green
+  < 10 s, yellow < 1 min, orange longer; `?` = no history yet.
 
 ---
 
@@ -123,14 +162,18 @@ does nothing, so commits still work on a fresh clone.
 After pulling new changes from this repo:
 
 ```bash
-cd ~/Projects/dots
+vjupdate --actions stow-symlinks     # or tick "Refresh configuration links" in vj
+```
+
+By hand (packages live in the dotfile set, `scripts` at the repo root):
+
+```bash
+cd ~/Projects/dots && stow --no-folding --restow -t ~ scripts   # keeps ~/.local/bin a real dir
+cd ~/Projects/dots/dotsets/viridjan
 stow --restow -t ~ alacritty DankMaterialShell fish fonts gtk-3.0 gtk-4.0 \
-     micro mimeapps mpd paru qt5ct qt6ct spotify-player vesktop VSCodium
-stow --no-folding --restow -t ~ scripts   # keeps ~/.local/bin a real dir
-stow --adopt --restow -t ~ claude   # --adopt absorbs existing real files
-stow --restow -t ~ desktop          # or: surface
-# niri is NOT stowed — it uses file-level symlinks (DMS owns ~/.config/niri/).
-# Re-run vjupdate to refresh them.
+     micro mimeapps mpd paru qt5ct qt6ct spotify-player vesktop VSCodium claude
+# niri is NOT stowed — it uses file-level symlinks (DMS owns ~/.config/niri/),
+# including the machine files from dotsets/viridjan/<profile>/. Re-run vjupdate.
 ```
 
 `-t ~` is required: the repo lives at `~/Projects/dots`, so stow's default target
@@ -265,32 +308,33 @@ niri machine profiles also passed validation.
 
 ```bash
 # 1. Create the package structure
-mkdir -p ~/Projects/dots/<pkg>/.config/<pkg>
+mkdir -p ~/Projects/dots/dotsets/viridjan/<pkg>/.config/<pkg>
 
 # 2. Copy the live config into the package
-cp -r ~/.config/<pkg>/. ~/Projects/dots/<pkg>/.config/<pkg>/
+cp -r ~/.config/<pkg>/. ~/Projects/dots/dotsets/viridjan/<pkg>/.config/<pkg>/
 
 # 3. Remove the real directory so stow can create a clean symlink
 rm -rf ~/.config/<pkg>
 
 # 4. Stow it
-cd ~/Projects/dots && stow -t ~ <pkg>
+cd ~/Projects/dots/dotsets/viridjan && stow -t ~ <pkg>
 ```
 
-Result: `~/.config/<pkg>` becomes a directory-level symlink to `~/Projects/dots/<pkg>/.config/<pkg>`.
+Result: `~/.config/<pkg>` becomes a directory-level symlink to `~/Projects/dots/dotsets/viridjan/<pkg>/.config/<pkg>`.
+vjupdate picks up every folder in the set automatically (untick it in vj → Dotfiles to skip).
 Any file the app writes inside it will land directly in the repo.
 
 ### Add files to an existing package (e.g. a new subdir)
 
 ```bash
 # 1. Copy the new files/dir into the existing package
-cp -r ~/.config/<pkg>/<subdir> ~/Projects/dots/<pkg>/.config/<pkg>/<subdir>
+cp -r ~/.config/<pkg>/<subdir> ~/Projects/dots/dotsets/viridjan/<pkg>/.config/<pkg>/<subdir>
 
 # 2. Remove the real copy
 rm -rf ~/.config/<pkg>/<subdir>
 
 # 3. Restow the package to pick up the new entries
-cd ~/Projects/dots && stow --restow -t ~ <pkg>
+cd ~/Projects/dots/dotsets/viridjan && stow --restow -t ~ <pkg>
 ```
 
 (`niri` is the exception — its `dms/` dir is owned by DMS and is not stowed.)
@@ -303,8 +347,8 @@ by an app goes directly into the repo. Just `git add` and commit.
 ### Remove a package from stow (stop tracking it)
 
 ```bash
-cd ~/Projects/dots && stow -D -t ~ <pkg>   # removes symlinks, leaves real files in ~/Projects/dots
-rm -rf ~/Projects/dots/<pkg>          # optionally delete from repo too
+cd ~/Projects/dots/dotsets/viridjan && stow -D -t ~ <pkg>   # removes symlinks, leaves real files in ~/Projects/dots
+rm -rf ~/Projects/dots/dotsets/viridjan/<pkg>          # optionally delete from repo too
 ```
 
 ### Verify symlinks are healthy
@@ -322,6 +366,9 @@ bash scripts/.local/bin/vjupdate
 ---
 
 ## Packages
+
+Stow packages of the `viridjan` dotfile set (`dotsets/viridjan/<pkg>/`); `scripts` lives at the repo root.
+Package *lists* (what gets installed) are in `packages.toml` and `profiles/<name>.toml`.
 
 | Package | What it stows |
 |---|---|
@@ -345,10 +392,10 @@ bash scripts/.local/bin/vjupdate
 | `fonts` | `~/.local/share/fonts/` — user fonts (Luminari) |
 | `mpd` | `~/.config/mpd/mpd.conf` |
 | `spotify-player` | `~/.config/spotify-player/keymap.toml` |
-| `scripts` | `~/.local/bin/{vjupdate,start-windows,start-open-notebook,start-keep}` + `.desktop` launchers — stowed `--no-folding`, so installers own the rest of `~/.local/bin` |
+| `scripts` | `~/.local/bin/{vjupdate,vj,start-windows,start-open-notebook,start-keep}` + `.desktop` launchers — stowed `--no-folding`, so installers own the rest of `~/.local/bin` |
 
 **niri note:** `cfg/display.kdl`, `cfg/input.kdl`, and `cfg/surface-layout.kdl` are NOT in the `niri` package —
-they come from `desktop/` or `surface/` depending on the machine.
+they come from `dotsets/viridjan/desktop/` or `…/surface/`, matching the profile name.
 The `dms/` directory is auto-generated by `dms setup` and not tracked.
 
 ---
@@ -469,7 +516,7 @@ the interactive menu). It applies steps 1–5 below idempotently: CPU governor,
 disabling NetworkManager-wait-online, masking lvm2-monitor, the rate-mirrors 2h
 delay, and the AMD GPU performance udev rule. Steps 7 (EFI cleanup) and 8 (greetd
 autologin) stay manual — EFI needs review, autologin conflicts with the DMS
-greeter. Output mode/VRR is set in `desktop/.config/niri/cfg/display.kdl`
+greeter. Output mode/VRR is set in `dotsets/viridjan/desktop/.config/niri/cfg/display.kdl`
 (`mode "3440x1440@165"`, VRR omitted entirely = off), which is the **only**
 `output` block in the config tree — DankMaterialShell's auto-detected
 `dms/outputs.kdl` is deliberately **not** included. Include order does not

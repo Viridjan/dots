@@ -6,7 +6,10 @@
 ## Run `surface-sync.sh` on the Surface — confirm manually
 
 One-time catch-up for the Surface clone (unfolds `~/.local/bin`, resets to
-origin/main incl. the 2026-08-15 history rewrite, re-stows, validates niri).
+origin/main incl. the 2026-08-15 history rewrite, relinks dotfiles from the
+2026-10-21 `dotsets/viridjan/` layout, writes `~/.config/vjupdate/config.toml`
+with `profile = "surface"`, validates niri). It asks for sudo for `/etc/brave`
+and the ollama drop-in.
 Run it from a copy outside the repo:
 
 ```bash
@@ -19,6 +22,8 @@ Confirm each box by hand:
 - [ ] `~/.local/bin` is a real directory; `codex`, `uv`, `graphify`, … still run
 - [ ] `git log -1` matches the desktop's HEAD
 - [ ] niri reloaded, windows look normal
+- [ ] `vj` opens, menu shows `surface · viridjan`; `readlink ~/.config/alacritty/alacritty.toml` points into `dotsets/viridjan`
+- [ ] Optional: `sudo pacman -S python-textual` if `vj` says Textual is missing
 - [ ] Backup branch `pre-sync-backup-*` / stash `surface-sync *` (if created) checked, then dropped
 - [ ] Desktop micro still highlights `.sh` / `.py` files
 - [ ] Then: `git rm surface-sync.sh`, delete this section, clear the pending notes in Claude memory,
