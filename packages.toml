@@ -147,6 +147,8 @@ install = [
 
     # CLI tools
     # jq: used by the Claude Code statusline segments (model, topic, dir)
+    # python-textual: the vj terminal UI (scripts/.local/bin/vj)
+    "python-textual",
     "jq",
     "ripgrep",
     "btop",

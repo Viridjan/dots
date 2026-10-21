@@ -11,19 +11,12 @@ def repo_root() -> Path:
     return Path(os.environ["VJ_DOTS"]) if os.environ.get("VJ_DOTS") else config.DOTS
 
 
-def host_profile(repo, host: str):
-    for name, prof in repo.profiles.items():
-        if prof.get("hostname") and prof["hostname"] in host:
-            return name
-    return None
-
-
 def plan(outdir: str) -> int:
     repo = config.load_repo(repo_root())
     cfg = config.load_local()
     if not config.valid_choice(cfg, repo):
         host = os.environ.get("HOSTNAME") or socket.gethostname()
-        name = host_profile(repo, host)
+        name = config.host_profile(repo, host)
         if not name:
             print(f"no profile for host '{host}' — run 'vj' to choose one", file=sys.stderr)
             return 2

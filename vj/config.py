@@ -105,3 +105,11 @@ def save_local(cfg: dict, path: Path | None = None) -> None:
 
 def valid_choice(cfg: dict, repo: Repo) -> bool:
     return cfg.get("profile") in repo.profiles and (cfg.get("dotset") == "none" or cfg.get("dotset") in repo.dotsets)
+
+
+def host_profile(repo: Repo, host: str):
+    """First profile whose `hostname` is a substring of host."""
+    for name, prof in repo.profiles.items():
+        if prof.get("hostname") and prof["hostname"] in host:
+            return name
+    return None

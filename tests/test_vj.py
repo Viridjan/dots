@@ -1,5 +1,7 @@
 """Tests for the vj Python package (config, resolution, plan, UI). No system changes."""
+import asyncio
 import datetime
+import importlib.util
 import os
 import subprocess
 import sys
@@ -214,6 +216,134 @@ class PlanCommandTests(Tmp):
         self.assertIn("no profile for host 'friends-laptop'", r.stderr)
         self.assertIn("run 'vj'", r.stderr)
         self.assertNotIn("Traceback", r.stderr)
+
+
+HAS_TEXTUAL = importlib.util.find_spec("textual") is not None
+
+
+class StateTests(Tmp):
+    """UI-independent state behind the TUI (needs no Textual)."""
+
+    def state(self, installed=("fish",)):
+        from vj import state
+        return state.State(config.load_repo(self.dots), self.cfg_path, installed=set(installed))
+
+    def ready(self, **kw):
+        st = self.state(**kw)
+        st.choose("desktop", "mine")
+        return st
+
+    def test_choose_saves_profile(self):
+        st = self.ready()
+        self.assertEqual(config.load_local(self.cfg_path)["profile"], "desktop")
+        self.assertTrue(st.ready())
+
+    def test_unticking_package_declines_and_reticking_restores(self):
+        st = self.ready()
+        st.set_package("paru:steam", False)
+        self.assertEqual(config.load_local(self.cfg_path)["declined"]["paru"], ["steam"])
+        self.assertNotIn("steam", st.to_install()["paru"])
+        st.set_package("paru:steam", True)
+        self.assertEqual(config.load_local(self.cfg_path)["declined"]["paru"], [])
+        # declined packages stay visible so they can be re-ticked
+        self.assertIn("paru:steam", [i for i, _, _ in st.package_items()])
+
+    def test_to_install_skips_installed(self):
+        st = self.ready(installed=("fish", "steam"))
+        self.assertEqual(st.to_install(), {"paru": ["vulkan-radeon"], "flatpak": ["com.spotify.Client"]})
+
+    def test_recap_rows_are_counts_without_names(self):
+        st = self.ready()
+        pk = st.recap("packages")
+        self.assertIn("install 3 packages", pk)
+        self.assertNotIn("steam", pk)
+        self.assertIn("desktop · mine", st.recap("settings"))
+        self.assertIn("14 never run", st.recap("once"))
+
+    def test_run_ids_follow_ticks_and_remember_last(self):
+        st = self.ready()
+        st.set_ticks("maint", ["sources", "install"])
+        st.set_ticks("once", ["fish"])
+        self.assertEqual(st.run_ids(), ["sources", "install", "fish"])
+        self.assertEqual(config.load_local(self.cfg_path)["last"]["maint"], ["sources", "install"])
+        # once ticks are per-run, not remembered
+        self.assertNotIn("once", config.load_local(self.cfg_path)["last"])
+
+    def test_results_stamp_once_tasks_only_on_ok(self):
+        st = self.ready()
+        res = self.root / "result.tsv"
+        res.write_text("phase:configure\tok\naction:fish\tok\naction:vms\tfail\n")
+        st.apply_results(res, today=datetime.date(2026, 10, 21))
+        self.assertEqual(config.load_local(self.cfg_path)["once"], {"fish": datetime.date(2026, 10, 21)})
+
+    def test_mark_once_skip_and_done(self):
+        st = self.ready()
+        st.mark_once("snapper", "skip")
+        st.mark_once("fish", "done", today=datetime.date(2026, 1, 2))
+        self.assertEqual(config.load_local(self.cfg_path)["once"],
+                         {"snapper": "skip", "fish": datetime.date(2026, 1, 2)})
+        self.assertIn("12 never run", st.recap("once"))
+
+    def test_local_add_and_remove(self):
+        st = self.ready()
+        st.add_package("paru", "obs")
+        st.toggle_remove("paru:steam")
+        cfg = config.load_local(self.cfg_path)
+        self.assertEqual(cfg["paru"], {"add": ["obs"], "remove": ["steam"]})
+        self.assertIn("obs", st.to_install()["paru"])
+        self.assertIn("remove 1", st.recap("packages"))
+
+
+@unittest.skipUnless(HAS_TEXTUAL, "textual not installed")
+class UiTests(Tmp):
+    def app(self, runner=None):
+        from vj import ui
+        return ui.VjApp(config.load_repo(self.dots), self.cfg_path, installed=set(), runner=runner, host="desktop")
+
+    def drive(self, coro):
+        return asyncio.run(asyncio.wait_for(coro, 30))
+
+    def test_first_run_opens_setup_and_enter_saves(self):
+        async def go():
+            app = self.app()
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                self.assertTrue(app.screen.query("SetupPanel"))
+                await pilot.press("enter")
+                await pilot.pause()
+                self.assertFalse(app.screen.query("SetupPanel"))
+        self.drive(go())
+        cfg = config.load_local(self.cfg_path)
+        self.assertEqual((cfg["profile"], cfg["dotset"]), ("desktop", "mine"))
+
+    def test_menu_rows_show_recap_and_run_calls_runner(self):
+        calls = []
+
+        def runner(ids, env):
+            calls.append((ids, env, (Path(env["VJ_PLAN_DIR"]) / "paru-install.list").read_text().split()))
+            Path(env["VJ_RESULT_FILE"]).write_text("action:fish\tok\n")
+            return 0
+
+        cfg = config.load_local(self.cfg_path)
+        cfg.update(profile="desktop", dotset="mine")
+        config.save_local(cfg, self.cfg_path)
+
+        async def go():
+            app = self.app(runner)
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                rows = [str(app.screen.menu_row(i)) for i in range(len(app.screen.MENU))]
+                self.assertTrue(any("install 4 packages" in r for r in rows), rows)
+                app.state.set_ticks("once", ["fish"])
+                await pilot.press("r")
+                await pilot.pause()
+        self.drive(go())
+        self.assertEqual(len(calls), 1)
+        ids, env, planned = calls[0]
+        self.assertIn("fish", ids)
+        self.assertEqual(planned, ["fish", "steam", "vulkan-radeon"])
+        self.assertFalse(Path(env["VJ_PLAN_DIR"]).exists())  # cleaned up after the run
+        self.assertIn("fish", config.load_local(self.cfg_path)["once"])
 
 
 if __name__ == "__main__":

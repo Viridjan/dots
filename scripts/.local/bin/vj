@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# vj — terminal UI for vjupdate (profiles, packages, dotfile sets, one-time setup).
+# The Python package lives in the dots repo next to this script's link target.
+set -euo pipefail
+DOTS="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../.." && pwd)"
+if ! python3 -c 'import textual' 2>/dev/null; then
+    echo "vj needs Textual: sudo pacman -S python-textual" >&2
+    exit 1
+fi
+exec env PYTHONPATH="$DOTS${PYTHONPATH:+:$PYTHONPATH}" python3 -B -m vj "$@"
