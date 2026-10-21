@@ -204,9 +204,14 @@ Everything happens on **one screen (Home)**, top to bottom:
    time; opening another replaces it. Esc closes it and focus returns to the
    menu. Every change takes effect immediately (recap updates live).
 4. **Recap box**, pinned to the bottom: always **10% of the terminal height**
-   (minimum 5 rows), scrollable. Order: total estimate, packages to install
-   (with per-package estimate), packages to remove, declined, actions in run
-   order.
+   (minimum 4 rows). Summary only — counts and time, no names (names and
+   per-package times live in the submenus). Example:
+
+   ```
+   Install 3 packages · Remove 1 package · 7 maintenance actions · 2 setup tasks
+   Install time ~4 min (upgrades and actions not included)
+   ```
+   "Install" counts only packages not yet installed (pacman *and* flatpak).
 
 Keys: `r` = run everything in the recap (any time, unless typing in a filter),
 `q` = quit.
@@ -232,10 +237,9 @@ Estimate format:
 | < 60 s | `< 1 min` | yellow |
 | otherwise | `~N min` | orange |
 
-Shown per package in the Packages checklist (first column) and the
-recap, plus the coloured total. Packages with no history use a flat guess
-(paru 3 s, flatpak 10 s) marked with `?`; the review also shows the count of
-guessed packages.
+Shown per package in the Packages checklist (first column); the recap shows
+only the coloured total. Packages with no history use a flat guess
+(paru 3 s, flatpak 10 s) marked with `?`; guessed values are included in the total.
 
 On run, `[last]` and `[declined]` are saved first.
 
