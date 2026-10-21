@@ -10,3 +10,4 @@ x-scheme-handler/about=brave-origin.desktop
 x-scheme-handler/unknown=brave-origin.desktop
 application/pdf=ai.storyteller.pdfcraft.desktop
 image/svg+xml=ai.storyteller.vectorcraft.desktop
+video/mp4=vlc.desktop
