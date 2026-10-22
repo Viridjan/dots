@@ -2,3 +2,10 @@
 # Feed to vjupdate: run_install_scripts()
 
 curl -fsSL https://chatgpt.com/codex/install.sh | sh
+
+# Codex skills (skip if present: the installer refuses an existing destination)
+[ -d ~/.codex/skills/systematic-debugging ] || python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py --repo obra/superpowers --path skills/systematic-debugging --dest ~/.codex/skills
+[ -d ~/.codex/skills/test-driven-development ] || python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py --repo obra/superpowers --path skills/test-driven-development --dest ~/.codex/skills
+[ -d ~/.codex/skills/verification-before-completion ] || python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py --repo obra/superpowers --path skills/verification-before-completion --dest ~/.codex/skills
+[ -d ~/.codex/skills/godot-best-practices ] || python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py --repo jwynia/agent-skills --path skills/tech/game-development/godot/godot-best-practices --dest ~/.codex/skills
+[ -d ~/.codex/skills/godot-state-machine ] || python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py --repo gaoyuan-taka/godot-action-adventure-skills --path godot-state-machine --dest ~/.codex/skills
