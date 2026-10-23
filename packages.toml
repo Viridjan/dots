@@ -114,7 +114,6 @@ install = [
     "whatsie",
     "telegram-desktop",
     "claude-code",
-    "proton-mail",
     "rofi-ykman-git",
 
     # Chromium (webapp launcher — used by .desktop app shortcuts)
