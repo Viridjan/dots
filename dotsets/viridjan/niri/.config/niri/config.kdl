@@ -294,7 +294,6 @@ window-rule {
     match app-id=r#"^steam$"#
     match app-id=r#"^steam_app_\d+$"#
     match title="Dota 2"
-    match title="^MTGA$"  // MTGA sets no app-id, only title
     match app-id="BambuStudio"
     open-on-workspace "media"
     open-focused false

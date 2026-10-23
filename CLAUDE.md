@@ -71,7 +71,7 @@ dots/
       cave/           → ~/.cave/  (Cave AI agent config + ollama extension)
       caveman/        → ~/.config/caveman/  (caveman plugin defaultMode = ultra)
       ollama/         → /etc/systemd/system/ollama.service.d/  (ROCm drop-in; stow -t /)
-  scripts/        → ~/.local/bin/  (vjupdate, vj, start-windows, start-open-notebook, start-keep; stowed --no-folding,
+  scripts/        → ~/.local/bin/  (vjupdate, vj, start-windows, start-open-notebook, start-keep, gamescope-media; stowed --no-folding,
                     always from the repo root — tooling, not part of a dotfile set)
                   + ~/.local/share/applications/  (.desktop launchers)
   windows/        ← NOT a stow package — Docker Compose for Windows 11 VM (dockur/windows, port 8006)
@@ -117,7 +117,7 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
   machine files). `.gitignore` secret rules use `dotsets/*/`, so they apply to
   every set.
 
-`niri` uses **file-level symlinks** — the `cfg/` and `dms/` directories are real, but individual `.kdl` files are symlinked. `scripts` is stowed `--no-folding`: `~/.local/bin` is a real directory with per-file links to the 5 tracked scripts (incl. `vj`), so installers (npm -g, uv, codex, AppImages) write there and never into the repo. All other packages use directory-level symlinks.
+`niri` uses **file-level symlinks** — the `cfg/` and `dms/` directories are real, but individual `.kdl` files are symlinked. `scripts` is stowed `--no-folding`: `~/.local/bin` is a real directory with per-file links to the tracked scripts (incl. `vj`), so installers (npm -g, uv, codex, AppImages) write there and never into the repo. All other packages use directory-level symlinks.
 
 Before 2026-09-25 `~/.local/bin` was a folded link into `scripts/.local/bin/`, so every installer wrote into the repo. One-time migration per machine (on the Surface: run it **before** `git pull`, since the pull deletes the tracked installer links it still serves from PATH):
 ```bash

@@ -392,7 +392,7 @@ Package *lists* (what gets installed) are in `packages.toml` and `profiles/<name
 | `fonts` | `~/.local/share/fonts/` — user fonts (Luminari) |
 | `mpd` | `~/.config/mpd/mpd.conf` |
 | `spotify-player` | `~/.config/spotify-player/keymap.toml` |
-| `scripts` | `~/.local/bin/{vjupdate,vj,start-windows,start-open-notebook,start-keep}` + `.desktop` launchers — stowed `--no-folding`, so installers own the rest of `~/.local/bin` |
+| `scripts` | `~/.local/bin/{vjupdate,vj,start-windows,start-open-notebook,start-keep,gamescope-media}` + `.desktop` launchers — stowed `--no-folding`, so installers own the rest of `~/.local/bin` |
 
 **niri note:** `cfg/display.kdl`, `cfg/input.kdl`, and `cfg/surface-layout.kdl` are NOT in the `niri` package —
 they come from `dotsets/viridjan/desktop/` or `…/surface/`, matching the profile name.
@@ -460,20 +460,25 @@ launcher symlink gets removed (`stow --no-folding --restow -t ~ scripts` brings 
 
 ### Gamescope launch options
 
-Games open tiled by default. To force fullscreen via gamescope when a game doesn't handle it natively, set this in Steam → right-click game → Properties → Launch Options:
+Steam games (`steam_app_*`) open fullscreen on the `media` workspace without
+taking focus, via window rules in `config.kdl`. Games run through gamescope
+can't match those rules: gamescope sets no app-id and its title arrives after
+the window opens. For those, use the `gamescope-media` wrapper in Steam →
+right-click game → Properties → Launch Options:
 
-**Desktop (3440×1440 @ 165Hz):**
 ```
-gamescope -f -W 3440 -H 1440 -r 165 -- %command%
+gamescope-media %command%
 ```
-Upscale from 1080p if game lacks ultrawide support:
+
+It runs `gamescope -f --adaptive-sync --expose-wayland` at the focused
+output's native size (3440×1440 desktop, 2880×1920 Surface; same line on both
+machines), then moves gamescope's windows to `media` without focus. It watches
+for 120 s after launch; the window may flash on the current workspace first.
+MTG Arena uses it.
+
+For other gamescope options (e.g. upscaling from 1080p), call gamescope directly:
 ```
 gamescope -f -W 3440 -H 1440 -w 1920 -h 1080 -r 165 -- %command%
-```
-
-**Surface Pro 9 (2880×1920 @ 60Hz):**
-```
-gamescope -f -W 2880 -H 1920 -r 60 -- %command%
 ```
 
 ---
