@@ -19,6 +19,10 @@ install = [
     "steam",
     "wqy-zenhei",
     "wine-cachyos",
+    "emudeck-bin",  # its scripts need fuse2/unzip/zenity
+    "fuse2",
+    "unzip",
+    "zenity",
 
     # Graphics (CachyOS repo mesa is already optimized)
     "mesa",
@@ -172,15 +176,15 @@ install = [
     # Graphics
     "kolourpaint",
     "freecad",
-    "vectorcraft",
-    "gridcraft",
-    "pdfcraft",
-    "wordcraft",
-    "photocraft",
-    "designcraft",
-    "deckcraft",
-    "cadcraft",
-    "figcraft",
+    "vectorcraft-bin",
+    "gridcraft-bin",
+    "pdfcraft-bin",
+    "wordcraft-bin",
+    "photocraft-bin",
+    "designcraft-bin",
+    "deckcraft-bin",
+    "cadcraft-bin",
+    "figcraft-bin",
 
     # Browsers
     "brave-origin-bin",
@@ -192,6 +196,16 @@ install = [
 
 # Force-removed (pacman -Rdd) before installing — conflict resolution.
 remove = [
+    # Source builds replaced by their -bin packages (2026-10-25)
+    "vectorcraft",
+    "gridcraft",
+    "pdfcraft",
+    "wordcraft",
+    "photocraft",
+    "designcraft",
+    "deckcraft",
+    "cadcraft",
+    "figcraft",
     "sddm",
     "libreoffice-fresh",
     "bambustudio-appimage",
