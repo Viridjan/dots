@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -362,3 +363,41 @@ class UiTests(Tmp):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class UnusedTests(unittest.TestCase):
+    def test_report_unlisted_idle_and_tracking_gate(self):
+        from vj import unused
+        with tempfile.TemporaryDirectory() as t:
+            t = Path(t)
+            (t / "paru-install.list").write_text("steam\ngimp\n")
+            db = t / "wellbeing"
+            db.mkdir()
+            # BoltDB stores records as plain JSON between binary pages.
+            (db / "db").write_bytes(b"\x00\x01" + b'{"date":"2026-01-01","active":5,"apps":{"Steam":60}}'
+                                    + b"\xff" + b'{"date":"2026-03-01","active":5,"apps":{"steam":60}}')
+            (t / "appusage.json").write_text('{"appUsageRanking":{"org.gimp.GIMP":{"lastUsed":1000}}}')
+            seen = unused.last_seen(t)
+            installed = {"steam": {"steam"}, "gimp": {"org.gimp.gimp", "gimp"},
+                         "stray": {"stray"}, "vim": set()}
+            now = time.mktime(time.strptime("2026-03-10", "%Y-%m-%d"))
+            lines = unused.report(t, 30, now, installed, seen)
+            self.assertEqual(lines[0], "Installed but in no package list: stray vim")
+            self.assertIn("gimp (1970-01-01)", lines[1])
+            self.assertIn("stray (never)", lines[1])
+            self.assertNotIn("steam", lines[1])
+            self.assertNotIn("vim", lines[1])  # terminal app: not trackable
+            # Tracking younger than the window → no idle verdicts yet.
+            lines = unused.report(t, 100, now, installed, seen)
+            self.assertTrue(lines[1].startswith("Unused-app check starts 2026-04-11"))
+
+    def test_desktop_keys(self):
+        from vj import unused
+        with tempfile.TemporaryDirectory() as t:
+            f = Path(t, "com.spotify.Client.desktop")
+            f.write_text("[Desktop Entry]\nExec=/usr/bin/flatpak run x\nStartupWMClass=spotify\n")
+            self.assertEqual(unused.desktop_keys(f), {"com.spotify.client", "client", "spotify"})
+            f.write_text("[Desktop Entry]\nTerminal=true\n")
+            self.assertEqual(unused.desktop_keys(f), set())
+            f.write_text("[Desktop Entry]\nNoDisplay=true\n")
+            self.assertIsNone(unused.desktop_keys(f))

@@ -32,8 +32,14 @@ def plan(outdir: str) -> int:
 def main(argv) -> int:
     if argv[:1] == ["plan"] and len(argv) == 2:
         return plan(argv[1])
+    if argv[:1] == ["unused"] and len(argv) in (2, 3) and (len(argv) == 2 or argv[2].isdigit()):
+        from . import unused
+        print("\n".join(unused.report(Path(argv[1]), int(argv[2]) if len(argv) == 3 else 60)))
+        return 0
     if argv:
-        print("usage: vj            open the TUI\n       vj plan DIR   write a run plan for vjupdate", file=sys.stderr)
+        print("usage: vj                         open the TUI\n"
+              "       vj plan DIR                write a run plan for vjupdate\n"
+              "       vj unused PLANDIR [DAYS]   unlisted / unused apps (default 60 days)", file=sys.stderr)
         return 2
     from .ui import run  # Textual is only needed for the TUI
     return run(repo_root())

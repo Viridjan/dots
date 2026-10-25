@@ -1714,6 +1714,25 @@ clean_caches() {
     return 0
 }
 
+# ─── Audit: unlisted / unused apps (report only) ────────
+# Apps with a launcher that no package list mentions, and apps with no DMS
+# usage record in 60 days. Logic and data sources: vj/unused.py.
+check_unused_apps() {
+    info "Checking for unlisted and unused apps..."
+    local out
+    if ! out=$(VJ_DOTS="$DOTS_DIR" PYTHONPATH="$DOTS_DIR" python3 -B -m vj unused "$VJ_PLAN_DIR" 60 2>&1); then
+        warn "unused-app check failed: ${out##*$'\n'}"
+        return 0
+    fi
+    if [[ -z "$out" ]]; then ok "no unlisted or unused apps"; return 0; fi
+    while IFS= read -r line; do
+        case "$line" in
+            "Unused-app check starts"*) ok "$line" ;;
+            *) warn "$line" ;;
+        esac
+    done <<< "$out"
+}
+
 # ─── Maintenance: foreign packages + orphan removal ──────
 check_foreign_orphans() {
     info "Checking foreign (AUR) packages..."
@@ -2573,7 +2592,7 @@ phase_configure() {
     return 0
 }
 phase_update()   { system_update; flatpak_update; clean_caches; }
-phase_audit()    { check_held_updates; check_foreign_orphans; check_flatpak_orphans; check_rebuilds; check_python_rebuilds; check_pacnew; check_firmware; check_aur_malware; check_pacman_db; return 0; }
+phase_audit()    { check_held_updates; check_foreign_orphans; check_unused_apps; check_flatpak_orphans; check_rebuilds; check_python_rebuilds; check_pacnew; check_firmware; check_aur_malware; check_pacman_db; return 0; }
 
 # ─── Main ────────────────────────────────────────────────
 bootstrap() {
@@ -2683,6 +2702,7 @@ check() {
 
     check_held_updates
     check_foreign_orphans
+    check_unused_apps
     check_rebuilds
     check_python_rebuilds
     check_pacnew

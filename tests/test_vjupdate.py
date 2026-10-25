@@ -765,6 +765,7 @@ check_python_rebuilds
     def audit_body(self):
         return '''
 check_foreign_orphans() { :; }
+check_unused_apps() { :; }
 check_flatpak_orphans() { :; }
 check_rebuilds() { :; }
 check_python_rebuilds() { :; }

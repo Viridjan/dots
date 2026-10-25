@@ -335,8 +335,10 @@ Result: `~/.config/<pkg>` becomes a directory symlink into the repo. App writes 
 
 `TODO.md` — pending work tracked in the repo (manual-confirm checklists for other-machine work, pending package migrations).
 
-Package install priority: **pacman > flatpak > paru**. If a package is available in official Arch/CachyOS repos, prefer pacman. Flatpak over AUR when both exist. AUR only as last resort. Within AUR, prefer the source package over `-bin` —
-unless the name is on the malware blocklist: install aborts if any listed package
+Package install priority: **pacman > flatpak > paru**. If a package is available in official Arch/CachyOS repos, prefer pacman. Flatpak over AUR when both exist. AUR only as last resort. Within AUR, `-bin` is fine (it updates through paru like
+any AUR package; source builds only cost build time). Swapping an installed
+package for its `-bin`/source twin: list the old name in `[paru].remove`, since
+`--noconfirm` declines paru's conflict prompt. Never install a name on the malware blocklist: install aborts if any listed package
 appears in `~/.local/share/aur-malware-check/data/campaigns/*/packages*.txt`
 (refreshed each run; e.g. `alvr`, hijacked June 2026). Check new AUR names there first.
 
@@ -493,6 +495,13 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   `aur:<pkg>` in the repo's `build-times.tsv`, including from failed runs.
   `_install_list` / the flatpak loop also record `@pacman-per-pkg` /
   `@flatpak-per-pkg` (one average per call). Commit the file to share history.
+- **Unlisted/unused apps** (`check_unused_apps` → `python3 -m vj unused PLANDIR [DAYS]`,
+  `vj/unused.py`) warns, never removes. Only packages/flatpaks with a visible
+  launcher count. Usage = DMS's `~/.local/state/DankMaterialShell/appusage.json`
+  (launcher) + `wellbeing/db` (focused seconds per window app_id, BoltDB read
+  by regex). Root is `noatime`, so file access times are useless. Idle verdicts
+  wait until wellbeing has DAYS (60) of history (began 2026-10-24); terminal apps
+  are never judged idle.
 - **Builds run at the lowest priority.** Every building `paru` call goes
   through `_paru` (`nice` to an absolute 19 + `ionice -c 3`). Shells from
   alacritty inherit ananicy-cpp's nice −4, so an unwrapped AUR build (rustc on
@@ -525,7 +534,7 @@ sources → install → dotfiles → configure → audit
 | `install` | conflict removal, full upgrade, install pacman/flatpak/AUR packages, flatpak update, cache cleanup |
 | `dotfiles` | stow symlinks, DMS config import |
 | `configure` | system services, snapper, keyboard, greeter, keyring-pam (user-prompted); DMS plugins, install scripts, fish, claude, VMs (first-run prompted) |
-| `audit` | orphan packages, flatpak cleanup, rebuild check, pacnew files, firmware updates |
+| `audit` | orphan packages, unlisted/unused apps (report only), flatpak cleanup, rebuild check, pacnew files, firmware updates |
 
 Interactive mode (default, or `-i`) opens a scrollable, dependency-free terminal
 menu with collapsible groups, search, an item detail panel and an execution-order

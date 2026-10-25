@@ -427,6 +427,25 @@ vjupdate --app-launchers
 
 Also checked by default under "Routine maintenance" in the interactive menu.
 
+### Unlisted and unused apps
+
+The audit (`vjupdate --check`, or the health check in the menu) reports, never removes:
+
+- apps with a launcher that are in no package list (`packages.toml`, profile, local config)
+- apps with no recorded use in 60 days
+
+Usage comes from DankMaterialShell (launcher history + per-window focus time in
+`~/.local/state/DankMaterialShell/`). Focus tracking began 2026-10-24, so the
+unused check prints its start date until 60 days of history exist. Terminal apps
+are never flagged. Standalone: `python3 -m vj unused PLANDIR [DAYS]`.
+
+### EmuDeck
+
+Installed as `emudeck-bin` (AUR). After the first install, open **EmuDeck** from
+the app menu and run its wizard: it downloads the emulators and creates the ROM
+folders. The app itself updates through paru; emulators update via
+`flatpak update` and EmuDeck's "Update emulators".
+
 ### MTG Arena Tool
 
 Deck tracker / collection manager for MTG Arena. Not in any repo, AUR or Flathub —
