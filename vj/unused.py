@@ -94,21 +94,27 @@ def apps() -> dict:
     return out
 
 
-def report(plan: Path, days: int, now: float | None = None, installed=None, seen=None) -> list:
-    """Lines to print; empty when nothing to report."""
+def report(plan: Path, days: int, now: float | None = None, installed=None, seen=None, explicit=None) -> list:
+    """Lines to print; empty when nothing to report. `explicit`: every explicitly
+    installed package/flatpak (unlisted check); `installed`: apps with a launcher."""
     installed = apps() if installed is None else installed
+    if explicit is None:
+        from .state import detect_explicit
+        explicit = set(detect_explicit())
     seen, first = last_seen() if seen is None else seen
     now = time.time() if now is None else now
     listed = set()
-    for name in ("paru-install.list", "paru-skip.list", "flatpak-install.list"):
+    for name in ("paru-install.list", "paru-skip.list", "paru-remove.list", "paru-demote.list",
+                 "flatpak-install.list", "ignore.list"):
         try:
             listed |= set((plan / name).read_text().split())
         except OSError:
             pass
     lines = []
-    unlisted = sorted(a for a in installed if a not in listed)
+    unlisted = sorted(a for a in explicit if a not in listed)
     if unlisted:
-        lines.append("Installed but in no package list: " + " ".join(unlisted))
+        lines.append(f"{len(unlisted)} installed but in no package list (sort them in vj → Unlisted packages): "
+                     + " ".join(unlisted))
     cutoff = now - days * 86400
     if not first or time.mktime(time.strptime(first, "%Y-%m-%d")) > cutoff:
         # Launcher data alone misses keybind/autostart launches: wait for a full window.

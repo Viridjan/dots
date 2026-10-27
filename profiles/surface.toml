@@ -46,3 +46,6 @@ install = [
     "intel-media-driver",
     "intel-compute-runtime",
 ]
+
+[systemd]
+enable = ["iptsd", "tlp", "iio-sensor-proxy", "thermald"]

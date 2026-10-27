@@ -269,3 +269,28 @@ install = [
     "org.ppsspp.PPSSPP",
     "org.scummvm.ScummVM",
 ]
+
+[systemd]
+# Enabled (systemctl enable --now). Dropping a unit from these lists disables
+# it on the next "Enable system services" run (vjupdate tracks what it enabled).
+enable = [
+    "NetworkManager", "bluetooth", "cups", "bpftune", "ananicy-cpp",
+    "dmemcg-booster-system", "systemd-oomd", "power-profiles-daemon",
+    "snapper-timeline.timer", "snapper-cleanup.timer", "limine-snapper-sync.service",
+    "greetd", "docker",
+]
+# User units (systemctl --user).
+user = ["psd", "mpd"]
+
+[npm]
+# Global npm tools (prefix ~/.local, see CLAUDE.md). Installed if missing.
+# caveman-code has its own action (setup_caveman_code), so it is not listed.
+install = [
+    "@deepseek-ai/dsh",  # DeepSeek Harness; `deepseek` fish function runs `dsh web`
+]
+
+[uv]
+# uv tools (uv tool install). Installed if missing.
+install = [
+    "graphifyy",  # /graphify knowledge-graph skill
+]

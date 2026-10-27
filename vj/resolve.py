@@ -22,9 +22,17 @@ def resolve(repo: Repo, cfg: dict) -> dict:
         drop = set(cfg[src]["remove"]) | set(cfg["declined"][src]) | (set(skip) if src == "paru" else set())
         wanted = pk.get(src, {}).get("install", []) + prof.get(src, {}).get("install", []) + cfg[src]["add"]
         out[f"{src}_install"] = [p for p in _uniq(wanted) if p not in drop]
-    out["paru_remove"] = _uniq(pk.get("paru", {}).get("remove", []) + cfg["paru"]["remove"])
+    # Repo removes are conflict swaps (pacman -Rdd); local `x` marks are demoted
+    # to dependencies, so anything still required stays (pacman -D --asdeps).
+    out["paru_remove"] = _uniq(pk.get("paru", {}).get("remove", []))
+    out["paru_demote"] = _uniq(cfg["paru"]["remove"])
+    out["ignore"] = _uniq(cfg["ignored"]["paru"] + cfg["ignored"]["flatpak"])
     out["paru_hold"] = list(pk.get("paru", {}).get("hold", []))
     out["paru_skip"] = list(skip)
+    # Lists with no local overrides: repo + profile, deduped.
+    for key, (src, field) in {"systemd_enable": ("systemd", "enable"), "systemd_user": ("systemd", "user"),
+                              "npm_install": ("npm", "install"), "uv_install": ("uv", "install")}.items():
+        out[key] = _uniq(pk.get(src, {}).get(field, []) + prof.get(src, {}).get(field, []))
     return out
 
 
@@ -75,6 +83,9 @@ def write_plan(repo: Repo, cfg: dict, outdir: Path, stow_selected=None, repos_se
     files = {
         "paru-install.list": r["paru_install"], "paru-remove.list": r["paru_remove"],
         "paru-hold.list": r["paru_hold"], "paru-skip.list": r["paru_skip"],
+        "paru-demote.list": r["paru_demote"], "ignore.list": r["ignore"],
+        "systemd-enable.list": r["systemd_enable"], "systemd-user.list": r["systemd_user"],
+        "npm-install.list": r["npm_install"], "uv-install.list": r["uv_install"],
         "flatpak-install.list": r["flatpak_install"],
         "projects.list": [p["url"] for p in projects], "stow.list": stow,
     }

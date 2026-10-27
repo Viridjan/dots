@@ -1,4 +1,36 @@
 #!/usr/bin/env bash
+# Pre-commit: 1) block staged secrets, 2) shellcheck errors in shell scripts.
+# Neither scans the whole tree, only what this commit adds.
+status=0
+
+# ─── 1. Secrets ──────────────────────────────────────────
+# The repo tracks app state (vesktop, VSCodium, claude, cave), so .gitignore is
+# the first line of defence and this is the second. Scans the STAGED blob, not
+# the worktree. False positive? Reword it, or commit with --no-verify.
+SECRET_PATH_RE='(^|/)(\.env(\..*)?|\.credentials\.json|auth\.json|\.netrc|id_(rsa|dsa|ecdsa|ed25519)|[^/]*\.pem|[^/]*\.key)$'
+SECRET_RE='-----BEGIN [A-Z ]*PRIVATE KEY-----'
+SECRET_RE+='|gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{40,}'
+SECRET_RE+='|sk-(ant-|proj-)?[A-Za-z0-9_-]{32,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}'
+SECRET_RE+='|eyJ[A-Za-z0-9_-]{15,}\.eyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}'
+SECRET_RE+='|"(access_?token|refresh_?token|api_?key|client_secret|password)"[[:space:]]*:[[:space:]]*"[^"]{16,}"'
+
+while IFS= read -r -d '' f; do
+    if [[ "$f" =~ $SECRET_PATH_RE ]]; then
+        echo "pre-commit: refusing secret-looking path: $f" >&2
+        status=1
+        continue
+    fi
+    # -I skips binaries; -o + sed print only the line and a 6-char prefix, so
+    # the secret never lands in the terminal or a log.
+    hits=$(git show ":$f" 2>/dev/null | grep -nIoE -e "$SECRET_RE" | sed -E 's/^([0-9]+):(.{6}).*/  line \1: \2…/')
+    if [[ -n "$hits" ]]; then
+        printf 'pre-commit: possible secret in %s:\n%s\n' "$f" "$hits" >&2
+        status=1
+    fi
+done < <(git diff --cached --name-only -z --diff-filter=ACMR)
+(( status == 0 )) || { echo "pre-commit: commit blocked (unstage it, extend .gitignore, rotate the credential)" >&2; exit 1; }
+
+# ─── 2. Shellcheck ───────────────────────────────────────
 # ponytail: block commits on shellcheck ERRORS only; style noise stays advisory.
 # No-op when shellcheck is absent so a fresh clone can still commit.
 command -v shellcheck >/dev/null || exit 0

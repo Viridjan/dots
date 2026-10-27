@@ -770,6 +770,9 @@ check_flatpak_orphans() { :; }
 check_rebuilds() { :; }
 check_python_rebuilds() { :; }
 check_pacnew() { :; }
+check_modified_configs() { :; }
+check_dms_owner() { :; }
+check_logins() { :; }
 check_firmware() { :; }
 check_aur_malware() { :; }
 check_pacman_db() { :; }

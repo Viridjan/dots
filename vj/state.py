@@ -54,15 +54,28 @@ def detect_installed() -> set:
     return found
 
 
+def detect_explicit() -> dict:
+    """{name: source} for explicitly installed pacman packages and flatpak apps."""
+    found = {}
+    for src, cmd in (("paru", ["pacman", "-Qeq"]), ("flatpak", ["flatpak", "list", "--app", "--columns=application"])):
+        try:
+            found |= dict.fromkeys(subprocess.run(cmd, capture_output=True, text=True, timeout=30).stdout.split(), src)
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return found
+
+
 def plural(n, word):
     return f"{n} {word}{'' if n == 1 else 's'}"
 
 
 class State:
-    def __init__(self, repo, cfg_path: Path, installed=None):
+    def __init__(self, repo, cfg_path: Path, installed=None, explicit=None):
         self.repo, self.cfg_path = repo, cfg_path
         self.cfg = config.load_local(cfg_path)
         self.installed = detect_installed() if installed is None else installed
+        # Tests pass installed; never query the real system for them.
+        self.explicit = explicit if explicit is not None else detect_explicit() if installed is None else {}
         self.times = resolve.load_times(repo.root)
         self.ticks = {"once": [], "dms": []}  # per-run only, never remembered
 
@@ -157,6 +170,45 @@ class State:
         repo_rm = [n for n in self.repo.packages.get("paru", {}).get("remove", []) if n in self.installed]
         return list(dict.fromkeys(repo_rm + self.cfg["paru"]["remove"] + self.cfg["flatpak"]["remove"]))
 
+    # ── unlisted: installed by hand, in no list ──
+    def unlisted(self):
+        """[(src, name)] explicitly installed but in no list and not ignored."""
+        pk = self.repo.packages.get("paru", {})
+        known = ({n for _, n in self._offered()} | set(pk.get("skip", [])) | set(pk.get("remove", []))
+                 | {n for src in ("paru", "flatpak") for n in self.cfg[src]["remove"] + self.cfg["ignored"][src]})
+        return sorted((src, n) for n, src in self.explicit.items() if n not in known)
+
+    def sort_unlisted(self, pids, how):
+        """how: repo (packages.toml), profile (profiles/<p>.toml), machine (local add),
+        demote (local remove → dependency), ignore. Returns a message for the UI."""
+        if how == "profile" and self.cfg.get("profile") not in self.repo.profiles:
+            return "choose a profile first"
+        done = []
+        try:
+            self._sort(pids, how, done)
+        finally:
+            if how in ("repo", "profile"):
+                self.repo = config.load_repo(self.repo.root)
+            self.save()
+        return f"{how}: {plural(len(done), 'package')}" + (" (commit the repo change)" if how in ("repo", "profile") else "")
+
+    def _sort(self, pids, how, done):
+        for pid in pids:
+            src, name = pid.split(":", 1)
+            if how == "demote" and src != "paru":
+                continue  # vjupdate never uninstalls flatpaks
+            if how == "repo":
+                config.add_to_list(self.repo.root / "packages.toml", src, name)
+            elif how == "profile":
+                config.add_to_list(self.repo.root / "profiles" / f"{self.cfg['profile']}.toml", src, name)
+            elif how == "machine":
+                self.cfg[src]["add"].append(name)
+            elif how == "demote":
+                self.cfg[src]["remove"].append(name)
+            else:
+                self.cfg["ignored"][src].append(name)
+            done.append(name)
+
     # ── one-time tasks ──
     def once_status(self, i):
         v = self.cfg["once"].get(i)
@@ -200,6 +252,9 @@ class State:
             if declined:
                 parts.append(f"{declined} declined")
             return " · ".join(parts)
+        if key == "unlisted":
+            n = len(self.unlisted())
+            return f"[#ffd75f]{plural(n, 'package')} to sort[/]" if n else "[dim]none[/dim]"
         if key == "repos":
             return f"clone missing · {len(self.ticked('repos'))} of {plural(len(self.repo.projects), 'repo')}"
         if key == "dotfiles":

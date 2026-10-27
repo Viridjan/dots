@@ -75,7 +75,8 @@ dots/
                     always from the repo root — tooling, not part of a dotfile set)
                   + ~/.local/share/applications/  (.desktop launchers)
   windows/        ← NOT a stow package — Docker Compose for Windows 11 VM (dockur/windows, port 8006)
-  .githooks/      ← NOT a stow package — git hooks; registered via core.hooksPath
+  .githooks/      ← NOT a stow package — git hooks (secret scan + shellcheck); registered via core.hooksPath
+  .github/        ← CI: unittest suite + shellcheck on push
   tests/          ← NOT a stow package — vjupdate + vj unittest suites (mocked system commands)
   docs/superpowers/ ← specs and plans
   graphify-out/   ← NOT a stow package — tracked /graphify knowledge graph; corpus filter in .graphifyignore
@@ -96,8 +97,22 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
   else dies with "run 'vj'". `env` sets `VJ_PROFILE` (= `MACHINE`),
   `VJ_DOTSET_DIR` (empty for `none`), `VJ_FEATURES`.
 - **Resolution:** install = packages.toml + profile + local add − local remove
-  − declined − skip. Declined ≠ removed: only `[paru].remove` (repo) and local
-  `x` marks are force-removed (`pacman -Rdd`).
+  − declined − skip. Declined ≠ removed. `[paru].remove` (repo) is
+  force-removed (`pacman -Rdd`, conflict swaps); local `x` marks go to
+  `paru-demote.list`: `pacman -D --asdeps`, then removed only if nothing needs
+  them (`-Rns`), else kept with a "still required by" warning. Package swaps
+  therefore belong in the repo list. `_PROTECTED_PKG_RE` (kernels, firmware,
+  ucode, limine, base, glibc, pacman, keyrings…) is never removed by any path.
+- **Other plan lists:** `systemd-enable.list`/`systemd-user.list` (`[systemd]
+  enable/user`), `npm-install.list` (`[npm]`), `uv-install.list` (`[uv]`) —
+  repo + profile, no local overrides. `ignore.list` = local `[ignored]`.
+- **Unlisted packages** (vj menu row): explicit installs (`pacman -Qeq` +
+  flatpak apps) in no list, not skipped/removed/ignored. Keys act on ticked
+  rows, else the highlighted one: `p` → `packages.toml`, `f` → active profile
+  file (both via `config.add_to_list`, which keeps comments and refuses to
+  write TOML that doesn't parse — commit afterwards), `m` → local add, `x` →
+  local remove (demote; paru only), `i` → `[ignored]`. Audit reports the
+  remaining count via `vj unused`.
 - **Features** replace every old `MACHINE == desktop|surface` check:
   `linux-surface`, `desktop-services`, `cpu-performance`, `amd-gpu-tuning`,
   `ollama-model`, `windows-vm`. New machine-dependent behaviour → new feature
@@ -110,8 +125,8 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
   `VJ_RESULT_FILE`; configure actions record `action:<id> ok` via `_act`, which
   vj uses to stamp one-time tasks.
 - **Local config** keys: `profile`, `dotset`, `[paru]/[flatpak] add/remove`,
-  `[declined]`, `[once]` (date or "skip"), `[last]` (maint/repos/dotfiles
-  ticks). Saved atomically on every change. Override path with `VJ_CONFIG`.
+  `[declined]`, `[ignored]` (unlisted installs not to report), `[once]` (date
+  or "skip"), `[last]` (maint/repos/dotfiles ticks). Saved atomically on every change. Override path with `VJ_CONFIG`.
 - **Adding a friend:** `profiles/<name>.toml` for their hardware and/or
   `dotsets/<name>/` with their stow packages (+ `<profile>/` dirs for niri
   machine files). `.gitignore` secret rules use `dotsets/*/`, so they apply to
@@ -352,6 +367,8 @@ Package lists are TOML (`#` comments inside the arrays are fine):
 | `packages.toml` `[paru].skip` | Skipped by install + audit even if listed above |
 | `packages.toml` `[paru].hold` | Installed normally but excluded from automatic upgrades and rebuilds |
 | `packages.toml` `[flatpak].install` | Flatpak apps |
+| `packages.toml` / profile `[systemd].enable` / `.user` | Units enabled by "Enable system services"; dropping one disables it next time (state: `~/.local/state/dots/managed-units`; first run disables nothing) |
+| `packages.toml` `[npm].install` / `[uv].install` | Global npm / uv tools, installed if missing (install phase) |
 | `~/.config/vjupdate/config.toml` | This machine's add/remove/declined (vj writes it) |
 | `.dms-plugins.list` | DankMaterialShell plugins |
 | `.install-scripts.list` | Scripts run during bootstrap |
@@ -408,6 +425,39 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   preserve those escapes when writing bind entries. Ownership options use the
   selected user's actual UID/GID rather than assuming 1000.
 
+- **Borrowed from aconfmgr/decman/metapac/dotbot/Lavender-Night (2026-10-27).**
+  - *AUR update review* (`_review_aur_updates`, before every `_syuu`): paru has
+    SkipReview, so each pending AUR update's `~/.cache/paru/clone/<base>` is
+    fetched and `HEAD..@{u}` saved to `~/.local/state/dots/aur-review/<base>.diff`.
+    Added lines matching `_AUR_REVIEW_RE` (curl/wget/base64/eval/`| sh`…) put
+    the package in `_AUR_FLAGGED`, which `_syuu` adds to `--ignore` unless an
+    interactive run confirms. Upgrading it by hand moves HEAD and clears it.
+  - *AUR source keys* (`_import_aur_keys`): `validpgpkeys` from the updated
+    `.SRCINFO` are imported into the USER keyring (`gpg --recv-keys`), which
+    is what makepkg checks — `pacman-key` never covered it.
+  - *Staged niri validation*: `_stow_niri_cfg` builds a temp mirror of
+    `~/.config/niri` with the new links (includes resolve against link paths,
+    verified) and runs `niri validate` first; invalid → links unchanged,
+    `niri-config` recorded failed.
+  - *Unticked packages are unlinked*: `_unstow_unticked` unstows packages
+    recorded in `~/.local/state/dots/stowed-pkgs` that are no longer in
+    `stow.list` (never niri). Root packages now `--restow`.
+  - *Dead links*: `_prune_dead_links` removes broken links under `~/.config`
+    (depth 3), `~/.local/bin`, `~/.local/share/applications` — only ones
+    resolving into `$DOTS_DIR`.
+  - *Pinned installers*: `@sh <url>` lines in `.install-scripts.list` run only
+    if the script is byte-identical to the last run's copy
+    (`~/.local/state/dots/installers/`); a change shows a diff, interactive
+    asks, `--yes` skips. First run records it (trust on first use).
+  - *Audit additions*: `check_modified_configs` (`pacman -Qii` `[modified]`
+    backup files; warns only on files new since the last audit, baseline in
+    `modified-configs.txt`), `check_dms_owner` (dms.service enabled AND a niri
+    spawn), `check_logins` (gh token, SSH key, claude/codex/spotify_player/
+    vesktop credentials — only for installed tools, local checks only).
+    `vjupdate --lostfiles` runs `pacreport --unowned-files` (~1 min, report).
+  - *Preflight*: refuses to run as root; warns under 5 GiB free on `/`
+    (`VJ_MIN_FREE_GB`); keeps an existing sudo ticket alive (`sudo -n -v`
+    loop, terminal runs only, killed in `_cleanup`).
 - **Held packages.** `[paru].hold` (packages.toml) excludes named packages from system
   upgrades (including retries) and both rebuild paths. First installation is
   unchanged. Audit and update runs warn about pending held AUR updates with
@@ -496,8 +546,9 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   `_install_list` / the flatpak loop also record `@pacman-per-pkg` /
   `@flatpak-per-pkg` (one average per call). Commit the file to share history.
 - **Unlisted/unused apps** (`check_unused_apps` → `python3 -m vj unused PLANDIR [DAYS]`,
-  `vj/unused.py`) warns, never removes. Only packages/flatpaks with a visible
-  launcher count. Usage = DMS's `~/.local/state/DankMaterialShell/appusage.json`
+  `vj/unused.py`) warns, never removes. Unlisted = every explicit package/flatpak
+  in no plan list (incl. remove/demote/`ignore.list`); idle = only apps with a
+  visible launcher. Usage = DMS's `~/.local/state/DankMaterialShell/appusage.json`
   (launcher) + `wellbeing/db` (focused seconds per window app_id, BoltDB read
   by regex). Root is `noatime`, so file access times are useless. Idle verdicts
   wait until wellbeing has DAYS (60) of history (began 2026-10-24); terminal apps
@@ -531,10 +582,10 @@ sources → install → dotfiles → configure → audit
 | Phase | Contains |
 |---|---|
 | `sources` | install paru, reset keyrings, surface repo, rank mirrors, add flathub remote, clone repos |
-| `install` | conflict removal, full upgrade, install pacman/flatpak/AUR packages, flatpak update, cache cleanup |
+| `install` | conflict removal, demotions, disk check, AUR review, full upgrade, install pacman/flatpak/AUR packages, flatpak update, npm/uv tools, cache cleanup |
 | `dotfiles` | stow symlinks, DMS config import |
 | `configure` | system services, snapper, keyboard, greeter, keyring-pam (user-prompted); DMS plugins, install scripts, fish, claude, VMs (first-run prompted) |
-| `audit` | orphan packages, unlisted/unused apps (report only), flatpak cleanup, rebuild check, pacnew files, firmware updates |
+| `audit` | orphan packages, unlisted/unused apps (report only), flatpak cleanup, rebuild check, pacnew files, modified configs, DMS owner, logins, firmware updates |
 
 Interactive mode (default, or `-i`) opens a scrollable, dependency-free terminal
 menu with collapsible groups, search, an item detail panel and an execution-order
@@ -544,8 +595,12 @@ least 40 columns by 12 rows. `--update` and `--check` remain direct actions.
 
 ## Shell script linting
 
-`.githooks/pre-commit` runs `shellcheck -S error` on staged shell scripts and blocks
-the commit on errors. It selects files by **shebang, not path**, so non-shell files
+`.githooks/pre-commit` first blocks staged secrets (token/key patterns and
+paths like `auth.json`, `.credentials.json`, `id_ed25519`; it scans the staged
+blob and prints only a 6-char prefix), then runs `shellcheck -S error` on staged
+shell scripts and blocks the commit on errors. `.github/workflows/test.yml` runs
+the unittest suite + shellcheck on every push. Fish completions for `vjupdate`
+(`--actions` IDs read live from `MENU_ORDER`) and `vj` live in the fish package. It selects files by **shebang, not path**, so non-shell files
 (Python, KDL, binaries) are never scanned. It no-ops when shellcheck is absent, so a fresh clone can still commit.
 
 `deploy_dotfiles` runs `git config core.hooksPath .githooks`, so a clone self-registers.

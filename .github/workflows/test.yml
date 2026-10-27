@@ -1,0 +1,23 @@
+# Same checks as a local run: unittest suite (all system commands mocked) +
+# shellcheck at the pre-commit level. Nothing here touches a real system.
+name: test
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq stow shellcheck jq
+          pip install -q textual
+      - name: shellcheck
+        run: shellcheck -S error scripts/.local/bin/vjupdate .githooks/pre-commit
+      - name: unittest
+        run: python3 -B -m unittest discover -s tests -v

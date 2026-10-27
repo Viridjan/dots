@@ -3,6 +3,7 @@ import copy
 import datetime
 import json
 import os
+import re
 import tempfile
 import tomllib
 from dataclasses import dataclass, field
@@ -16,6 +17,7 @@ DEFAULTS = {
     "paru": {"add": [], "remove": []},
     "flatpak": {"add": [], "remove": []},
     "declined": {"paru": [], "flatpak": []},
+    "ignored": {"paru": [], "flatpak": []},  # unlisted installs the audit stops reporting
     "once": {},
     "last": {},
 }
@@ -110,6 +112,36 @@ def save_local(cfg: dict, path: Path | None = None) -> None:
     except BaseException:
         Path(tmp).unlink(missing_ok=True)
         raise
+
+
+def add_to_list(path: Path, section: str, name: str) -> None:
+    """Append name to `[section] install` in a hand-written TOML file, keeping its
+    comments. Writes only if the result parses and contains the name."""
+    text = path.read_text() if path.exists() else ""
+    head = re.search(rf"^\[{re.escape(section)}\][ \t]*$", text, re.M)
+    item = json.dumps(name)
+    if not head:
+        new = text.rstrip("\n") + f"\n\n[{section}]\ninstall = [\n    {item},\n]\n"
+    else:
+        nxt = re.compile(r"^\[", re.M).search(text, head.end())
+        end = nxt.start() if nxt else len(text)
+        key = re.compile(r"^install[ \t]*=[ \t]*\[", re.M).search(text, head.end(), end)
+        if not key:
+            new = text[:head.end()] + f"\ninstall = [{item}]" + text[head.end():]
+        elif (rest := text[key.end():].split("\n", 1)[0].strip()) == "" or rest.startswith("#"):
+            close = re.compile(r"^\][ \t]*$", re.M).search(text, key.end())  # multi-line array
+            if not close:
+                raise ConfigError(f"{path}: cannot find the end of [{section}] install")
+            new = text[:close.start()] + f"    {item},\n" + text[close.start():]
+        else:
+            new = text[:key.end()] + f"{item}, " + text[key.end():]
+    try:
+        ok = name in tomllib.loads(new).get(section, {}).get("install", [])
+    except tomllib.TOMLDecodeError:
+        ok = False
+    if not ok:
+        raise ConfigError(f"{path}: could not add {name} to [{section}] install — edit it by hand")
+    path.write_text(new)
 
 
 def valid_choice(cfg: dict, repo: Repo) -> bool:

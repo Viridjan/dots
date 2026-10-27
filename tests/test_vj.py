@@ -22,10 +22,11 @@ def fixture_repo(root: Path) -> Path:
     (d / "profiles").mkdir(parents=True)
     (d / "packages.toml").write_text(
         '[paru]\ninstall = ["fish", "git", "steam"]\nremove = ["wine"]\nhold = ["vectorcraft"]\nskip = ["git"]\n'
-        '[flatpak]\ninstall = ["com.spotify.Client"]\n')
+        '[flatpak]\ninstall = ["com.spotify.Client"]\n'
+        '[systemd]\nenable = ["cups", "bluetooth"]\nuser = ["mpd"]\n[npm]\ninstall = ["@x/dsh"]\n[uv]\ninstall = ["graphifyy"]\n')
     (d / "profiles/desktop.toml").write_text(
         'description = "Tower"\nhostname = "desktop"\ndotset = "mine"\nfeatures = ["amd-gpu-tuning"]\n'
-        '[paru]\ninstall = ["vulkan-radeon", "fish"]\n')
+        '[paru]\ninstall = ["vulkan-radeon", "fish"]\n[systemd]\nenable = ["ollama", "cups"]\n')
     (d / "profiles/surface.toml").write_text(
         'description = "Tablet"\nhostname = "surface"\ndotset = "mine"\nfeatures = ["linux-surface"]\n')
     (d / "projects.toml").write_text('[[repo]]\nname = "dots"\nurl = "git@x:dots.git"\n')
@@ -132,9 +133,11 @@ class ResolveTests(Tmp):
         r = resolve.resolve(self.repo, self.cfg)
         self.assertEqual(r["paru_install"], ["vulkan-radeon", "obs"])
         self.assertEqual(r["flatpak_install"], [])
-        # local remove is a removal; declined is only "don't install"
-        self.assertEqual(r["paru_remove"], ["wine", "steam"])
-        self.assertNotIn("fish", r["paru_remove"])
+        # declined is only "don't install"
+        # local remove is a demotion (asdeps); repo remove stays a conflict swap
+        self.assertEqual(r["paru_remove"], ["wine"])
+        self.assertEqual(r["paru_demote"], ["steam"])
+        self.assertNotIn("fish", r["paru_demote"])
 
     def test_features(self):
         self.assertEqual(resolve.features(self.repo, self.cfg), ["amd-gpu-tuning"])
@@ -168,6 +171,11 @@ class ResolveTests(Tmp):
         self.assertEqual(read("paru-remove.list"), ["wine"])
         self.assertEqual(read("projects.list"), ["git@x:dots.git"])
         self.assertEqual(read("stow.list"), ["alacritty", "fish"])
+        self.assertEqual(read("systemd-enable.list"), ["cups", "bluetooth", "ollama"])
+        self.assertEqual(read("systemd-user.list"), ["mpd"])
+        self.assertEqual(read("npm-install.list"), ["@x/dsh"])
+        self.assertEqual(read("uv-install.list"), ["graphifyy"])
+        self.assertEqual(read("paru-demote.list"), [])
         env = subprocess.run(["bash", "-c", f'source "{out}/env"; echo "$VJ_PROFILE|$VJ_DOTSET|$VJ_DOTSET_DIR|$VJ_FEATURES"'],
                              capture_output=True, text=True, check=True).stdout.strip()
         self.assertEqual(env, f"desktop|mine|{self.dots}/dotsets/mine|amd-gpu-tuning")
@@ -309,6 +317,68 @@ class StateTests(Tmp):
         self.assertIn("remove 1", st.recap("packages"))
 
 
+class UnlistedTests(Tmp):
+    """#4: explicitly installed packages in no list, sorted from vj."""
+
+    def state(self):
+        from vj import state
+        st = state.State(config.load_repo(self.dots), self.cfg_path, installed={"fish"},
+                         explicit={"fish": "paru", "wine": "paru", "git": "paru", "base": "paru", "obs": "paru",
+                                   "kicad": "paru", "zed": "paru", "old": "paru", "com.x.Y": "flatpak"})
+        st.choose("desktop", "mine")
+        return st
+
+    def test_unlisted_excludes_lists_skip_and_repo_removes(self):
+        self.assertEqual(self.state().unlisted(), [("flatpak", "com.x.Y"), ("paru", "base"), ("paru", "kicad"),
+                                                   ("paru", "obs"), ("paru", "old"), ("paru", "zed")])
+
+    def test_each_choice_moves_it_out_and_persists(self):
+        st = self.state()
+        st.sort_unlisted(["paru:base", "flatpak:com.x.Y"], "ignore")
+        st.sort_unlisted(["paru:obs"], "machine")
+        st.sort_unlisted(["paru:old", "flatpak:com.x.Y"], "demote")  # flatpak: never uninstalled
+        self.assertIn("1 package", st.sort_unlisted(["paru:kicad"], "repo"))
+        st.sort_unlisted(["paru:zed"], "profile")
+        self.assertEqual(st.unlisted(), [])
+        cfg = config.load_local(self.cfg_path)
+        self.assertEqual(cfg["ignored"], {"paru": ["base"], "flatpak": ["com.x.Y"]})
+        self.assertEqual(cfg["paru"], {"add": ["obs"], "remove": ["old"]})
+        self.assertEqual(cfg["flatpak"]["remove"], [])
+        repo = config.load_repo(self.dots)
+        self.assertIn("kicad", repo.packages["paru"]["install"])
+        self.assertIn("zed", repo.profiles["desktop"]["paru"]["install"])
+        resolve.write_plan(repo, cfg, self.root / "plan")
+        self.assertEqual((self.root / "plan/ignore.list").read_text(), "base\ncom.x.Y\n")
+
+    def test_recap(self):
+        st = self.state()
+        self.assertIn("6 packages to sort", st.recap("unlisted"))
+        st.sort_unlisted([f"{s}:{n}" for s, n in st.unlisted()], "ignore")
+        self.assertIn("none", st.recap("unlisted"))
+
+    def test_add_to_list_keeps_comments_and_shapes(self):
+        f = self.root / "x.toml"
+        f.write_text('# top\n[paru]\ninstall = [\n    "a",  # why a\n    # group\n]\nremove = ["r"]\n'
+                     '[flatpak]\ninstall = ["f"]\n[npm]\nx = 1\n')
+        for sec in ("paru", "flatpak", "npm", "uv"):
+            config.add_to_list(f, sec, "new")
+        text = f.read_text()
+        self.assertIn("# why a", text)
+        self.assertIn("# group", text)
+        d = __import__("tomllib").loads(text)
+        self.assertEqual(d["paru"], {"install": ["a", "new"], "remove": ["r"]})
+        self.assertEqual(d["flatpak"]["install"], ["new", "f"])
+        self.assertEqual(d["npm"], {"install": ["new"], "x": 1})
+        self.assertEqual(d["uv"]["install"], ["new"])
+
+    def test_add_to_list_refuses_to_write_broken_toml(self):
+        f = self.root / "x.toml"
+        f.write_text('[paru]\ninstall = [\n    "a",\n')  # unterminated
+        with self.assertRaises(config.ConfigError):
+            config.add_to_list(f, "paru", "new")
+        self.assertEqual(f.read_text(), '[paru]\ninstall = [\n    "a",\n')
+
+
 @unittest.skipUnless(HAS_TEXTUAL, "textual not installed")
 class UiTests(Tmp):
     def app(self, runner=None):
@@ -381,14 +451,18 @@ class UnusedTests(unittest.TestCase):
             installed = {"steam": {"steam"}, "gimp": {"org.gimp.gimp", "gimp"},
                          "stray": {"stray"}, "vim": set()}
             now = time.mktime(time.strptime("2026-03-10", "%Y-%m-%d"))
-            lines = unused.report(t, 30, now, installed, seen)
-            self.assertEqual(lines[0], "Installed but in no package list: stray vim")
+            (t / "ignore.list").write_text("base\n")
+            (t / "paru-demote.list").write_text("old\n")
+            explicit = {"steam", "gimp", "stray", "vim", "base", "old", "com.x.Y"}
+            lines = unused.report(t, 30, now, installed, seen, explicit)
+            self.assertEqual(lines[0], "3 installed but in no package list (sort them in vj → Unlisted packages): "
+                                       "com.x.Y stray vim")
             self.assertIn("gimp (1970-01-01)", lines[1])
             self.assertIn("stray (never)", lines[1])
             self.assertNotIn("steam", lines[1])
             self.assertNotIn("vim", lines[1])  # terminal app: not trackable
             # Tracking younger than the window → no idle verdicts yet.
-            lines = unused.report(t, 100, now, installed, seen)
+            lines = unused.report(t, 100, now, installed, seen, explicit)
             self.assertTrue(lines[1].startswith("Unused-app check starts 2026-04-11"))
 
     def test_desktop_keys(self):

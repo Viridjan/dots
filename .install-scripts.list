@@ -1,7 +1,8 @@
 # Shell-based installers — each line is executed verbatim via bash -c
 # Feed to vjupdate: run_install_scripts()
 
-curl -fsSL https://chatgpt.com/codex/install.sh | sh
+# @sh: runs only if the script is unchanged since its last run (else shows a diff)
+@sh https://chatgpt.com/codex/install.sh
 
 # Codex skills (skip if present: the installer refuses an existing destination)
 [ -d ~/.codex/skills/systematic-debugging ] || python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py --repo obra/superpowers --path skills/systematic-debugging --dest ~/.codex/skills

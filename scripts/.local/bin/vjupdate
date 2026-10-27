@@ -79,6 +79,11 @@ _ensure_plan() {
 # Profile switches, e.g. `_has_feature linux-surface` (profiles/<name>.toml).
 _has_feature() { [[ " ${VJ_FEATURES:-} " == *" $1 "* ]]; }
 
+# Never removed by vjupdate (conflict swaps, demotions, orphan removal), whatever
+# the lists say: kernels, firmware, microcode, bootloader, base system, keyrings.
+_PROTECTED_PKG_RE='^(base|base-devel|linux|linux-[a-z0-9-]+|.*-firmware.*|.*-ucode|limine.*|mkinitcpio.*|systemd|systemd-libs|glibc|pacman|paru|sudo|.*-keyring|cachyos-.*mirrorlist|networkmanager|mesa|lib32-mesa|niri|greetd)$'
+_is_protected() { [[ "$1" =~ $_PROTECTED_PKG_RE ]]; }
+
 # ─── Audit-dependent actions ─────────────────────────────
 # Single source of truth: checklist name → flag variable. Every one of these
 # only sets a flag consumed inside phase_audit, so selecting one must also
@@ -141,6 +146,7 @@ _cleanup() {
         tput cnorm >/dev/tty 2>/dev/null || true
     fi
     [[ -n "${_MS_RESULT:-}" ]] && rm -f "${_MS_RESULT}"
+    [[ -n "${_SUDO_PID:-}" ]] && kill "$_SUDO_PID" 2>/dev/null
     ${_PLAN_OWNED:-false} && rm -rf "${VJ_PLAN_DIR:?}"
     if [[ -n "${_TEE_PID:-}" ]]; then
         exec 1>&- 2>&- || true
@@ -187,6 +193,14 @@ _init_runtime() {
     _RUNTIME_READY=true
     set -E
     trap _runtime_error ERR
+    # Keep an already-granted sudo ticket alive through long upgrades and
+    # builds; paru's SudoLoop only covers paru itself. -n never prompts, and
+    # the loop holds no stdout so the log tee can still finish on exit.
+    if [[ -t 0 ]] && command -v sudo &>/dev/null; then
+        ( trap - ERR; while kill -0 "$$" 2>/dev/null; do sudo -n -v 2>/dev/null || true; sleep 60 || true; done ) \
+            </dev/null >/dev/null 2>&1 &
+        _SUDO_PID=$!
+    fi
     echo "=== vjupdate $(date '+%Y-%m-%d %H:%M:%S') args: ${_ARGS:-<none>} ==="
 }
 
@@ -421,7 +435,7 @@ _paru() { nice -n "$(( 19 - $(nice) ))" ionice -c 3 paru "$@"; }
 # paru -Syuu wrapper: auto-recovers from untrusted-signature errors once.
 _syuu() {
     local held
-    held=$(_held_packages | tr '\n' ',')
+    held=$( { _held_packages; printf '%s\n' "${_AUR_FLAGGED[@]}"; } | awk NF | tr '\n' ',')
     held=${held%,}
     local args=(-Syuu --noconfirm)
     [[ -n "$held" ]] && args+=(--ignore "$held")
@@ -733,7 +747,9 @@ install_all() {
         info "Removing flagged packages..."
         while IFS= read -r pkg; do
             local out
-            if out=$(sudo pacman -Rdd --noconfirm "$pkg" 2>&1); then
+            if _is_protected "$pkg"; then
+                warn "protected, not removed: $pkg"
+            elif out=$(sudo pacman -Rdd --noconfirm "$pkg" 2>&1); then
                 ok "removed: $pkg"
             elif echo "$out" | grep -q "target not found"; then
                 true
@@ -742,7 +758,10 @@ install_all() {
             fi
         done <<< "$_conflicts"
     fi
+    _demote_packages
 
+    _check_disk_space
+    _review_aur_updates
     _estimate_aur_builds
     info "Upgrading existing packages..."
     # Never announce success unconditionally: this used to print
@@ -804,10 +823,170 @@ install_all() {
         flatpak update -y &>/dev/null && ok "flatpaks up to date" || warn "flatpak update had warnings"
     fi
 
+    install_user_tools
     clean_caches
     # Propagate the package outcome so phase_install (and the exit status)
     # reflect it, rather than reporting whatever clean_caches happened to return.
     $_pkg_ok
+}
+
+# Local `x` marks (paru-demote.list): mark them dependencies instead of -Rdd,
+# then remove only those that are now orphans (-s takes their unneeded deps).
+# Anything still required by another package stays, and the recap says why.
+_demote_packages() {
+    local list="$VJ_PLAN_DIR/paru-demote.list" pkgs=() pkg contents
+    [[ -f "$list" ]] || return 0
+    contents=$(_pkg_list "$list") || { _record "demote" fail "cannot read paru-demote.list"; return 0; }
+    while IFS= read -r pkg; do
+        [[ -n "$pkg" ]] || continue
+        if _is_protected "$pkg"; then warn "protected, not removed: $pkg"; continue; fi
+        pacman -Qqe "$pkg" &>/dev/null && pkgs+=("$pkg")
+    done <<< "$contents"
+    (( ${#pkgs[@]} )) || return 0
+    info "Demoting to dependencies: ${pkgs[*]}"
+    if ! sudo pacman -D --asdeps "${pkgs[@]}" >/dev/null; then
+        _record "demote" fail "pacman -D --asdeps failed"
+        warn "demote failed: ${pkgs[*]}"
+        return 0
+    fi
+    local orphans=() all
+    all=$(pacman -Qdtq 2>/dev/null || true)
+    for pkg in "${pkgs[@]}"; do
+        if grep -qxF "$pkg" <<< "$all"; then
+            orphans+=("$pkg")
+        else
+            warn "kept as dependency (still required by: $(pacman -Qi "$pkg" 2>/dev/null | sed -n 's/^Required By *: //p')): $pkg"
+        fi
+    done
+    if (( ${#orphans[@]} )); then
+        if sudo pacman -Rns --noconfirm "${orphans[@]}"; then
+            ok "removed: ${orphans[*]}"
+        else
+            _record "demote" fail "pacman -Rns failed"
+            warn "removal failed: ${orphans[*]}"
+            return 0
+        fi
+    fi
+    _record "demote" ok
+}
+
+# pacman checks space for packages itself; AUR builds in ~/.cache and
+# snapshots do not, so warn before a long upgrade starts on a near-full root.
+_check_disk_space() {
+    local avail
+    avail=$(df --output=avail -BG / 2>/dev/null | tail -1 | tr -dc '0-9') || return 0
+    [[ -n "$avail" ]] || return 0
+    if (( avail < ${VJ_MIN_FREE_GB:-5} )); then
+        warn "only ${avail} GiB free on / — AUR builds and snapshots may fill it mid-upgrade"
+    fi
+    return 0
+}
+
+# ─── AUR update review ───────────────────────────────────
+# paru.conf has SkipReview, so nothing shows what changed in a PKGBUILD. Before
+# an upgrade, fetch each pending AUR package's paru clone and diff upstream
+# against HEAD (the version last built). Diffs are saved; packages whose added
+# lines download or execute code are left out of this upgrade (like a hold)
+# unless an interactive run confirms. Upgrading one by hand moves HEAD, which
+# clears the flag. Also imports missing source-signing keys (see below).
+_AUR_REVIEW_RE='curl|wget|base64|eval |/dev/tcp|python[0-9.]* -c|(ba)?sh -c|\| *(ba)?sh\b|chmod +[ugo]*\+?s|nc -'
+_AUR_FLAGGED=()
+_review_aur_updates() {
+    local clones="$HOME/.cache/paru/clone" dir="$STAMP_DIR/aur-review" pending held line pkg base hits
+    [[ -d "$clones" ]] || return 0
+    pending=$(paru -Qua 2>/dev/null || true)
+    [[ -n "$pending" ]] || return 0
+    held=$(_held_packages)
+    mkdir -p "$dir"
+    local flagged=()
+    while IFS= read -r line; do
+        pkg=${line%% *}
+        [[ -n "$pkg" ]] || continue
+        grep -qxF "$pkg" <<< "$held" && continue
+        base=$(pacman -Qi "$pkg" 2>/dev/null | sed -n 's/^Base *: //p' || true)
+        base=${base:-$pkg}
+        [[ -d "$clones/$base/.git" ]] || continue
+        if ! git -C "$clones/$base" fetch -q origin 2>/dev/null; then
+            warn "AUR review: fetch failed for $base"
+            continue
+        fi
+        _import_aur_keys "$clones/$base"
+        git -C "$clones/$base" diff HEAD '@{u}' > "$dir/$base.diff" 2>/dev/null || continue
+        [[ -s "$dir/$base.diff" ]] || continue
+        hits=$(grep -E '^\+[^+]' "$dir/$base.diff" | grep -E -- "$_AUR_REVIEW_RE" | head -3 | tr '\n' ' ' || true)
+        if [[ -n "$hits" ]]; then
+            flagged+=("$pkg")
+            warn "AUR review: $pkg update adds download/exec lines: ${hits:0:200}(diff: $dir/$base.diff)"
+        fi
+    done <<< "$pending"
+    (( ${#flagged[@]} )) || return 0
+    if $INTERACTIVE && [[ -t 0 ]] && _confirm "Upgrade flagged AUR packages (${flagged[*]}) anyway? [y/N]"; then
+        return 0
+    fi
+    _AUR_FLAGGED+=("${flagged[@]}")
+    warn "left out of this upgrade: ${flagged[*]} (after reading the diff: paru -S ${flagged[*]})"
+}
+
+# makepkg verifies source signatures with the USER's keyring, not pacman-key,
+# so vjupdate's keyring reset never fixes "unknown public key". Import the
+# validpgpkeys the updated .SRCINFO names, before paru builds.
+_import_aur_keys() {
+    local clone="$1" key
+    command -v gpg &>/dev/null || return 0
+    while IFS= read -r key; do
+        [[ -n "$key" ]] || continue
+        gpg --list-keys "$key" &>/dev/null && continue
+        if gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys "$key" &>/dev/null; then
+            ok "imported AUR source key: $key (${clone##*/})"
+        else
+            warn "could not import AUR source key $key for ${clone##*/} — try: gpg --recv-keys $key"
+        fi
+    done < <(git -C "$clone" show '@{u}:.SRCINFO' 2>/dev/null | sed -n 's/^[[:space:]]*validpgpkeys = //p')
+}
+
+# Global npm and uv tools from packages.toml [npm]/[uv]. Install-only: both
+# tools update themselves through their own commands.
+install_user_tools() {
+    local list pkg have
+    list="$VJ_PLAN_DIR/npm-install.list"
+    if [[ -s "$list" ]]; then
+        if ! command -v npm &>/dev/null; then
+            warn "npm not found — npm tools skipped"
+        else
+            have=$(npm ls -g --depth=0 --parseable 2>/dev/null | sed -n 's|.*/node_modules/||p' || true)
+            while IFS= read -r pkg; do
+                [[ -n "$pkg" ]] || continue
+                if grep -qxF -- "$pkg" <<< "$have"; then
+                    ok "already installed: $pkg (npm)"
+                elif npm i -g "$pkg" >/dev/null 2>&1; then
+                    ok "installed: $pkg (npm)"
+                else
+                    _record "npm:$pkg" fail "npm i -g failed"
+                    warn "failed to install: $pkg (npm)"
+                fi
+            done < <(_pkg_list "$list")
+        fi
+    fi
+    list="$VJ_PLAN_DIR/uv-install.list"
+    if [[ -s "$list" ]]; then
+        if ! command -v uv &>/dev/null; then
+            warn "uv not found — uv tools skipped"
+        else
+            have=$(uv tool list 2>/dev/null | awk '$1 !~ /^-/ {print $1}' || true)
+            while IFS= read -r pkg; do
+                [[ -n "$pkg" ]] || continue
+                if grep -qxF -- "$pkg" <<< "$have"; then
+                    ok "already installed: $pkg (uv)"
+                elif uv tool install "$pkg" >/dev/null 2>&1; then
+                    ok "installed: $pkg (uv)"
+                else
+                    _record "uv:$pkg" fail "uv tool install failed"
+                    warn "failed to install: $pkg (uv)"
+                fi
+            done < <(_pkg_list "$list")
+        fi
+    fi
+    return 0
 }
 
 # ─── Phase 4: Dotfiles ───────────────────────────────────
@@ -823,11 +1002,41 @@ _stow_niri_cfg() {
     local dst="$HOME/.config/niri"
     local mach_src="$VJ_DOTSET_DIR/$MACHINE/.config/niri"
 
+    local files=(display input autostart-machine surface-layout) f
+
     mkdir -p "$dst/cfg"
+
+    # niri reloads on every change and silently keeps the last good config on
+    # a parse error, so validate the PROPOSED tree first: a temp dir mirroring
+    # ~/.config/niri (dms/ and the rest linked through, includes resolve
+    # against the link paths) with the new links in place. Invalid → keep the
+    # current links and record the failure.
+    if command -v niri &>/dev/null; then
+        local stage out e
+        stage=$(mktemp -d) || return 0
+        mkdir -p "$stage/cfg"
+        for e in "$dst"/* "$dst"/cfg/*; do
+            [[ -e "$e" ]] || continue
+            [[ "$e" == "$dst/cfg" || "$e" == "$dst/config.kdl" ]] && continue
+            ln -s "$e" "$stage/${e#"$dst"/}"
+        done
+        ln -sfn "$src/config.kdl" "$stage/config.kdl"
+        for f in "${files[@]}"; do
+            [[ -f "$mach_src/cfg/${f}.kdl" ]] && ln -sfn "$mach_src/cfg/${f}.kdl" "$stage/cfg/${f}.kdl"
+        done
+        if ! out=$(niri validate -c "$stage/config.kdl" 2>&1); then
+            rm -rf "$stage"
+            _record "niri-config" fail "niri validate failed; links unchanged"
+            warn "niri config invalid — links left unchanged: $(printf '%s\n' "$out" | grep -v DEBUG | grep -m3 -E 'Error|×|╰' | tr '\n' ' ')"
+            return 0
+        fi
+        rm -rf "$stage"
+        ok "niri config valid"
+    fi
 
     ln -sf "$src/config.kdl" "$dst/config.kdl"
 
-    for f in display input autostart-machine surface-layout; do
+    for f in "${files[@]}"; do
         [[ -f "$mach_src/cfg/${f}.kdl" ]] && ln -sf "$mach_src/cfg/${f}.kdl" "$dst/cfg/${f}.kdl"
     done
     # A missing last file must not leave the loop's false test as the return status.
@@ -893,12 +1102,12 @@ deploy_dotfiles() {
     _deploy_root_pkg() {
         local _rpkg="$1"
         if $DRY_RUN; then
-            _mutate sudo stow -t / "$_rpkg"
+            _mutate sudo stow --restow -t / "$_rpkg"
         elif $STOW_ADOPT; then
             _adopt_backup -t / "$_rpkg" || { _record "stow:$_rpkg" fail "backup failed"; return 1; }
             sudo stow --adopt -t / "$_rpkg" && _stowed+=("$_rpkg→/") || _record "stow:$_rpkg" fail "adopt failed"
         else
-            sudo stow -t / "$_rpkg" && _stowed+=("$_rpkg→/") \
+            sudo stow --restow -t / "$_rpkg" && _stowed+=("$_rpkg→/") \
                 || { _record "stow:$_rpkg" fail "conflicts"; warn "stow conflict in '$_rpkg' — run 'vjupdate --adopt'"; }
         fi
     }
@@ -916,7 +1125,9 @@ deploy_dotfiles() {
                 *)            _deploy_pkg --restow -t "$HOME" "$pkg" "$pkg" || true ;;
             esac
         done < <([[ -f "$VJ_PLAN_DIR/stow.list" ]] && cat "$VJ_PLAN_DIR/stow.list")
+        _unstow_unticked
     fi
+    _prune_dead_links
 
     for _pkg in "${_stowed[@]}"; do ok "stowed: $_pkg"; done
     if [[ ${#_conflicts[@]} -gt 0 ]]; then
@@ -928,6 +1139,44 @@ deploy_dotfiles() {
     # set either way. Returning non-zero here would trip the ERR trap and abort
     # the whole run — dms_import, configure and audit would never execute
     # because one package had a drifted file.
+    return 0
+}
+
+# Packages vjupdate linked on an earlier run but that are unticked now
+# (vj → Dotfiles) get unlinked. Only packages recorded in the state file are
+# touched, so a package that was never deployed here is left alone. niri is
+# never unlinked: niri without config.kdl starts with defaults.
+_unstow_unticked() {
+    local state="$STAMP_DIR/stowed-pkgs" now pkg
+    now=$(cat "$VJ_PLAN_DIR/stow.list" 2>/dev/null) || return 0
+    if [[ -f "$state" ]]; then
+        while IFS= read -r pkg; do
+            [[ -n "$pkg" && -d "$VJ_DOTSET_DIR/$pkg" ]] || continue
+            grep -qxF "$pkg" <<< "$now" && continue
+            case "$pkg" in
+                niri) warn "niri is unticked but stays linked (unlinking would leave niri without config)"; continue ;;
+                ollama|brave) _mutate sudo stow -D -d "$VJ_DOTSET_DIR" -t / "$pkg" ;;
+                *) _mutate stow -D -d "$VJ_DOTSET_DIR" -t "$HOME" "$pkg" ;;
+            esac && ok "unlinked (unticked): $pkg" || warn "could not unlink unticked package: $pkg"
+        done < "$state"
+    fi
+    $DRY_RUN || { mkdir -p "$STAMP_DIR" && printf '%s\n' "$now" > "$state"; } || true
+    return 0
+}
+
+# Dead links that point into the repo, left behind when a tracked file is
+# deleted or renamed (restow only prunes inside packages it is restowing).
+# Never follows links, never touches a link pointing anywhere else.
+_prune_dead_links() {
+    local l t
+    while IFS= read -r -d '' l; do
+        t=$(readlink -- "$l") || continue
+        [[ "$t" == /* ]] || t="$(dirname -- "$l")/$t"
+        t=$(realpath -m -- "$t") || continue
+        [[ "$t" == "$DOTS_DIR"/* ]] || continue
+        _mutate rm -f -- "$l" && ok "removed dead link: ${l/#"$HOME"/\~}"
+    done < <(find "$HOME/.config" -maxdepth 3 -xtype l -print0 2>/dev/null
+             find "$HOME/.local/bin" "$HOME/.local/share/applications" -maxdepth 1 -xtype l -print0 2>/dev/null)
     return 0
 }
 
@@ -994,39 +1243,48 @@ _enable() {
     systemctl enable --now "$1" 2>/dev/null && ok "enabled: $1" || warn "skipped (not found): $1"
 }
 
-# Listed once so --dry-run previews exactly what enable_services would touch.
-SERVICES=(
-    NetworkManager bluetooth cups bpftune ananicy-cpp
-    dmemcg-booster-system systemd-oomd power-profiles-daemon
-    snapper-timeline.timer snapper-cleanup.timer limine-snapper-sync.service
-    greetd docker
-)
-SERVICES_DESKTOP=(ollama)
-
+# Units come from packages.toml/profiles [systemd] (systemd-*.list in the plan).
+# vjupdate records what it enabled; a unit dropped from the lists is disabled
+# (not stopped — that happens at the next boot, so nothing dies mid-session).
+# Nothing is disabled on the first run, before there is a record.
 enable_services() {
-    info "Enabling common services..."
-    local _svc
-    for _svc in "${SERVICES[@]}"; do _enable "$_svc"; done
+    local sys="$VJ_PLAN_DIR/systemd-enable.list" usr="$VJ_PLAN_DIR/systemd-user.list"
+    local managed="$STAMP_DIR/managed-units" now="" u kind
+    mkdir -p "$STAMP_DIR"
+    if [[ ! -r "$sys" || ! -r "$usr" ]]; then
+        _record "services" fail "service lists missing from the run plan"
+        warn "service lists missing from the run plan — nothing enabled or disabled"
+        return 0
+    fi
+    info "Enabling services..."
+    while IFS= read -r u; do
+        [[ -n "$u" ]] || continue
+        _enable "$u"; now+="system $u"$'\n'
+    done < <(_pkg_list "$sys")
+    while IFS= read -r u; do
+        [[ -n "$u" ]] || continue
+        systemctl --user enable --now "$u" 2>/dev/null && ok "enabled: $u (user)" || warn "skipped (not found): $u (user)"
+        now+="user $u"$'\n'
+    done < <(_pkg_list "$usr")
 
     if _has_feature desktop-services; then
-        for _svc in "${SERVICES_DESKTOP[@]}"; do _enable "$_svc"; done
         sudo systemctl daemon-reload 2>/dev/null || true
         sudo usermod -aG libvirt "$USER" 2>/dev/null || true
         sudo usermod -aG docker "$USER" 2>/dev/null || true
     fi
 
-    if _has_feature linux-surface; then
-        info "Enabling Surface-specific services..."
-        _enable iptsd
-        _enable tlp
-        _enable iio-sensor-proxy
-        _enable thermald
+    if [[ -f "$managed" ]]; then
+        while read -r kind u; do
+            [[ -n "$u" ]] || continue
+            grep -qxF "$kind $u" <<< "$now" && continue
+            if [[ "$kind" == user ]]; then
+                systemctl --user disable "$u" 2>/dev/null && ok "disabled (no longer listed): $u (user)" || warn "could not disable: $u (user)"
+            else
+                systemctl disable "$u" 2>/dev/null && ok "disabled (no longer listed): $u" || warn "could not disable: $u"
+            fi
+        done < "$managed"
     fi
-
-    # user services
-    systemctl --user enable --now psd 2>/dev/null && ok "enabled: psd (user)" || warn "skipped (not found): psd"
-    systemctl --user enable --now mpd 2>/dev/null && ok "enabled: mpd (user)" || warn "skipped (not found): mpd"
-
+    printf '%s' "$now" > "$managed"
 }
 
 # ─── Phase 7: Snapper ────────────────────────────────────
@@ -1422,6 +1680,33 @@ install_dms_plugins() {
 }
 
 # ─── Phase 7c: Install scripts ───────────────────────────
+# `@sh <url>` lines in .install-scripts.list: download the script and run it
+# with sh only if it is byte-identical to the copy that ran last time (trust on
+# first use, no hash to maintain by hand). A changed script is shown as a diff;
+# an interactive run asks, a --yes run skips it.
+_run_pinned_sh() {
+    local url="$1" dir="$STAMP_DIR/installers" tmp key
+    key=$(printf '%s' "$url" | sha256sum | cut -c1-16)
+    mkdir -p "$dir"
+    tmp=$(mktemp) || return 1
+    if ! curl -fsSL "$url" -o "$tmp"; then
+        rm -f "$tmp"; warn "download failed: $url"; return 1
+    fi
+    if [[ -f "$dir/$key" ]] && ! cmp -s "$tmp" "$dir/$key"; then
+        warn "installer changed since its last run: $url"
+        diff -u "$dir/$key" "$tmp" | head -80 || true
+        if ! { $INTERACTIVE && [[ -t 0 ]] && _confirm "Run the changed installer? [y/N]"; }; then
+            rm -f "$tmp"
+            warn "skipped changed installer — review with: curl -fsSL $url | less"
+            return 1
+        fi
+    elif [[ ! -f "$dir/$key" ]]; then
+        info "first run of $url (sha256 $(sha256sum < "$tmp" | cut -c1-16)) — recorded for next time"
+    fi
+    if ! sh "$tmp"; then rm -f "$tmp"; return 1; fi
+    mv -f "$tmp" "$dir/$key"
+}
+
 run_install_scripts() {
     local list="$DOTS_DIR/.install-scripts.list" installer_fd cmd
     [[ -f "$list" ]] || { warn ".install-scripts.list not found — skipping"; return; }
@@ -1432,6 +1717,14 @@ run_install_scripts() {
     while IFS= read -r -u "$installer_fd" cmd || [[ -n "$cmd" ]]; do
         [[ -z "$cmd" || "$cmd" == \#* ]] && continue
         info "Running: $cmd"
+        if [[ "$cmd" == "@sh "* ]]; then
+            if _run_pinned_sh "${cmd#@sh }" {installer_fd}<&-; then
+                _record "installer:$cmd" ok; ok "done: $cmd"
+            else
+                _record "installer:$cmd" fail "installer failed or changed"; warn "failed: $cmd"
+            fi
+            continue
+        fi
         # Child shells do not inherit pipefail: a failed download piped into a
         # successful empty installer must still fail the action.
         if bash -o pipefail -c "$cmd" {installer_fd}<&-; then
@@ -1638,6 +1931,8 @@ system_update() {
 
     refresh_mirrors
 
+    _check_disk_space
+    _review_aur_updates
     _estimate_aur_builds
     info "Updating all packages..."
     # Match install_all: a failed upgrade must not abort the run before
@@ -1733,6 +2028,74 @@ check_unused_apps() {
     done <<< "$out"
 }
 
+# Package config files changed from their packaged version (aconfmgr-style
+# drift tracking). Most are expected (fstab, pacman.conf, mirrorlists), so only
+# files changed since the last audit are reported; the full list stays in the
+# state dir as the baseline.
+check_modified_configs() {
+    info "Checking modified package config files..."
+    local now prev="$STAMP_DIR/modified-configs.txt" new
+    mkdir -p "$STAMP_DIR"
+    now=$(pacman -Qii 2>/dev/null | grep -oE '/[^ ]+ \[modified\]' | sed 's/ \[modified\]$//' | sort -u || true)
+    if [[ -z "$now" ]]; then ok "no modified package config files"; return 0; fi
+    if [[ -f "$prev" ]]; then
+        new=$(comm -13 "$prev" - <<< "$now" || true)
+        if [[ -n "$new" ]]; then
+            warn "package config files modified since last audit: $(tr '\n' ' ' <<< "$new")(baseline: $prev)"
+        else
+            ok "no new config changes ($(wc -l <<< "$now") modified overall, see $prev)"
+        fi
+    else
+        ok "recorded $(wc -l <<< "$now") modified config files as baseline: $prev"
+    fi
+    printf '%s\n' "$now" > "$prev"
+}
+
+# DMS started twice (systemd user unit AND a niri spawn-at-startup) gives two
+# bars, two notification daemons and doubled IPC handling.
+check_dms_owner() {
+    command -v dms &>/dev/null || return 0
+    systemctl --user is-enabled --quiet dms.service 2>/dev/null || return 0
+    local spawn
+    spawn=$(grep -RhsE '^[[:space:]]*spawn(-sh)?-at-startup.*\b(dms|qs)\b' --include='*.kdl' "$HOME/.config/niri" | head -1 || true)
+    if [[ -n "$spawn" ]]; then
+        warn "DMS is started twice: dms.service is enabled and niri runs '${spawn#"${spawn%%[![:space:]]*}"}' — keep one"
+    else
+        ok "DMS has one owner (dms.service)"
+    fi
+}
+
+# Logins a fresh install still needs. Local checks only (no network), and only
+# for tools that are installed, so a finished machine prints nothing.
+check_logins() {
+    info "Checking logins..."
+    local need=()
+    if command -v gh &>/dev/null && ! gh auth token &>/dev/null; then need+=("GitHub: gh auth login"); fi
+    if ! compgen -G "$HOME/.ssh/id_*.pub" >/dev/null; then need+=("SSH key for git@ clones/pushes: ssh-keygen -t ed25519, add the .pub on GitHub"); fi
+    if command -v claude &>/dev/null && [[ ! -f "$HOME/.claude/.credentials.json" ]]; then need+=("Claude Code: run claude, then /login"); fi
+    if command -v codex &>/dev/null && [[ ! -f "$HOME/.codex/auth.json" ]]; then need+=("Codex: codex login"); fi
+    if command -v spotify_player &>/dev/null && [[ ! -f "$HOME/.cache/spotify-player/credentials.json" ]]; then need+=("spotify-player: run spotify_player once and log in"); fi
+    if command -v vesktop &>/dev/null && [[ ! -d "$HOME/.config/vesktop/sessionData" ]]; then need+=("Vesktop: open it and log in to Discord"); fi
+    local m
+    for m in "${need[@]}"; do warn "login needed — $m"; done
+    (( ${#need[@]} )) || ok "all logins present"
+}
+
+# Files under / that no package owns (lostfiles). Slow (~1 min), so it is an
+# explicit action (--lostfiles), not part of every audit. Report only.
+report_unowned_files() {
+    command -v pacreport &>/dev/null || { warn "pacreport not found — install pacutils"; return 0; }
+    local out="$STAMP_DIR/unowned-files.txt"
+    info "Scanning for files no package owns (about a minute)..."
+    if pacreport --unowned-files > "$out" 2>/dev/null; then
+        ok "$(grep -c '^ ' "$out" || true) unowned paths listed in $out"
+        _record "unowned-files" ok
+    else
+        _record "unowned-files" fail "pacreport failed"
+        warn "pacreport --unowned-files failed"
+    fi
+}
+
 # ─── Maintenance: foreign packages + orphan removal ──────
 check_foreign_orphans() {
     info "Checking foreign (AUR) packages..."
@@ -1755,7 +2118,12 @@ check_foreign_orphans() {
     fi
     echo "$orphans"
     if ! $AUDIT_ORPHAN_REMOVAL; then warn "Orphan removal skipped — enable via configure checklist"; return; fi
-    echo "$orphans" | xargs sudo pacman -Rns --noconfirm
+    local o keep=()
+    while IFS= read -r o; do
+        if _is_protected "$o"; then warn "protected, not removed: $o"; else keep+=("$o"); fi
+    done <<< "$orphans"
+    (( ${#keep[@]} )) || return 0
+    sudo pacman -Rns --noconfirm "${keep[@]}"
     ok "removed: orphans"
 }
 
@@ -2592,7 +2960,7 @@ phase_configure() {
     return 0
 }
 phase_update()   { system_update; flatpak_update; clean_caches; }
-phase_audit()    { check_held_updates; check_foreign_orphans; check_unused_apps; check_flatpak_orphans; check_rebuilds; check_python_rebuilds; check_pacnew; check_firmware; check_aur_malware; check_pacman_db; return 0; }
+phase_audit()    { check_held_updates; check_foreign_orphans; check_unused_apps; check_flatpak_orphans; check_rebuilds; check_python_rebuilds; check_pacnew; check_modified_configs; check_dms_owner; check_logins; check_firmware; check_aur_malware; check_pacman_db; return 0; }
 
 # ─── Main ────────────────────────────────────────────────
 bootstrap() {
@@ -2706,6 +3074,9 @@ check() {
     check_rebuilds
     check_python_rebuilds
     check_pacnew
+    check_modified_configs
+    check_dms_owner
+    check_logins
     check_firmware
     check_aur_malware
     check_pacman_db
@@ -2910,6 +3281,10 @@ plan_preview() {
             _unknown "package lists or installed-package query unavailable"
         fi
         echo "      Would remove installed packages listed in packages.toml [paru].remove, then upgrade the system."
+        if [[ -s "$VJ_PLAN_DIR/paru-demote.list" ]]; then
+            echo "      Would demote to dependencies (and remove if unneeded): $(_pkg_list "$VJ_PLAN_DIR/paru-demote.list" | tr '\n' ' ')"
+        fi
+        echo "      Would review pending AUR updates (diffs in \$STAMP_DIR/aur-review/) and install [npm]/[uv] tools."
         _preview_holds
         echo "      Would install the planned Flatpak apps and update Flatpak apps."
         _unknown "available upgrades and malware verdict: network checks have not run"
@@ -2975,6 +3350,7 @@ usage() {
     echo "  --app-launchers     Remove stale non-Steam app launchers, report unmirrored apps"
     echo "  --pacnew            Interactively merge .pacnew files with pacdiff"
     echo "  --rebuild           Rebuild packages flagged by rebuild-detector"
+    echo "  --lostfiles         List files no package owns (pacreport; slow, report only)"
     echo "  --help, -h          Show this message"
     echo ""
     echo "Modifiers (combine with the actions above):"
@@ -3036,6 +3412,8 @@ done
 
 # --help and --dry-run are read-only: no lock, no log rotation, no stamps.
 if [[ "$ACTION" == help ]]; then usage; exit 0; fi
+# Root would write stamps, logs and links into /root; sudo is called per command.
+(( EUID != 0 )) || die "run vjupdate as your user, not root — it calls sudo itself"
 _ensure_plan
 if $DRY_RUN; then
     case "$ACTION" in
@@ -3058,6 +3436,7 @@ case "$ACTION" in
     --keyring-pam)       _init_runtime; setup_keyring_pam ;;
     --dms-export)        _init_runtime; dms_export ;;
     --dms-import)        _init_runtime; dms_import ;;
+    --lostfiles)         _init_runtime; report_unowned_files; print_recap ;;
     --steam-launchers)   _init_runtime; setup_steam_launchers ;;
     --app-launchers)     _init_runtime; check_app_launchers ;;
     --rebuild)           _init_runtime; check_aur_malware; _enable_audit_action rebuild; check_rebuilds ;;

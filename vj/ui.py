@@ -104,7 +104,7 @@ class PackagesChecklist(Checklist):
     def __init__(self, state):
         self.state = state
         items = state.package_items()
-        super().__init__("Packages — untick = declined (remembered) · + add · x remove (pacman -Rdd)",
+        super().__init__("Packages — untick = declined (remembered) · + add · x remove (demoted to dependency, removed if unneeded)",
                          items, [i for i, _, t in items if t], self.apply_all)
 
     def apply_all(self, ticked):
@@ -132,6 +132,32 @@ class PackagesChecklist(Checklist):
         if self.current():
             self.state.toggle_remove(self.current())
             self.reload()
+
+
+class UnlistedChecklist(Checklist):
+    """Installed by hand but in no list. Keys act on ticked rows, else the highlighted one."""
+    BINDINGS = [Binding("p", "sort('repo')", "packages.toml"), Binding("f", "sort('profile')", "Profile"),
+                Binding("m", "sort('machine')", "This machine"), Binding("x", "sort('demote')", "Demote"),
+                Binding("i", "sort('ignore')", "Ignore")]
+
+    def __init__(self, state):
+        self.state = state
+        super().__init__("Unlisted — p packages.toml · f profile · m this machine · x demote to dependency · i ignore"
+                         " · a ticks all", self.rows(), [], lambda ids: None)
+
+    def rows(self):
+        return [(f"{src}:{n}", f"{src:8} {n}", False) for src, n in self.state.unlisted()]
+
+    def action_sort(self, how):
+        pids = [i for i, _, _ in self.items if i in self.ticked] or ([self.current()] if self.current() else [])
+        if not pids:
+            return
+        try:
+            self.app.notify(self.state.sort_unlisted(pids, how))
+        except config.ConfigError as e:
+            self.app.notify(str(e), severity="error")
+        self.items, self.ticked = self.rows(), set()
+        self.refill(); self.screen.refresh_menu()
 
 
 class OnceChecklist(Checklist):
@@ -211,7 +237,8 @@ class Home(Screen):
            border-title-color: $text; border-title-style: bold}
     .pick:focus {border: round $accent; border-title-color: $accent}
     """
-    MENU = [("maint", "Maintenance actions"), ("packages", "Packages"), ("repos", "Git repositories"),
+    MENU = [("maint", "Maintenance actions"), ("packages", "Packages"), ("unlisted", "Unlisted packages"),
+            ("repos", "Git repositories"),
             ("dotfiles", "Dotfiles"), ("once", "One-time setup"), ("dms", "DMS & Git"),
             ("settings", "Profile / dotfile set"), ("run", "▶ Run")]
     TITLES = {"maint": "Maintenance actions", "repos": "Git repositories to clone (missing ones only)",
@@ -266,6 +293,8 @@ class Home(Screen):
             self.open_panel(PackagesChecklist(st))
         elif key == "once":
             self.open_panel(OnceChecklist(st))
+        elif key == "unlisted":
+            self.open_panel(UnlistedChecklist(st))
         else:
             self.open_panel(Checklist(self.TITLES[key], st.items(key), st.ticked(key),
                                       lambda ids, k=key: st.set_ticks(k, ids)))
