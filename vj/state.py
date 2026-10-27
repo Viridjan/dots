@@ -1,11 +1,13 @@
 """Everything the TUI shows and changes, without Textual. Every change is saved at once."""
 import datetime
+import os
 import subprocess
+import time
 from pathlib import Path
 
 from . import config, resolve
 
-# Same IDs as vjupdate's menu (_menu_catalog). (id, label, ticked by default)
+# Same IDs as vjupdate's MENU_ORDER (--actions). (id, label, ticked by default)
 MAINT = [
     ("sources", "Refresh package sources", True),
     ("install", "Upgrade and install packages", True),
@@ -133,7 +135,7 @@ class State:
         for src, name in self._offered():
             sec, guessed = resolve.estimate(src, name, self.times)
             removing = name in self.cfg[src]["remove"]
-            state = "[#ff8700]remove[/]   " if removing else f"{'installed' if name in self.installed else 'new':9}"
+            state = ("[#ff8700]excluded[/] " if src == "flatpak" else "[#ff8700]remove[/]   ") if removing else f"{'installed' if name in self.installed else 'new':9}"
             out.append((f"{src}:{name}", f"{resolve.fmt_c(sec, guessed, pad=9)}  {state}  {name}",
                         not removing and name not in self.cfg["declined"][src]))
         return out
@@ -156,8 +158,11 @@ class State:
     def toggle_remove(self, pid):
         src, name = pid.split(":", 1)
         rm = self.cfg[src]["remove"]
+        if src == "flatpak" and name not in rm:
+            return False  # flatpaks are never uninstalled; x only clears a legacy exclusion
         self.cfg[src]["remove"] = [n for n in rm if n != name] if name in rm else rm + [name]
         self.save()
+        return True
 
     def to_install(self):
         r = resolve.resolve(self.repo, self.cfg)
@@ -168,7 +173,7 @@ class State:
 
     def removals(self):
         repo_rm = [n for n in self.repo.packages.get("paru", {}).get("remove", []) if n in self.installed]
-        return list(dict.fromkeys(repo_rm + self.cfg["paru"]["remove"] + self.cfg["flatpak"]["remove"]))
+        return list(dict.fromkeys(repo_rm + self.cfg["paru"]["remove"]))
 
     # ── unlisted: installed by hand, in no list ──
     def unlisted(self):
@@ -241,7 +246,8 @@ class State:
     def recap(self, key):
         if key == "maint":
             n = len(self.ticked("maint"))
-            return f"run {n} of {len(MAINT)} actions" if n else "[dim]nothing[/dim]"
+            run = f"run {n} of {len(MAINT)} actions" if n else "[dim]nothing[/dim]"
+            return " · ".join(filter(None, [run, last_check()]))
         if key == "packages":
             new = sum(len(v) for v in self.to_install().values())
             parts = [f"install {plural(new, 'package')} {resolve.fmt_c(self.install_seconds())}" if new
@@ -274,3 +280,22 @@ class State:
         if key == "run":
             return f"press r · install time {resolve.fmt_c(self.install_seconds())} [dim](upgrades/actions extra)[/dim]"
         return ""
+
+
+def last_check(path=None, now=None):
+    """Summary of the last `vjupdate --check` (written to last-check.tsv), or ""."""
+    path = Path(path or Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local/state") / "dots/last-check.tsv")
+    try:
+        lines, mtime = path.read_text().splitlines(), path.stat().st_mtime
+    except OSError:
+        return ""
+    rows = dict(line.split("\t", 1) for line in lines if "\t" in line)
+    failed = [n for n, st in rows.items() if st == "fail"]
+    warns = int(rows.get("@warnings", "0") or 0)
+    days = int(((now or time.time()) - mtime) // 86400)
+    age = "today" if days <= 0 else f"{days}d ago"
+    if failed:
+        return f"[#ff5f5f]check {age}: {len(failed)} failed ({', '.join(failed[:3])})[/]"
+    if warns:
+        return f"[#ffd75f]check {age}: {plural(warns, 'warning')}[/]"
+    return f"[dim]check {age}: ok[/dim]"

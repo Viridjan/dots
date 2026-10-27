@@ -5,129 +5,9 @@
     "semantic_hash": "1174bc86628ac3450cb7df6477e5afbb"
   },
   ".githooks/pre-commit": {
-    "mtime": 1790341691.532768,
-    "ast_hash": "2de3d0bbb09498ad516c8fc35f36f924",
-    "semantic_hash": "2de3d0bbb09498ad516c8fc35f36f924"
-  },
-  "DankMaterialShell/.config/DankMaterialShell/monitors.json": {
-    "mtime": 1787072111.6168768,
-    "ast_hash": "4c33fb9568c9c2070d567b5c84a9db1f",
-    "semantic_hash": "4c33fb9568c9c2070d567b5c84a9db1f"
-  },
-  "DankMaterialShell/.config/DankMaterialShell/settings.json": {
-    "mtime": 1792156428.9029999,
-    "ast_hash": "252599f7cb9877869d9b6bca169e8018",
-    "semantic_hash": "252599f7cb9877869d9b6bca169e8018"
-  },
-  "VSCodium/.config/VSCodium/CachedConfigurations/defaults/__default__profile__-configurationDefaultsOverrides/configuration.json": {
-    "mtime": 1786104431.6988275,
-    "ast_hash": "cfc2f6131db2b27f3fabcf31e70024eb",
-    "semantic_hash": "cfc2f6131db2b27f3fabcf31e70024eb"
-  },
-  "VSCodium/.config/VSCodium/User/History/-535d568d/entries.json": {
-    "mtime": 1786104432.607864,
-    "ast_hash": "d0c7b51e0cd807d2fdef2d8e5c3ecc9c",
-    "semantic_hash": "d0c7b51e0cd807d2fdef2d8e5c3ecc9c"
-  },
-  "VSCodium/.config/VSCodium/User/History/-535d568d/m3kb.json": {
-    "mtime": 1786104432.053208,
-    "ast_hash": "59e896bed103799321d220efffe3529a",
-    "semantic_hash": "59e896bed103799321d220efffe3529a"
-  },
-  "VSCodium/.config/VSCodium/User/History/-535d568d/z7pS.json": {
-    "mtime": 1785226450.6991928,
-    "ast_hash": "59e896bed103799321d220efffe3529a",
-    "semantic_hash": "59e896bed103799321d220efffe3529a"
-  },
-  "VSCodium/.config/VSCodium/User/History/-7b75374/YZgv.py": {
-    "mtime": 1785220654.1790614,
-    "ast_hash": "96b92738cf120cd9c50d602523ed875b",
-    "semantic_hash": "96b92738cf120cd9c50d602523ed875b"
-  },
-  "VSCodium/.config/VSCodium/User/History/-7b75374/entries.json": {
-    "mtime": 1785220954.2436216,
-    "ast_hash": "250f5e4f7ed930c8a75cfafaea3f9cd0",
-    "semantic_hash": "250f5e4f7ed930c8a75cfafaea3f9cd0"
-  },
-  "VSCodium/.config/VSCodium/User/chatLanguageModels.json": {
-    "mtime": 1781790991.3243737,
-    "ast_hash": "d751713988987e9331980363e24189ce",
-    "semantic_hash": "d751713988987e9331980363e24189ce"
-  },
-  "VSCodium/.config/VSCodium/User/globalStorage/ms-python.python/pythonrc.py": {
-    "mtime": 1786104432.1683981,
-    "ast_hash": "b7acc4adf0a03f65de42f75130811908",
-    "semantic_hash": "b7acc4adf0a03f65de42f75130811908"
-  },
-  "VSCodium/.config/VSCodium/User/globalStorage/storage.json": {
-    "mtime": 1786104432.6528656,
-    "ast_hash": "a68e12751318c8565f7f47c96225e32e",
-    "semantic_hash": "a68e12751318c8565f7f47c96225e32e"
-  },
-  "VSCodium/.config/VSCodium/User/settings.json": {
-    "mtime": 1786104432.0318408,
-    "ast_hash": "59e896bed103799321d220efffe3529a",
-    "semantic_hash": "59e896bed103799321d220efffe3529a"
-  },
-  "VSCodium/.config/VSCodium/languagepacks.json": {
-    "mtime": 1786104431.463818,
-    "ast_hash": "99914b932bd37a50b983c5e7c90ae93b",
-    "semantic_hash": "99914b932bd37a50b983c5e7c90ae93b"
-  },
-  "brave/etc/brave/policies/managed/discord-loopback.json": {
-    "mtime": 1791731958.8705487,
-    "ast_hash": "5ad464f7ad6d6ea762f54609a43bc917",
-    "semantic_hash": "5ad464f7ad6d6ea762f54609a43bc917"
-  },
-  "cave/.cave/agent/extensions/ollama.ts": {
-    "mtime": 1789423104.1778686,
-    "ast_hash": "a72d02f315a052a744fef5cf7a3f75ef",
-    "semantic_hash": "a72d02f315a052a744fef5cf7a3f75ef"
-  },
-  "cave/.cave/agent/settings.json": {
-    "mtime": 1782118126.560272,
-    "ast_hash": "63a342047c05933fad8c03caa86e7ffc",
-    "semantic_hash": "63a342047c05933fad8c03caa86e7ffc"
-  },
-  "caveman/.config/caveman/config.json": {
-    "mtime": 1781971258.8545773,
-    "ast_hash": "dc99b17fc837298b820d242bf5261147",
-    "semantic_hash": "dc99b17fc837298b820d242bf5261147"
-  },
-  "claude/.claude/keybindings.json": {
-    "mtime": 1781790991.3287227,
-    "ast_hash": "7e5036620ff9eec5d9e1b183a5641077",
-    "semantic_hash": "7e5036620ff9eec5d9e1b183a5641077"
-  },
-  "claude/.claude/model-statusline.sh": {
-    "mtime": 1785451795.4309819,
-    "ast_hash": "b220eabfa8b699872212d55345719489",
-    "semantic_hash": "b220eabfa8b699872212d55345719489"
-  },
-  "claude/.claude/settings.json": {
-    "mtime": 1787652252.2247403,
-    "ast_hash": "d38da8ed36982a214f890900781c20ee",
-    "semantic_hash": "d38da8ed36982a214f890900781c20ee"
-  },
-  "claude/.claude/statusline.sh": {
-    "mtime": 1792230999.868351,
-    "ast_hash": "79edca3f29cb8b15c674bd9aa727b751",
-    "semantic_hash": "79edca3f29cb8b15c674bd9aa727b751"
-  },
-  "claude/.claude/topic-statusline.sh": {
-    "mtime": 1792248855.8187563,
-    "ast_hash": "7f1563cbe43252967644be0336f50fb8",
-    "semantic_hash": "7f1563cbe43252967644be0336f50fb8"
-  },
-  "micro/.config/micro/bindings.json": {
-    "mtime": 1781791257.4447079,
-    "ast_hash": "99914b932bd37a50b983c5e7c90ae93b",
-    "semantic_hash": "99914b932bd37a50b983c5e7c90ae93b"
-  },
-  "micro/.config/micro/settings.json": {
-    "mtime": 1781790436.3299723,
-    "ast_hash": "d46b30ff6b5fb942a2c3e74ee6d9bf5f",
-    "semantic_hash": "d46b30ff6b5fb942a2c3e74ee6d9bf5f"
+    "mtime": 1793099081.8599823,
+    "ast_hash": "334137a006b590cd4c96bac5ab4647f1",
+    "semantic_hash": "334137a006b590cd4c96bac5ab4647f1"
   },
   "scripts/.local/bin/start-keep": {
     "mtime": 1791844272.7971869,
@@ -145,68 +25,383 @@
     "semantic_hash": "e7a42f85d092161ef517539da1685ec1"
   },
   "scripts/.local/bin/vjupdate": {
-    "mtime": 1792333242.6226056,
-    "ast_hash": "f4dcdf9e0a584b916cf396ce259af064",
-    "semantic_hash": "f4dcdf9e0a584b916cf396ce259af064"
+    "mtime": 1793111022.8531528,
+    "ast_hash": "ae4532ab18b98fc80da8a5194fdd5d00",
+    "semantic_hash": "ae4532ab18b98fc80da8a5194fdd5d00"
   },
   "surface-sync.sh": {
-    "mtime": 1791844282.3159702,
-    "ast_hash": "704d0c92da723c3a161e9722f347abdf",
-    "semantic_hash": "704d0c92da723c3a161e9722f347abdf"
+    "mtime": 1793117451.335697,
+    "ast_hash": "a55ba80dd69f4acd4c8e830375c91fec",
+    "semantic_hash": "a55ba80dd69f4acd4c8e830375c91fec"
   },
   "tests/test_topic_statusline.py": {
-    "mtime": 1792248821.0737271,
-    "ast_hash": "732dd84720189d2f75ae6e7e66484690",
-    "semantic_hash": "732dd84720189d2f75ae6e7e66484690"
+    "mtime": 1792591579.4081335,
+    "ast_hash": "9561bb929bb6787e01de451c904096bf",
+    "semantic_hash": "9561bb929bb6787e01de451c904096bf"
   },
   "tests/test_vjupdate.py": {
-    "mtime": 1792333287.3833413,
-    "ast_hash": "318c3104417178922056b176bd52d018",
-    "semantic_hash": "318c3104417178922056b176bd52d018"
+    "mtime": 1793111042.5572653,
+    "ast_hash": "30e5fe6371cf1f98beabe59a5fcc0b78",
+    "semantic_hash": "30e5fe6371cf1f98beabe59a5fcc0b78"
   },
   "tests/test_vjupdate_menu.py": {
     "mtime": 1792248821.0738015,
     "ast_hash": "e9cf0153b4026a13d76730c4daaf2884",
     "semantic_hash": "e9cf0153b4026a13d76730c4daaf2884"
   },
-  "vesktop/.config/vesktop/settings.json": {
-    "mtime": 1781824350.1150126,
-    "ast_hash": "1f53cfbc94a5230122d6121694652d58",
-    "semantic_hash": "1f53cfbc94a5230122d6121694652d58"
-  },
-  "vesktop/.config/vesktop/settings/settings.json": {
-    "mtime": 1787581232.2828214,
-    "ast_hash": "096f09a79d47e951ed90c2f640bcbbfe",
-    "semantic_hash": "096f09a79d47e951ed90c2f640bcbbfe"
-  },
   "CLAUDE.md": {
-    "mtime": 1792338415.8013184,
-    "ast_hash": "96bb04cd021b1a1f701db6ab22cb3d33",
-    "semantic_hash": ""
+    "mtime": 1793117286.3561459,
+    "ast_hash": "d23963b4ec3257ec29c9325bfc72c141",
+    "semantic_hash": "d23963b4ec3257ec29c9325bfc72c141"
   },
   "README.md": {
-    "mtime": 1792338415.8003473,
-    "ast_hash": "998075f04f196fcf8c770ec98ef3ade4",
-    "semantic_hash": ""
+    "mtime": 1793117797.602098,
+    "ast_hash": "5003fbe2fe106c60dd6cd812208c11fe",
+    "semantic_hash": "5003fbe2fe106c60dd6cd812208c11fe"
   },
   "TODO.md": {
-    "mtime": 1792174066.7717905,
-    "ast_hash": "65ef9012691c5f56d8951675ab047012",
-    "semantic_hash": "65ef9012691c5f56d8951675ab047012"
-  },
-  "claude/.claude/skills/sync/SKILL.md": {
-    "mtime": 1781790991.3292487,
-    "ast_hash": "3b0f59baec389323f871c48ff96602f6",
-    "semantic_hash": "3b0f59baec389323f871c48ff96602f6"
+    "mtime": 1792950461.5203424,
+    "ast_hash": "e25555f58f13b30a27eeba308e5b0a04",
+    "semantic_hash": "e25555f58f13b30a27eeba308e5b0a04"
   },
   "windows/docker-compose.yml": {
     "mtime": 1781790991.3390656,
     "ast_hash": "b586fbdea65bfc9a9bb5f9815ae853e7",
     "semantic_hash": "b586fbdea65bfc9a9bb5f9815ae853e7"
   },
-  "scripts/.local/share/icons/hicolor/512x512/apps/mtgatool.png": {
-    "mtime": 1788536487.6175938,
-    "ast_hash": "9ec3c6e381148979a3574fc6206c1111",
-    "semantic_hash": ""
+  "dotsets/viridjan/DankMaterialShell/.config/DankMaterialShell/monitors.json": {
+    "mtime": 1787072111.6168768,
+    "ast_hash": "4c33fb9568c9c2070d567b5c84a9db1f",
+    "semantic_hash": "4c33fb9568c9c2070d567b5c84a9db1f"
+  },
+  "dotsets/viridjan/DankMaterialShell/.config/DankMaterialShell/settings.json": {
+    "mtime": 1792883912.2527032,
+    "ast_hash": "67756f961d0b830b1ce74824097e151b",
+    "semantic_hash": "67756f961d0b830b1ce74824097e151b"
+  },
+  "dotsets/viridjan/VSCodium/.config/VSCodium/User/chatLanguageModels.json": {
+    "mtime": 1781790991.3243737,
+    "ast_hash": "d751713988987e9331980363e24189ce",
+    "semantic_hash": "d751713988987e9331980363e24189ce"
+  },
+  "dotsets/viridjan/VSCodium/.config/VSCodium/User/globalStorage/ms-python.python/pythonrc.py": {
+    "mtime": 1786104432.1683981,
+    "ast_hash": "b7acc4adf0a03f65de42f75130811908",
+    "semantic_hash": "b7acc4adf0a03f65de42f75130811908"
+  },
+  "dotsets/viridjan/VSCodium/.config/VSCodium/User/globalStorage/storage.json": {
+    "mtime": 1786104432.6528656,
+    "ast_hash": "a68e12751318c8565f7f47c96225e32e",
+    "semantic_hash": "a68e12751318c8565f7f47c96225e32e"
+  },
+  "dotsets/viridjan/VSCodium/.config/VSCodium/User/settings.json": {
+    "mtime": 1786104432.0318408,
+    "ast_hash": "59e896bed103799321d220efffe3529a",
+    "semantic_hash": "59e896bed103799321d220efffe3529a"
+  },
+  "dotsets/viridjan/VSCodium/.config/VSCodium/languagepacks.json": {
+    "mtime": 1786104431.463818,
+    "ast_hash": "99914b932bd37a50b983c5e7c90ae93b",
+    "semantic_hash": "99914b932bd37a50b983c5e7c90ae93b"
+  },
+  "dotsets/viridjan/brave/etc/brave/policies/managed/discord-loopback.json": {
+    "mtime": 1791731958.8705487,
+    "ast_hash": "5ad464f7ad6d6ea762f54609a43bc917",
+    "semantic_hash": "5ad464f7ad6d6ea762f54609a43bc917"
+  },
+  "dotsets/viridjan/cave/.cave/agent/extensions/ollama.ts": {
+    "mtime": 1789423104.1778686,
+    "ast_hash": "a72d02f315a052a744fef5cf7a3f75ef",
+    "semantic_hash": "a72d02f315a052a744fef5cf7a3f75ef"
+  },
+  "dotsets/viridjan/cave/.cave/agent/settings.json": {
+    "mtime": 1782118126.560272,
+    "ast_hash": "63a342047c05933fad8c03caa86e7ffc",
+    "semantic_hash": "63a342047c05933fad8c03caa86e7ffc"
+  },
+  "dotsets/viridjan/caveman/.config/caveman/config.json": {
+    "mtime": 1781971258.8545773,
+    "ast_hash": "dc99b17fc837298b820d242bf5261147",
+    "semantic_hash": "dc99b17fc837298b820d242bf5261147"
+  },
+  "dotsets/viridjan/claude/.claude/keybindings.json": {
+    "mtime": 1781790991.3287227,
+    "ast_hash": "7e5036620ff9eec5d9e1b183a5641077",
+    "semantic_hash": "7e5036620ff9eec5d9e1b183a5641077"
+  },
+  "dotsets/viridjan/claude/.claude/model-statusline.sh": {
+    "mtime": 1785451795.4309819,
+    "ast_hash": "b220eabfa8b699872212d55345719489",
+    "semantic_hash": "b220eabfa8b699872212d55345719489"
+  },
+  "dotsets/viridjan/claude/.claude/settings.json": {
+    "mtime": 1787652252.2247403,
+    "ast_hash": "d38da8ed36982a214f890900781c20ee",
+    "semantic_hash": "d38da8ed36982a214f890900781c20ee"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/examples/anime-cast.py": {
+    "mtime": 1793050747.0,
+    "ast_hash": "9bf686c647ff3fa08a9753ff9397c15a",
+    "semantic_hash": "9bf686c647ff3fa08a9753ff9397c15a"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/examples/capybara-4dir.py": {
+    "mtime": 1793050747.0,
+    "ast_hash": "6f7aab00edb0699b819344a1deccdb8e",
+    "semantic_hash": "6f7aab00edb0699b819344a1deccdb8e"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/examples/knight-anim.py": {
+    "mtime": 1793050747.0,
+    "ast_hash": "bbc9e90b6e07a12cf29cd8554ec4c3f7",
+    "semantic_hash": "bbc9e90b6e07a12cf29cd8554ec4c3f7"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/examples/knight-walkcycle.py": {
+    "mtime": 1793050747.0,
+    "ast_hash": "d00b805a91b41291359d3bba3886128c",
+    "semantic_hash": "d00b805a91b41291359d3bba3886128c"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/examples/slime-bounce.py": {
+    "mtime": 1793050777.1830435,
+    "ast_hash": "d0cf7efde5be0979759450c7d104e92c",
+    "semantic_hash": "d0cf7efde5be0979759450c7d104e92c"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/examples/slime-build.py": {
+    "mtime": 1793050777.1808674,
+    "ast_hash": "c24a4725bb62ce2fc88d4415ec591cf6",
+    "semantic_hash": "c24a4725bb62ce2fc88d4415ec591cf6"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/examples/tactical-verdant-oracle.py": {
+    "mtime": 1793050747.0,
+    "ast_hash": "d8f313807353d973c264afdfd8c4fd55",
+    "semantic_hash": "d8f313807353d973c264afdfd8c4fd55"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/examples/tall-iron-man-repulsor.py": {
+    "mtime": 1793050747.0,
+    "ast_hash": "c2cbe49fc3e7763c2737bde6c4448dcc",
+    "semantic_hash": "c2cbe49fc3e7763c2737bde6c4448dcc"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/scripts/lpc.py": {
+    "mtime": 1793110641.021733,
+    "ast_hash": "e14cad6754c2299c88a4c13c0f1309aa",
+    "semantic_hash": "e14cad6754c2299c88a4c13c0f1309aa"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/scripts/pixelpipe.py": {
+    "mtime": 1793050747.0,
+    "ast_hash": "1d9eff949bfe8bd27347d8a5514109fb",
+    "semantic_hash": "1d9eff949bfe8bd27347d8a5514109fb"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/scripts/pixelstudio.py": {
+    "mtime": 1793110660.6999416,
+    "ast_hash": "61eb39f3b3ff3596b93f81311d724aa8",
+    "semantic_hash": "61eb39f3b3ff3596b93f81311d724aa8"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/scripts/study.py": {
+    "mtime": 1793050747.0,
+    "ast_hash": "c3d61245be84f6f8955945e0d276521b",
+    "semantic_hash": "c3d61245be84f6f8955945e0d276521b"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/scripts/test_pixelstudio.py": {
+    "mtime": 1793110672.7843866,
+    "ast_hash": "ba1dbf0711217ce6bfd7024c5832086e",
+    "semantic_hash": "ba1dbf0711217ce6bfd7024c5832086e"
+  },
+  "dotsets/viridjan/claude/.claude/statusline.sh": {
+    "mtime": 1792230999.868351,
+    "ast_hash": "79edca3f29cb8b15c674bd9aa727b751",
+    "semantic_hash": "79edca3f29cb8b15c674bd9aa727b751"
+  },
+  "dotsets/viridjan/claude/.claude/topic-statusline.sh": {
+    "mtime": 1792248855.8187563,
+    "ast_hash": "7f1563cbe43252967644be0336f50fb8",
+    "semantic_hash": "7f1563cbe43252967644be0336f50fb8"
+  },
+  "dotsets/viridjan/micro/.config/micro/bindings.json": {
+    "mtime": 1781791257.4447079,
+    "ast_hash": "99914b932bd37a50b983c5e7c90ae93b",
+    "semantic_hash": "99914b932bd37a50b983c5e7c90ae93b"
+  },
+  "dotsets/viridjan/micro/.config/micro/settings.json": {
+    "mtime": 1781790436.3299723,
+    "ast_hash": "d46b30ff6b5fb942a2c3e74ee6d9bf5f",
+    "semantic_hash": "d46b30ff6b5fb942a2c3e74ee6d9bf5f"
+  },
+  "dotsets/viridjan/vesktop/.config/vesktop/settings.json": {
+    "mtime": 1781824350.1150126,
+    "ast_hash": "1f53cfbc94a5230122d6121694652d58",
+    "semantic_hash": "1f53cfbc94a5230122d6121694652d58"
+  },
+  "dotsets/viridjan/vesktop/.config/vesktop/settings/settings.json": {
+    "mtime": 1792338864.837,
+    "ast_hash": "f3d4f95ef884b1af23a045da657002b9",
+    "semantic_hash": "f3d4f95ef884b1af23a045da657002b9"
+  },
+  "scripts/.local/bin/gamescope-media": {
+    "mtime": 1792770671.5331347,
+    "ast_hash": "a3c110b1abc2e1248a4d0bc48ddf2023",
+    "semantic_hash": "a3c110b1abc2e1248a4d0bc48ddf2023"
+  },
+  "scripts/.local/bin/vj": {
+    "mtime": 1792591857.322867,
+    "ast_hash": "bb5ed55aaca406ed355db4a940ebeb86",
+    "semantic_hash": "bb5ed55aaca406ed355db4a940ebeb86"
+  },
+  "tests/test_surface_sync.py": {
+    "mtime": 1793117436.7191727,
+    "ast_hash": "4791282e38dc60f6a570612786e1dd1f",
+    "semantic_hash": "4791282e38dc60f6a570612786e1dd1f"
+  },
+  "tests/test_vj.py": {
+    "mtime": 1793117624.1449385,
+    "ast_hash": "66f30d99c773f9ee1a6da1812cc32543",
+    "semantic_hash": "66f30d99c773f9ee1a6da1812cc32543"
+  },
+  "tests/test_vjupdate_extras.py": {
+    "mtime": 1793107930.4887617,
+    "ast_hash": "014ee1d36739c8ba13b918d8d8a851e6",
+    "semantic_hash": "014ee1d36739c8ba13b918d8d8a851e6"
+  },
+  "vj/__init__.py": {
+    "mtime": 1792591041.2903605,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "vj/__main__.py": {
+    "mtime": 1792949463.5059707,
+    "ast_hash": "ac2b251307ef93ad17679725d4b4e1f7",
+    "semantic_hash": "ac2b251307ef93ad17679725d4b4e1f7"
+  },
+  "vj/config.py": {
+    "mtime": 1793107813.3424354,
+    "ast_hash": "c10357067167e7098ae99fc9abcd92ba",
+    "semantic_hash": "c10357067167e7098ae99fc9abcd92ba"
+  },
+  "vj/resolve.py": {
+    "mtime": 1793107797.3962018,
+    "ast_hash": "f3dc93a3056e472dcba81b7432c86b15",
+    "semantic_hash": "f3dc93a3056e472dcba81b7432c86b15"
+  },
+  "vj/state.py": {
+    "mtime": 1793117624.1445677,
+    "ast_hash": "d5c599afe0cf98f1d4f1a0327398d68c",
+    "semantic_hash": "d5c599afe0cf98f1d4f1a0327398d68c"
+  },
+  "vj/ui.py": {
+    "mtime": 1793117451.336252,
+    "ast_hash": "7ade6dbb29d27c90aefbb51af664425a",
+    "semantic_hash": "7ade6dbb29d27c90aefbb51af664425a"
+  },
+  "vj/unused.py": {
+    "mtime": 1793107837.3579319,
+    "ast_hash": "8618ec9a0e3456e74078ab3049d087ca",
+    "semantic_hash": "8618ec9a0e3456e74078ab3049d087ca"
+  },
+  ".github/workflows/test.yml": {
+    "mtime": 1793099151.732613,
+    "ast_hash": "d4524992a9f3aac1d53ccae2de80fbd3",
+    "semantic_hash": "d4524992a9f3aac1d53ccae2de80fbd3"
+  },
+  "docs/superpowers/plans/2026-10-21-vj-tui.md": {
+    "mtime": 1792590969.7814844,
+    "ast_hash": "87eba48a3aa5644faa43b9a9a736cc18",
+    "semantic_hash": "87eba48a3aa5644faa43b9a9a736cc18"
+  },
+  "docs/superpowers/specs/2026-10-21-vjupdate-tui-design.md": {
+    "mtime": 1792590812.7408412,
+    "ast_hash": "2e53fb0e44846dc043a88d69e5a58a35",
+    "semantic_hash": "2e53fb0e44846dc043a88d69e5a58a35"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/README.md": {
+    "mtime": 1793050747.0,
+    "ast_hash": "b03874bfa020907da98d6a4456489b0a",
+    "semantic_hash": "b03874bfa020907da98d6a4456489b0a"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/SKILL.md": {
+    "mtime": 1793050765.5279524,
+    "ast_hash": "e39157ddfc3573f0e19eba3fd0b97cde",
+    "semantic_hash": "e39157ddfc3573f0e19eba3fd0b97cde"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/references/animation.md": {
+    "mtime": 1793050747.0,
+    "ast_hash": "5d8a4b720fd11de4a685d52f4fbf2dfd",
+    "semantic_hash": "5d8a4b720fd11de4a685d52f4fbf2dfd"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/references/cleanup.md": {
+    "mtime": 1793050747.0,
+    "ast_hash": "d74649142e7bdf839a2ae0359c24e2f1",
+    "semantic_hash": "d74649142e7bdf839a2ae0359c24e2f1"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/references/export.md": {
+    "mtime": 1793050747.0,
+    "ast_hash": "7fcebf763c6abfe0a7fd16035e1767fd",
+    "semantic_hash": "7fcebf763c6abfe0a7fd16035e1767fd"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/references/learned/001-chibi-jrpg-cast.md": {
+    "mtime": 1793050747.0,
+    "ast_hash": "15262711f69fcf432b02bb6e3393044e",
+    "semantic_hash": "15262711f69fcf432b02bb6e3393044e"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/references/learned/002-dynamic-attack-canvas.md": {
+    "mtime": 1793050747.0,
+    "ast_hash": "4348cbc18edf6927a20f9309f4451b29",
+    "semantic_hash": "4348cbc18edf6927a20f9309f4451b29"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/references/learned/003-dramatic-chibi-swordsman.md": {
+    "mtime": 1793050747.0,
+    "ast_hash": "79ab7ce0876557190008aa72d3392fad",
+    "semantic_hash": "79ab7ce0876557190008aa72d3392fad"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/references/learned/004-tactical-chibi-layered-cloth.md": {
+    "mtime": 1793050747.0,
+    "ast_hash": "24b36d6405da7ea57a59224392f27488",
+    "semantic_hash": "24b36d6405da7ea57a59224392f27488"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/references/learned/005-tall-tactical-job-sprites.md": {
+    "mtime": 1793050747.0,
+    "ast_hash": "3bc0c653a2872ffb53486ce873722046",
+    "semantic_hash": "3bc0c653a2872ffb53486ce873722046"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/references/learned/INDEX.md": {
+    "mtime": 1793050747.0,
+    "ast_hash": "65ed2fbf143221578d9d3b503d3c11f8",
+    "semantic_hash": "65ed2fbf143221578d9d3b503d3c11f8"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/references/learned/TEMPLATE.md": {
+    "mtime": 1793050747.0,
+    "ast_hash": "9bc658f98f75875e929a4056f04f932d",
+    "semantic_hash": "9bc658f98f75875e929a4056f04f932d"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/references/lpc.md": {
+    "mtime": 1793050747.0,
+    "ast_hash": "e615298fa20cf0b771186707e11b1e09",
+    "semantic_hash": "e615298fa20cf0b771186707e11b1e09"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/references/palettes.md": {
+    "mtime": 1793050747.0,
+    "ast_hash": "ad7d2544f9c80496e2d6219638d0b10b",
+    "semantic_hash": "ad7d2544f9c80496e2d6219638d0b10b"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/references/patterns.md": {
+    "mtime": 1793050747.0,
+    "ast_hash": "5cc4bd33396ac4fc35e1863fcae751b0",
+    "semantic_hash": "5cc4bd33396ac4fc35e1863fcae751b0"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/references/sharp_edges.md": {
+    "mtime": 1793050747.0,
+    "ast_hash": "078f4506ab5e22439b4acdd42d9eeb0f",
+    "semantic_hash": "078f4506ab5e22439b4acdd42d9eeb0f"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/references/techniques.md": {
+    "mtime": 1793050747.0,
+    "ast_hash": "eecf7415307d2fdf7ecca76ddfeb05b1",
+    "semantic_hash": "eecf7415307d2fdf7ecca76ddfeb05b1"
+  },
+  "dotsets/viridjan/claude/.claude/skills/pixel-art-studio/references/validations.md": {
+    "mtime": 1793050747.0,
+    "ast_hash": "5e18ce3d11708474381260dc16a6bbd3",
+    "semantic_hash": "5e18ce3d11708474381260dc16a6bbd3"
+  },
+  "dotsets/viridjan/claude/.claude/skills/sync/SKILL.md": {
+    "mtime": 1781790991.3292487,
+    "ast_hash": "3b0f59baec389323f871c48ff96602f6",
+    "semantic_hash": "3b0f59baec389323f871c48ff96602f6"
   }
 }

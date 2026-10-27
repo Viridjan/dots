@@ -105,9 +105,16 @@ handing the terminal to `vjupdate --actions …`; `q` quits.
   friend adds `dotsets/<their-name>/` with the same shape and picks it in vj.
   `none` = don't touch dotfiles.
 - **Local config** `~/.config/vjupdate/config.toml` (not in git): chosen
-  profile/set, your own extra packages (`+` in Packages) and removals (`x`,
-  force-removed with `pacman -Rdd`), declined packages (unticked once, never
-  pre-ticked again), one-time tasks done/skipped (`D` / `s`), last selections.
+  profile/set, your own extra packages (`+` in Packages) and removals (`x`:
+  marked as a dependency, removed only if nothing needs it), declined packages
+  (unticked once, never pre-ticked again), ignored unlisted installs, one-time
+  tasks done/skipped (`D` / `s`), last selections.
+- **Unlisted packages**: explicit installs (pacman + flatpak) that are in no
+  list. Sort them with `p` (add to `packages.toml`), `f` (add to the profile),
+  `m` (this machine only), `x` (remove) or `i` (ignore). Keys act on ticked
+  rows, else the highlighted one. `p`/`f` edit tracked files: commit afterwards.
+- **Flatpak apps**: untick an app to exclude it from installation. Removal with `x`
+  is supported only for pacman packages; Flatpak apps are never uninstalled by `vj`.
 - **Times**: package estimates come from `build-times.tsv` (committed): green
   < 10 s, yellow < 1 min, orange longer; `?` = no history yet.
 
@@ -144,16 +151,25 @@ To add a segment, add one line to `statusline.sh` — nothing else needs changin
 
 ## Contributing to this repo
 
-A `pre-commit` hook runs `shellcheck` on staged shell scripts and blocks the commit if
-it finds errors. It is registered automatically by `vjupdate` (via `core.hooksPath`),
-or by hand:
+A `pre-commit` hook first blocks staged secrets (token/private-key patterns and
+paths like `auth.json`, `.credentials.json`, `id_ed25519`; it prints only a
+6-character prefix), then runs `shellcheck` on staged shell scripts and blocks
+the commit on errors. It is registered automatically by `vjupdate` (via
+`core.hooksPath`), or by hand:
 
 ```bash
 git -C ~/Projects/dots config core.hooksPath .githooks
 ```
 
-Warnings are advisory; only errors block. If `shellcheck` isn't installed the hook
-does nothing, so commits still work on a fresh clone.
+ShellCheck warnings are advisory; only errors block. If `shellcheck` isn't
+installed that step does nothing, so commits still work on a fresh clone.
+
+GitHub Actions (`.github/workflows/test.yml`) runs the unittest suite and
+ShellCheck on every push. The CI runner has Stow 2.3, whose conflict messages
+are worded differently from Stow 2.4; `vjupdate` parses both.
+
+Fish completions for `vjupdate` (flags, and `--actions` IDs read live from the
+script) and `vj` ship in the `fish` package.
 
 ---
 
@@ -171,7 +187,8 @@ By hand (packages live in the dotfile set, `scripts` at the repo root):
 cd ~/Projects/dots && stow --no-folding --restow -t ~ scripts   # keeps ~/.local/bin a real dir
 cd ~/Projects/dots/dotsets/viridjan
 stow --restow -t ~ alacritty DankMaterialShell fish fonts gtk-3.0 gtk-4.0 \
-     micro mimeapps mpd paru qt5ct qt6ct spotify-player vesktop VSCodium claude
+     micro mimeapps mpd paru qt5ct qt6ct spotify-player vesktop VSCodium claude \
+     cave caveman
 # niri is NOT stowed — it uses file-level symlinks (DMS owns ~/.config/niri/),
 # including the machine files from dotsets/viridjan/<profile>/. Re-run vjupdate.
 ```
@@ -217,24 +234,8 @@ already-working symlinks.
 
 ### Review and upload changes
 
-The interactive menu groups routine maintenance separately from optional system,
-DMS/Git, shell and AI/VM configuration. Routine maintenance starts expanded;
-other groups start collapsed with selected counts. Labels stay short, and the
-highlighted action has a detail panel. The list scrolls to fit the terminal and
-adapts when it is resized (minimum 40 columns × 12 rows).
-
-- **Move:** arrows or j/k, Home/End, Page Up/Down.
-- **Choose:** Space toggles an action; Space or Left/Right folds a group.
-- **Select a group:** `s` or Ctrl+A toggles the focused group only.
-- **Search:** `/`, then type; Enter finishes filtering, Escape clears it.
-- **Reset:** `c` clears all actions; `r` restores the default selection.
-- **Run:** Enter opens the resolved execution order; Enter again starts it.
-  `b` returns to editing and `q` cancels. Individual action confirmations remain.
-
-Selecting an audit repair option also selects the system health check. Clearing
-that check clears its repair options. The review lists actions in execution order,
-including the malware gate when required. No system actions start while editing
-the menu or reviewing the plan. The terminal screen and cursor are restored on exit.
+Running `vjupdate` with no arguments opens `vj`, which is the only menu;
+it hands your choices back as `vjupdate --actions …`.
 
 **Refresh configuration links** starts checked so new tracked settings get linked.
 It does not copy DMS overrides; conflicts remain untouched unless `--adopt` was
@@ -258,11 +259,9 @@ working tree. It never force-pushes and does not run automatically with `--yes`.
 
 ### AUR build-time estimate
 
-The interactive menu's review screen (before anything runs) appends it to the
-"Upgrade and install packages" line; bootstrap and `--update` also print it
-right before upgrading. It shows how long pending AUR builds should take, e.g. `12 AUR builds pending — est. ~75 min (…); no history: newpkg`.
+Bootstrap and `--update` print it right before upgrading. It shows how long pending AUR builds should take, e.g. `12 AUR builds pending — est. ~75 min (…); no history: newpkg`.
 The figure is each package's last build time, recorded automatically in
-`~/.local/state/dots/aur-build-times.tsv`. Nothing shows when no unheld AUR updates are pending. Held packages are excluded; packages
+the repo's `build-times.tsv` (commit it to share history between machines). Nothing shows when no unheld AUR updates are pending. Held packages are excluded; packages
 never built under this feature show as "no history" until their first upgrade.
 
 ### Only one run at a time
@@ -296,9 +295,29 @@ python3 -B -m unittest discover -s tests -v
 
 Set `VJUPDATE_SCRIPT=/path/to/snapshot` to run the same tests against an older
 script. Tests use a temporary home and restricted PATH with mocked system tools.
-The 2026-09-15 follow-up passed 27 tests; all five new regressions failed against
-the pre-fix snapshot. Bash syntax, both ShellCheck levels, and both temporary
-niri machine profiles also passed validation.
+
+### Safety checks
+
+Borrowed from aconfmgr, decman, metapac, dotbot and other dotfile repos (2026-10-27):
+
+- **Preflight:** refuses to run as root, warns under 5 GiB free on `/`
+  (`VJ_MIN_FREE_GB`), keeps an existing sudo ticket alive during long runs.
+- **Protected packages:** kernels, firmware, microcode, limine, base, glibc,
+  pacman and keyrings are never removed by any path.
+- **AUR update review:** before each upgrade, every pending AUR update's
+  PKGBUILD diff is saved to `~/.local/state/dots/aur-review/<pkg>.diff`.
+  Diffs that add suspicious lines (curl, wget, base64, eval, `| sh`…) hold the
+  package back unless an interactive run confirms it.
+- **AUR source keys:** `validpgpkeys` from updated packages are imported into
+  your user keyring, which is what makepkg checks.
+- **niri validation:** new niri links are tested with `niri validate` in a
+  temporary copy first; an invalid config leaves the live links unchanged.
+- **Link cleanup:** packages unticked in vj → Dotfiles are unstowed, and broken
+  links into the repo are removed from `~/.config`, `~/.local/bin` and
+  `~/.local/share/applications`.
+- **Pinned installers:** `@sh <url>` lines in `.install-scripts.list` run only
+  if the script is unchanged since its last run. A change shows a diff and asks;
+  `--yes` skips it.
 
 ---
 
@@ -368,13 +387,15 @@ bash scripts/.local/bin/vjupdate
 ## Packages
 
 Stow packages of the `viridjan` dotfile set (`dotsets/viridjan/<pkg>/`); `scripts` lives at the repo root.
-Package *lists* (what gets installed) are in `packages.toml` and `profiles/<name>.toml`.
+Package *lists* (what gets installed) are in `packages.toml` and `profiles/<name>.toml`:
+`[paru]` / `[flatpak]` packages, `[systemd]` units to enable (dropping one
+disables it on the next run), and `[npm]` / `[uv]` global tools.
 
 | Package | What it stows |
 |---|---|
 | `niri` | `~/.config/niri/` — common kdl files (cfg/ minus display+input) |
-| `desktop` | `~/.config/niri/cfg/display.kdl` + `input.kdl` + `surface-layout.kdl` (empty) for the tower |
-| `surface` | `~/.config/niri/cfg/display.kdl` + `input.kdl` + `surface-layout.kdl` (50% default window width) for Surface Pro 9 |
+| `desktop` | `~/.config/niri/cfg/display.kdl` + `input.kdl` + `surface-layout.kdl` (empty) + `autostart-machine.kdl` (Thunderbird, Telegram, Steam, TMOG task manager…) for the tower |
+| `surface` | `~/.config/niri/cfg/display.kdl` + `input.kdl` + `surface-layout.kdl` (50% default window width) + empty `autostart-machine.kdl` for Surface Pro 9 |
 | `fish` | `~/.config/fish/` |
 | `alacritty` | `~/.config/alacritty/` |
 | `micro` | `~/.config/micro/` |
@@ -387,8 +408,11 @@ Package *lists* (what gets installed) are in `packages.toml` and `profiles/<name
 | `vesktop` | `~/.config/vesktop/` — settings.json + settings/ (Vencord config + quickCss) |
 | `mimeapps` | `~/.config/mimeapps.list` |
 | `paru` | `~/.config/paru/paru.conf` |
-| `claude` | `~/.claude/settings.json` + `statusline.sh` (Claude Code + caveman plugin) |
+| `claude` | `~/.claude/settings.json` + `statusline.sh` + skills (incl. `pixel-art-studio`) |
 | `caveman` | `~/.config/caveman/config.json` — caveman plugin `defaultMode: ultra` |
+| `cave` | `~/.cave/` — Cave AI agent config + ollama extension |
+| `brave` | `/etc/brave/policies/managed/` — Brave managed policy (stowed to `/` with sudo) |
+| `ollama` | `/etc/systemd/system/ollama.service.d/` — ROCm drop-in (stowed to `/` with sudo) |
 | `fonts` | `~/.local/share/fonts/` — user fonts (Luminari) |
 | `mpd` | `~/.config/mpd/mpd.conf` |
 | `spotify-player` | `~/.config/spotify-player/keymap.toml` |
@@ -412,7 +436,7 @@ vjupdate --steam-launchers
 ```
 
 Re-run after installing new games. Launchers land in `~/.local/share/applications/`.
-Runs automatically as part of the interactive menu (checked by default under "Routine maintenance").
+Ticked by default in vj → Maintenance actions.
 
 ### App launcher cleanup
 
@@ -425,14 +449,29 @@ app, deleted script), and reports installed apps not mirrored into
 vjupdate --app-launchers
 ```
 
-Also checked by default under "Routine maintenance" in the interactive menu.
+Also ticked by default in vj → Maintenance actions.
+
+### Weekly health check
+
+The `systemd-user` package installs `vjupdate-check.timer`: once a week it runs
+`vjupdate --check` (report only, lowest priority) and shows a desktop
+notification if anything failed. vj's Maintenance row shows the last result,
+e.g. `check 2d ago: 1 failed (pacman-db)`. Run it now with
+`systemctl --user start vjupdate-check.service`.
 
 ### Unlisted and unused apps
 
-The audit (`vjupdate --check`, or the health check in the menu) reports, never removes:
+The audit (`vjupdate --check`, or "Check system health" in vj) reports, never removes:
 
-- apps with a launcher that are in no package list (`packages.toml`, profile, local config)
-- apps with no recorded use in 60 days
+- explicitly installed packages and flatpaks that are in no package list
+  (`packages.toml`, profile, local config, ignored). Sort them in vj → Unlisted packages.
+- apps with a launcher and no recorded use in 60 days
+
+The audit also reports package config files you changed in `/etc` (only ones
+new since the last audit), DMS started twice (service plus niri spawn), and
+missing logins for installed tools (gh, SSH key, Claude, Codex,
+spotify_player, Vesktop). `vjupdate --lostfiles` lists files no package owns
+(takes about a minute).
 
 Usage comes from DankMaterialShell (launcher history + per-window focus time in
 `~/.local/state/DankMaterialShell/`). Focus tracking began 2026-10-24, so the
@@ -535,8 +574,8 @@ cp /.snapshots/<N>/snapshot/path/to/file ~/restored-file
 
 ## System optimisations (CachyOS / Arch)
 
-Most of these are automated — run `vjupdate --optimize` (or tick **optimize** in
-the interactive menu). It applies steps 1–5 below idempotently: CPU governor,
+Most of these are automated — run `vjupdate --optimize` (or tick **Apply system
+tuning** in vj → One-time setup). It applies steps 1–5 below idempotently: CPU governor,
 disabling NetworkManager-wait-online, masking lvm2-monitor, the rate-mirrors 2h
 delay, and the AMD GPU performance udev rule. Steps 7 (EFI cleanup) and 8 (greetd
 autologin) stay manual — EFI needs review, autologin conflicts with the DMS

@@ -1,0 +1,9 @@
+[Unit]
+Description=vjupdate health check (report only; results show in vj)
+
+[Service]
+Type=oneshot
+Nice=19
+IOSchedulingClass=idle
+# --check never removes anything; a failed check pops a desktop notification.
+ExecStart=/bin/bash -c '%h/.local/bin/vjupdate --check || notify-send -u critical -a vjupdate "vjupdate: health check found problems" "Open vj, or read ~/.local/state/dots/vjupdate.log"'

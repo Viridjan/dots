@@ -74,8 +74,8 @@ if [[ -n "$BACKUP_BRANCH" ]]; then
     ask "Continue?" || die "stopped by user"
 fi
 
-# Uncommitted work outside scripts/.local/bin (the migration below owns that dir).
-DIRTY=$(git status --porcelain -- . ':!scripts/.local/bin')
+# Preserve all uncommitted work, including edits to the tracked launchers.
+DIRTY=$(git status --porcelain -- .)
 if $NEED_RESET && [[ -n "$DIRTY" ]]; then
     warn "uncommitted changes (will be stashed, not lost):"
     printf '%s\n' "$DIRTY" | sed 's/^/        /'
@@ -122,8 +122,8 @@ fi
 step "Updating checkout to origin/main"
 if $NEED_RESET; then
     [[ -n "$BACKUP_BRANCH" ]] && { git branch "$BACKUP_BRANCH" "$HEAD_SHA"; ok "backup branch: $BACKUP_BRANCH"; }
-    if [[ -n "$(git status --porcelain -- . ':!scripts/.local/bin')" ]]; then
-        git stash push -u -m "surface-sync $TS" -- . ':!scripts/.local/bin'
+    if [[ -n "$(git status --porcelain -- .)" ]]; then
+        git stash push -u -m "surface-sync $TS" -- .
         ok "stashed local changes: 'git stash list' → surface-sync $TS"
     fi
     git reset --hard origin/main

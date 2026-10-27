@@ -2,3 +2,11 @@
 dotsets/*/vesktop/.config/vesktop/ExtensionCache/
 # Vendored copy of graphify's own skill docs
 dotsets/*/claude/.claude/skills/graphify/
+# pixel-art-studio generated sprites/gallery (images = one LLM call each, no config value)
+dotsets/*/claude/.claude/skills/pixel-art-studio/docs/
+dotsets/*/claude/.claude/skills/pixel-art-studio/pixel-art/
+# VSCodium local edit history + caches
+dotsets/*/VSCodium/.config/VSCodium/User/History/
+dotsets/*/VSCodium/.config/VSCodium/CachedConfigurations/
+# App icons
+scripts/.local/share/icons/

@@ -14,9 +14,9 @@ function __vjupdate_actions_arg
 end
 
 complete -c vjupdate -f
-complete -c vjupdate -s i -l interactive -d 'Action menu (default)'
+complete -c vjupdate -s i -l interactive -d 'Open vj (default)'
 complete -c vjupdate -s y -l yes -d 'Full bootstrap, no prompts'
-complete -c vjupdate -l actions -x -a '(__vjupdate_actions_arg)' -d 'Run these menu action IDs'
+complete -c vjupdate -l actions -x -a '(__vjupdate_actions_arg)' -d 'Run these action IDs'
 complete -c vjupdate -s u -l update -d 'Update packages + clean caches'
 complete -c vjupdate -s c -l check -d 'Audit only'
 complete -c vjupdate -l kernels -d 'Install/remove kernels'

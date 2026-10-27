@@ -61,3 +61,6 @@ windows/storage
 
 # Python bytecode (rewritten by every run)
 __pycache__/
+
+# fontconfig cache id, recreated by fc-cache in the linked fonts dir
+dotsets/*/fonts/.local/share/fonts/.uuid

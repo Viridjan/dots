@@ -119,6 +119,7 @@ install = [
     "telegram-desktop",
     "claude-code",
     "rofi-ykman-git",
+    "tmog-bin",          # Task Manager OG (tmog.org); not in repos or Flathub
 
     # Chromium (webapp launcher — used by .desktop app shortcuts)
     "chromium",
@@ -279,8 +280,9 @@ enable = [
     "snapper-timeline.timer", "snapper-cleanup.timer", "limine-snapper-sync.service",
     "greetd", "docker",
 ]
-# User units (systemctl --user).
-user = ["psd", "mpd"]
+# User units (systemctl --user). vjupdate-check.timer: weekly report-only
+# health check, unit files in dotset package systemd-user.
+user = ["psd", "mpd", "vjupdate-check.timer"]
 
 [npm]
 # Global npm tools (prefix ~/.local, see CLAUDE.md). Installed if missing.

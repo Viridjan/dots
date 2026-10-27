@@ -97,8 +97,6 @@ declare -A AUDIT_ACTIONS=(
     [rebuild]=AUDIT_REBUILD
     [pacnew-merge]=AUDIT_PACNEW
 )
-# Regex alternation over the keys, built once.
-_audit_action_re() { local IFS='|'; echo "${!AUDIT_ACTIONS[*]}"; }
 # Enable one action by name, plus the audit phase it depends on.
 _enable_audit_action() {
     local name="$1" var="${AUDIT_ACTIONS[$1]:-}"
@@ -138,14 +136,6 @@ _unknown() { echo -e "${YEL}    [unknown] $*${NC}"; }
 _TEE_PID=""
 _cleanup() {
     local _rc=$?
-    if ${_MENU_ACTIVE:-false}; then _menu_leave; fi
-    # Probe whether /dev/tty can actually be opened (a -w test only checks the
-    # permission bits and still passes with no controlling terminal, leaving a
-    # bash redirection error that 2>/dev/null on tput cannot suppress).
-    if { : >/dev/tty; } 2>/dev/null; then
-        tput cnorm >/dev/tty 2>/dev/null || true
-    fi
-    [[ -n "${_MS_RESULT:-}" ]] && rm -f "${_MS_RESULT}"
     [[ -n "${_SUDO_PID:-}" ]] && kill "$_SUDO_PID" 2>/dev/null
     ${_PLAN_OWNED:-false} && rm -rf "${VJ_PLAN_DIR:?}"
     if [[ -n "${_TEE_PID:-}" ]]; then
@@ -552,12 +542,6 @@ _init_pkg_index() {
     _PKG_INDEX_READY=true
 }
 
-# Returns true if $1 is in the skip list
-_pkg_skipped() {
-    _init_pkg_index || return 1
-    [[ -v _SKIPPED_PKGS["$1"] ]]
-}
-
 _install_list() {
     local list="$1" to_install=() contents pkg
     contents=$(_pkg_list "$list") || return 1
@@ -733,31 +717,35 @@ refresh_mirrors() {
     ok "refreshed: mirrors"
 }
 
+# Force-remove [paru].remove packages (conflict swaps) that are installed.
+# -Rdd skips dep checks so replacements (e.g. wine→wine-cachyos) don't block.
+# Sets REMOVED_CONFLICTS so --update can point at the replacement install.
+REMOVED_CONFLICTS=()
+_remove_conflicts() {
+    local _conflicts pkg out
+    if [[ -f "$VJ_PLAN_DIR/paru-remove.list" ]] && ! _conflicts=$(_pkg_list "$VJ_PLAN_DIR/paru-remove.list"); then
+        _record "conflict-removal" fail "cannot read paru-remove.list"
+        warn "Cannot read paru-remove.list — conflicting packages were not removed"
+        return 0
+    fi
+    [[ -n "${_conflicts:-}" ]] || return 0
+    while IFS= read -r pkg; do
+        pacman -Qq "$pkg" &>/dev/null || continue
+        if _is_protected "$pkg"; then
+            warn "protected, not removed: $pkg"
+        elif out=$(sudo pacman -Rdd --noconfirm "$pkg" 2>&1); then
+            ok "removed: $pkg"; REMOVED_CONFLICTS+=("$pkg")
+        else
+            warn "failed to remove: $pkg — $out"
+        fi
+    done <<< "$_conflicts"
+}
+
 install_all() {
     command -v paru    &>/dev/null && ok "already installed: paru"    || die "paru not found — run sources phase first"
     command -v flatpak &>/dev/null && ok "already installed: flatpak" || warn "flatpak not found — flatpak installs will be skipped"
 
-    # Force-remove known conflicting packages before installing.
-    # -Rdd skips dep checks so replacements (e.g. wine→wine-cachyos) don't block.
-    local _conflicts
-    if [[ -f "$VJ_PLAN_DIR/paru-remove.list" ]] && ! _conflicts=$(_pkg_list "$VJ_PLAN_DIR/paru-remove.list"); then
-        _record "conflict-removal" fail "cannot read paru-remove.list"
-        warn "Cannot read paru-remove.list — conflicting packages were not removed"
-    elif [[ -n "${_conflicts:-}" ]]; then
-        info "Removing flagged packages..."
-        while IFS= read -r pkg; do
-            local out
-            if _is_protected "$pkg"; then
-                warn "protected, not removed: $pkg"
-            elif out=$(sudo pacman -Rdd --noconfirm "$pkg" 2>&1); then
-                ok "removed: $pkg"
-            elif echo "$out" | grep -q "target not found"; then
-                true
-            else
-                warn "failed to remove: $pkg — $out"
-            fi
-        done <<< "$_conflicts"
-    fi
+    _remove_conflicts
     _demote_packages
 
     _check_disk_space
@@ -1195,13 +1183,16 @@ _adopt_backup() {
     done
     _err=$(LC_ALL=C stow -n "${args[@]}" 2>&1) || rc=$?
     (( rc == 0 )) && return 0
-    # stow's conflict line is:
+    # stow's conflict line is (2.4+, then 2.3 as on Ubuntu CI):
     #   * cannot stow <src> over existing target <target> since <reason>
+    #   * existing target is neither a link nor a directory: <target>
     # <target> is relative to -t, which is / for the root-target packages (ollama, brave).
     # Refuse unknown conflict formats and probe errors, never silently adopt.
     local _targets
-    _targets=$(printf '%s\n' "$_err" | sed -n 's/^ *\* cannot stow .* over existing target \(.*\) since neither a link nor a directory and --adopt not specified$/\1/p')
-    if [[ $rc != 1 || -z "$_targets" ]] || printf '%s\n' "$_err" | grep '^ *\* ' | grep -qv ' since neither a link nor a directory and --adopt not specified$'; then
+    _targets=$(printf '%s\n' "$_err" | sed -n -e 's/^ *\* cannot stow .* over existing target \(.*\) since neither a link nor a directory and --adopt not specified$/\1/p' \
+        -e 's/^ *\* existing target is neither a link nor a directory: \(.*\)$/\1/p')
+    if [[ $rc != 1 || -z "$_targets" ]] || printf '%s\n' "$_err" | grep '^ *\* ' | grep -qv -e ' since neither a link nor a directory and --adopt not specified$' \
+        -e '^ *\* existing target is neither a link nor a directory: '; then
         warn "Cannot safely parse stow conflicts; adoption cancelled: $_err"
         return 1
     fi
@@ -1297,183 +1288,10 @@ setup_snapper() {
     fi
 }
 
-# Escape an fstab field without interpreting existing backslashes.
-_fstab_escape() {
-    local field="$1"
-    field="${field//\\/\\134}"
-    field="${field// /\\040}"
-    field="${field//$'\t'/\\011}"
-    printf '%s' "$field"
-}
-
-# ─── Phase 7d: Automount disks ───────────────────────────
-automount_disks() {
-    command -v lsblk >/dev/null || { warn "automount: lsblk not found — skipping"; return; }
-
-    section "automount disks"
-    echo ""
-    lsblk -f
-    echo ""
-
-    local -A _mnt_at=()
-    while IFS= read -r _line; do
-        local _dev _mp
-        _dev=$(echo "$_line" | awk '{print $1}')
-        _mp=$(echo  "$_line" | awk '{print $2}')
-        _mnt_at["$_dev"]="$_mp"
-    done < <(lsblk -rno NAME,MOUNTPOINT | grep -v '^$')
-
-    local -a _candidates=()
-    while IFS= read -r _line; do
-        # ponytail: regex capture, not eval — a malicious FS label (e.g. "$(rm -rf ~)")
-        # must never reach a shell-execution context.
-        local _name="" _fstype="" _label="" _uuid=""
-        [[ "$_line" =~ NAME=\"([^\"]*)\" ]] && _name="${BASH_REMATCH[1]}"
-        [[ "$_line" =~ FSTYPE=\"([^\"]*)\" ]] && _fstype="${BASH_REMATCH[1]}"
-        [[ "$_line" =~ LABEL=\"([^\"]*)\" ]] && _label="${BASH_REMATCH[1]}"
-        [[ "$_line" =~ UUID=\"([^\"]*)\" ]] && _uuid="${BASH_REMATCH[1]}"
-
-        [[ -z "$_fstype" || -z "$_uuid" ]] && continue
-
-        case "$_fstype" in
-            swap|zram*|tmpfs|squashfs|iso9660) continue ;;
-        esac
-        [[ "$_name" == loop* ]] && continue
-
-        local _curmnt="${_mnt_at[$_name]:-}"
-        case "$_curmnt" in
-            /|/boot|/boot/*|/efi|/efi/*) continue ;;
-        esac
-
-        if grep -qs "UUID=$_uuid" /etc/fstab; then
-            ok "skipped: /dev/$_name (already in fstab)"
-            continue
-        fi
-
-        _candidates+=("$_name|$_fstype|$_label|$_uuid")
-    done < <(lsblk -Pno NAME,FSTYPE,LABEL,UUID)
-
-    if [[ ${#_candidates[@]} -eq 0 ]]; then
-        ok "no eligible partitions"
-        return
-    fi
-
-    local -a _fstab_entries=() _mount_points=() _fstypes=() _entry_uuids=()
-
-    for _entry in "${_candidates[@]}"; do
-        IFS='|' read -r _name _fstype _label _uuid <<< "$_entry"
-
-        echo "  ── /dev/$_name ──────────────────────────────────"
-        echo "  FSTYPE : $_fstype"
-        echo "  LABEL  : ${_label:-(none)}"
-        echo "  UUID   : $_uuid"
-        echo ""
-
-        _confirm "  Automount /dev/$_name? [y/N]" || { echo "  Skipped."; echo ""; continue; }
-
-        local _default_mp
-        if [[ -n "$_label" ]]; then
-            _default_mp="/mnt/$_label"
-        else
-            _default_mp="/mnt/$_uuid"
-        fi
-
-        read -rp "  Mount point [$_default_mp]: " _mp
-        _mp="${_mp:-$_default_mp}"
-
-        # Data mounts only: a typo like /usr or /mnt/../boot would shadow a
-        # system path and can make the machine unbootable.
-        if [[ "$_mp" != /mnt/?* && "$_mp" != /media/?* && "$_mp" != /run/media/?* ]] \
-            || [[ "/$_mp/" == */./* || "/$_mp/" == */../* ]] \
-            || [[ "$_mp" == *$'\n'* || "$_mp" == *$'\r'* || "$_mp" == *,* ]]; then
-            warn "Mount point must be under /mnt, /media or /run/media, without . or .. components, newline, carriage return or comma"
-            continue
-        fi
-        local _escaped_mp _uid _gid
-        _escaped_mp=$(_fstab_escape "$_mp")
-        _uid=$(id -u "$USER")
-        _gid=$(id -g "$USER")
-        local _opts _pass
-        case "$_fstype" in
-            ext4)
-                _opts="defaults,noatime,nofail,x-systemd.device-timeout=5"
-                _pass=2 ;;
-            btrfs)
-                _opts="defaults,noatime,compress=zstd,nofail,x-systemd.device-timeout=5"
-                _pass=0 ;;
-            ntfs|ntfs-3g)
-                _opts="defaults,nofail,uid=$_uid,gid=$_gid,umask=022,x-systemd.device-timeout=5"
-                _pass=0 ;;
-            exfat|vfat)
-                _opts="defaults,nofail,uid=$_uid,gid=$_gid,umask=022,x-systemd.device-timeout=5"
-                _pass=0 ;;
-            *)
-                _opts="defaults,nofail,x-systemd.device-timeout=5"
-                _pass=0 ;;
-        esac
-
-        local _fstab_line="UUID=$_uuid  $_escaped_mp  $_fstype  $_opts  0  $_pass"
-        echo ""
-        echo "  Entry: $_fstab_line"
-        _confirm "  Confirm? [y/N]" || { echo "  Skipped."; echo ""; continue; }
-
-        _fstab_entries+=("$_fstab_line")
-        _mount_points+=("$_mp")
-        _fstypes+=("$_fstype")
-        _entry_uuids+=("$_uuid")
-        echo ""
-    done
-
-    [[ ${#_fstab_entries[@]} -eq 0 ]] && { ok "nothing to add"; return; }
-
-    local _backup
-    _backup="/etc/fstab.backup.$(date +%Y%m%d-%H%M%S)"
-    info "Backing up /etc/fstab → $_backup"
-    sudo cp /etc/fstab "$_backup"
-
-    for _mp in "${_mount_points[@]}"; do
-        sudo mkdir -p "$_mp"
-    done
-
-    printf '\n# Added by vjupdate --automount on %s\n' "$(date)" | sudo tee -a /etc/fstab > /dev/null
-    for i in "${!_fstab_entries[@]}"; do
-        printf '%s\n' "${_fstab_entries[$i]}" | sudo tee -a /etc/fstab > /dev/null
-        ok "added: ${_fstab_entries[$i]}"
-
-        # Also create /run/media/$USER/<UUID> bind mount so udisks path persists.
-        local _uuid="${_entry_uuids[$i]}"
-        local _mp="${_mount_points[$i]}"
-        local _media_path="/run/media/$USER/$_uuid"
-        local _tmpfiles="/etc/tmpfiles.d/media-${_uuid}.conf"
-        local _bind_line
-        printf -v _bind_line '%s\t%s\tnone\tbind,nofail,x-systemd.requires-mounts-for=%s\t0\t0' \
-            "$(_fstab_escape "$_mp")" "$(_fstab_escape "$_media_path")" "$(_fstab_escape "$_mp")"
-
-        if ! grep -qs "$_media_path" /etc/fstab; then
-            printf "d %s 0755 %s %s -\n" "$_media_path" "$USER" "$USER" | sudo tee "$_tmpfiles" > /dev/null
-            printf '%s\n' "$_bind_line" | sudo tee -a /etc/fstab > /dev/null
-            ok "bind mount: $_mp → $_media_path"
-        fi
-    done
-
-    sudo systemctl daemon-reload
-    sudo systemd-tmpfiles --create /etc/tmpfiles.d/media-*.conf 2>/dev/null || true
-    local _mnt_err
-    if _mnt_err=$(sudo mount -a 2>&1); then
-        ok "mounted: all entries"
-        for i in "${!_fstypes[@]}"; do
-            # ponytail: ext4 root is owned by root after mkfs; vfat/ntfs/exfat use uid= mount opts
-            if [[ "${_fstypes[$i]}" == ext4 ]]; then
-                sudo chown "$USER:$USER" "${_mount_points[$i]}"
-                ok "ownership: ${_mount_points[$i]} → $USER"
-            fi
-        done
-    else
-        warn "mount -a failed — check /etc/fstab"
-        warn "Restore: sudo cp $_backup /etc/fstab"
-        echo "$_mnt_err"
-    fi
-}
+# ─── Automount disks (code in ../lib/vjupdate/automount.sh, loaded on use) ──
+_AUTOMOUNT_LIB="${BASH_SOURCE[0]%/*}/../lib/vjupdate/automount.sh"  # ~/.local/lib via stow, or the repo
+# shellcheck source=scripts/.local/lib/vjupdate/automount.sh
+automount_disks() { source "$_AUTOMOUNT_LIB" && automount_disks "$@"; }
 
 # ─── Phase 7a: Greeter ───────────────────────────────────
 setup_keyboard() {
@@ -1906,17 +1724,6 @@ clone_projects() {
     done < "$list"
 }
 
-# ─── Maintenance: swap broken packages ───────────────────
-_swap_pkg() {
-    local old="$1" new="$2"
-    if pacman -Qi "$old" &>/dev/null; then
-        info "Swapping $old → $new..."
-        sudo pacman -Rdd --noconfirm "$old" 2>/dev/null || true
-        _paru -S --needed --noconfirm "$new"
-        ok "swapped: $old → $new"
-    fi
-}
-
 # Both upgrade entry points retain the same actionable failure details.
 _record_upgrade_failure() {
     local detail="${SYUU_FAIL_DETAIL:-paru -Syuu returned non-zero}"
@@ -1926,10 +1733,11 @@ _record_upgrade_failure() {
 
 # ─── Maintenance: system update ──────────────────────────
 system_update() {
-    info "Swapping known broken/replaced packages..."
-    _swap_pkg libreoffice-fresh  libreoffice-still
-
     refresh_mirrors
+    _remove_conflicts
+    _demote_packages
+    ((${#REMOVED_CONFLICTS[@]} == 0)) \
+        || warn "removed ${REMOVED_CONFLICTS[*]}; install replacements with: vjupdate --actions install"
 
     _check_disk_space
     _review_aur_updates
@@ -2493,356 +2301,8 @@ phase_sources() {
 }
 phase_install()  { install_all; }
 phase_dotfiles() { deploy_dotfiles; dms_import; }
-# Menu state uses stable IDs; labels are presentation only.
-_MS_RESULT=""
-_MENU_ACTIVE=false
-_menu_catalog() {
-    MENU_IDS=(); MENU_LABELS=(); MENU_DETAILS=(); MENU_GROUPS=(); MENU_DEFAULTS=()
-    MENU_GROUP_IDS=(routine system dms tools ai)
-    MENU_GROUP_LABELS=('Routine maintenance' 'System configuration' 'DMS settings & Git' 'Shell & tools' 'AI & virtual machines')
-    _menu_add routine sources true 'Refresh package sources' 'Prepare paru, keys, mirrors, Flathub and projects; recent work is skipped.'
-    _menu_add routine install true 'Upgrade and install packages' 'Upgrade packages, install configured lists, then clean package caches.'
-    _menu_add routine audit true 'Check system health' 'Inspect packages, firmware, malware and database integrity.'
-    _menu_add routine orphan-removal true 'Remove orphan packages' 'Remove unused dependencies. Also enables the system health check.'
-    _menu_add routine rebuild true 'Rebuild affected packages' 'Reinstall flagged packages; held packages excluded. Enables health checks.'
-    _menu_add routine python-rebuild true 'Rebuild outdated Python packages' 'Rebuild obsolete Python packages; holds excluded. Enables health checks.'
-    _menu_add routine pacnew-merge false 'Merge pending configuration files' 'Review .pacnew files interactively with pacdiff. Enables system health checks.'
-    _menu_add routine stow-symlinks true 'Refresh configuration links' 'Refresh Stow/Niri links. Conflicts stay unless --adopt was passed.'
-    _menu_add routine steam-launchers true 'Refresh Steam game launchers' 'Create game launchers and remove entries for uninstalled Steam games.'
-    _menu_add routine app-launchers true 'Maintain application launchers' 'Remove stale app launchers; report apps without local launcher copies.'
-    _menu_add system services false 'Enable system services' 'Enable configured system/user services; may request admin authorization.'
-    _menu_add system snapper false 'Configure filesystem snapshots' 'Create the root Snapper configuration if absent.'
-    _menu_add system automount false 'Configure disk automounting' 'Choose partitions and confirm /etc/fstab changes; a backup is kept.'
-    _menu_add system optimize false 'Apply system tuning' 'Tune CPU/GPU performance, system services and the mirror timer.'
-    _menu_add system keyboard false 'Configure keyboard layout' 'Set the X11/XWayland keyboard to US international.'
-    _menu_add system kernels false 'Manage kernels' 'Interactively install or remove kernels, with protection for the running kernel.'
-    _menu_add system greeter false 'Configure login screen' 'Install and synchronize the DMS greeter configuration.'
-    _menu_add system keyring-pam false 'Configure login keyring' 'Add gnome-keyring integration to the greetd PAM configuration.'
-    _menu_add system manual-steps false 'Show post-install checklist' 'Display remaining manual setup steps after the results summary.'
-    _menu_add dms dms-plugins false 'Install DMS plugins' 'Install plugins from the repository plugin list.'
-    _menu_add dms dms-export false 'Save live DMS settings to repository' 'Save live DMS overrides except colors. Changes repository files.'
-    _menu_add dms dotfiles-export false 'Review and upload Git changes' 'Review, stage, commit and push Git changes; each step asks confirmation.'
-    _menu_add dms dms-import false 'Apply repository DMS settings' 'Overwrite seven live DMS overrides, including colors. No Git pull.'
-    _menu_add tools fish false 'Configure fish and tide' 'Install tide and apply the configured shell theme.'
-    _menu_add tools install-scripts false 'Run custom installers' 'Execute commands in .install-scripts.list; installers may download and run code.'
-    _menu_add tools claude false 'Install Claude Code plugins' 'Install the configured Claude Code plugin assets.'
-    _menu_add tools caveman-code false 'Install caveman-code' 'Install the npm command and refresh its local links.'
-    _menu_add ai ollama false 'Download Ollama model' 'Pull qwen3:14b on desktop machines; skipped on Surface.'
-    _menu_add ai vms false 'Prepare Windows virtual machine' 'Create VM storage directories and download the Windows container image.'
-    # Keep this aligned with phase_sources/install/configure/audit and the recap.
-    MENU_ORDER=(sources install services snapper automount optimize keyboard kernels greeter keyring-pam install-scripts fish dms-plugins dms-export claude caveman-code ollama vms steam-launchers app-launchers dotfiles-export stow-symlinks dms-import audit orphan-removal rebuild python-rebuild pacnew-merge manual-steps)
-}
-_menu_add() {
-    MENU_GROUPS+=("$1"); MENU_IDS+=("$2"); MENU_DEFAULTS+=("$3")
-    MENU_LABELS+=("$4"); MENU_DETAILS+=("$5")
-}
-_menu_defaults() {
-    MENU_SELECTED=()
-    local i
-    for i in "${!MENU_IDS[@]}"; do MENU_SELECTED["${MENU_IDS[$i]}"]="${MENU_DEFAULTS[$i]}"; done
-}
-_menu_set() {
-    local id="$1" value="$2" child
-    MENU_SELECTED[$id]="$value"
-    if [[ "$id" == audit && "$value" == false ]]; then
-        for child in "${!AUDIT_ACTIONS[@]}"; do MENU_SELECTED[$child]=false; done
-    elif [[ -v AUDIT_ACTIONS[$id] && "$value" == true ]]; then
-        MENU_SELECTED[audit]=true
-    fi
-}
-_menu_clear() {
-    local id
-    for id in "${MENU_IDS[@]}"; do MENU_SELECTED[$id]=false; done
-}
-_menu_group_select() {
-    local group="$1" value=true i
-    for i in "${!MENU_IDS[@]}"; do
-        if [[ "${MENU_GROUPS[$i]}" == "$group" && "${MENU_SELECTED[${MENU_IDS[$i]}]}" == false ]]; then value=false; break; fi
-    done
-    # A partially selected group becomes fully selected; a full group is cleared.
-    if $value; then value=false; else value=true; fi
-    for i in "${!MENU_IDS[@]}"; do
-        [[ "${MENU_GROUPS[$i]}" != "$group" ]] || _menu_set "${MENU_IDS[$i]}" "$value"
-    done
-    return 0
-}
-_menu_rows() {
-    MENU_ROWS=()
-    local group i matches query="${MENU_QUERY,,}"
-    for group in "${MENU_GROUP_IDS[@]}"; do
-        matches=()
-        for i in "${!MENU_IDS[@]}"; do
-            [[ "${MENU_GROUPS[$i]}" == "$group" ]] || continue
-            if [[ -z "$query" || "${MENU_LABELS[$i],,} ${MENU_DETAILS[$i],,} ${MENU_IDS[$i]}" == *"$query"* ]]; then matches+=("$i"); fi
-        done
-        ((${#matches[@]})) || continue
-        MENU_ROWS+=("g:$group")
-        if [[ -n "$query" || "${MENU_OPEN[$group]}" == true ]]; then MENU_ROWS+=("${matches[@]}"); fi
-    done
-    return 0
-}
-_menu_plan() {
-    MENU_PLAN=()
-    local id i
-    if ${MENU_SELECTED[sources]} || ${MENU_SELECTED[install]} || ${MENU_SELECTED[kernels]} ||
-        ${MENU_SELECTED[orphan-removal]} || ${MENU_SELECTED[rebuild]} || ${MENU_SELECTED[python-rebuild]}; then
-        MENU_PLAN+=('Malware checks before package changes')
-    fi
-    for id in "${MENU_ORDER[@]}"; do
-        ${MENU_SELECTED[$id]} || continue
-        for i in "${!MENU_IDS[@]}"; do
-            if [[ "${MENU_IDS[$i]}" == "$id" ]]; then MENU_PLAN+=("${MENU_LABELS[$i]}"); break; fi
-        done
-        # Show the AUR build estimate in review, before anything runs. paru -Qua
-        # hits the network, so query once per menu session.
-        if [[ "$id" == install ]]; then
-            [[ -n "${_MENU_AUR_EST+x}" ]] || _MENU_AUR_EST=$(_aur_estimate_text)
-            [[ -z "$_MENU_AUR_EST" ]] || MENU_PLAN[-1]+=" — $_MENU_AUR_EST"
-        fi
-    done
-}
-_menu_leave() {
-    if $_MENU_ACTIVE; then
-        [[ -z "${_MENU_STTY:-}" ]] || stty "$_MENU_STTY" </dev/tty
-        printf '\033[?25h\033[?1049l' >/dev/tty
-        _MENU_ACTIVE=false
-    fi
-}
-_menu_read_key() {
-    local char tail="" rc=0 i
-    _MENU_KEY=""
-    if IFS= read -rsn1 -t 1 char </dev/tty; then
-        _MENU_KEY="$char"
-    else
-        rc=$?
-        if ((rc > 128)); then _MENU_KEY=tick; else _MENU_KEY=cancel; fi
-        return 0
-    fi
-    [[ "$char" == $'\x1b' ]] || return 0
-    for ((i=0; i<12; i++)); do
-        IFS= read -rsn1 -t 0.05 char </dev/tty || break
-        tail+="$char"
-        [[ "$char" == [A-Za-z~] ]] && break
-    done
-    case "$tail" in
-        '[A'|'OA') _MENU_KEY=up ;; '[B'|'OB') _MENU_KEY=down ;;
-        '[C'|'OC') _MENU_KEY=right ;; '[D'|'OD') _MENU_KEY=left ;;
-        '[H'|'OH'|'[1~'|'[7~') _MENU_KEY=home ;;
-        '[F'|'OF'|'[4~'|'[8~') _MENU_KEY=end ;;
-        '[5~') _MENU_KEY=pageup ;; '[6~') _MENU_KEY=pagedown ;;
-        '') _MENU_KEY=escape ;; *) _MENU_KEY=ignored ;;
-    esac
-}
-# Trim every line to terminal width before writing; never allow wrapping.
-_menu_line() {
-    local rendered
-    printf -v rendered '\033[%sm%s\033[0m\033[K' "${2:-0}" "${1:0:MENU_WIDTH}"
-    MENU_FRAME+=("$rendered")
-}
-# Paint only changed rows, in one terminal write. Never blank the live screen.
-_menu_present() {
-    local i line part output="" limit=${#MENU_FRAME[@]}
-    ((${#MENU_LAST_FRAME[@]} <= limit)) || limit=${#MENU_LAST_FRAME[@]}
-    ((limit <= MENU_HEIGHT)) || limit=$MENU_HEIGHT
-    for ((i=0; i<limit; i++)); do
-        line="${MENU_FRAME[$i]:-$'\033[0m\033[K'}"
-        if [[ "$MENU_LAST_WIDTH:$MENU_LAST_HEIGHT" != "$MENU_WIDTH:$MENU_HEIGHT" ||
-              "$line" != "${MENU_LAST_FRAME[$i]:-}" ]]; then
-            printf -v part '\033[%d;1H%s' "$((i+1))" "$line"
-            output+="$part"
-        fi
-    done
-    [[ -z "$output" ]] || printf '%s' "$output" >/dev/tty
-    MENU_LAST_FRAME=("${MENU_FRAME[@]}")
-    MENU_LAST_WIDTH=$MENU_WIDTH; MENU_LAST_HEIGHT=$MENU_HEIGHT
-}
-_menu_choice_line() {
-    local prefix="$1" label="$2" chosen="$3" focused="$4" mark='○' color=90 weight=0
-    if $chosen; then mark='●'; color=32; fi
-    $focused && weight=1
-    # Clip visible text before adding color codes so narrow terminals never wrap.
-    local rendered
-    printf -v rendered ' \033[36m%s\033[0m \033[%sm%s\033[0m \033[%sm%s\033[0m\033[K' \
-        "$prefix" "$color" "$mark" "$weight" "${label:0:MENU_WIDTH-6}"
-    MENU_FRAME+=("$rendered")
-}
-_menu_draw() {
-    local count=0 id row text group i selected total mark prefix detail="" start
-    for id in "${MENU_IDS[@]}"; do ${MENU_SELECTED[$id]} && count=$((count+1)); done
-    local -a MENU_FRAME=()
-    _menu_line "  vjupdate · ${MACHINE:-unknown profile} · $count selected" '1;34'
-    if ((MENU_HEIGHT < 12 || MENU_WIDTH < 40)); then
-        _menu_line 'Resize terminal to at least 40 × 12.'
-        _menu_line 'q Cancel (selection is preserved)'
-        _menu_present
-        return 0
-    fi
-    if $MENU_REVIEW; then
-        _menu_line '  REVIEW · execution order · Enter Run / b Back' 36
-    elif $MENU_SEARCH; then
-        _menu_line "  Search: $MENU_QUERY" 36
-    else
-        _menu_line "  Space Toggle/Expand · / Search: $MENU_QUERY" 90
-    fi
-    _menu_line ''
-    for ((i=0; i<MENU_PAGE; i++)); do
-        start=$((MENU_OFFSET+i))
-        if $MENU_REVIEW; then
-            text=""
-            ((start >= ${#MENU_PLAN[@]})) || text="$((start+1)). ${MENU_PLAN[$start]}"
-            _menu_line "  $text"
-            continue
-        fi
-        if ((start >= ${#MENU_ROWS[@]})); then _menu_line ''; continue; fi
-        row="${MENU_ROWS[$start]}"; prefix='  '
-        ((start != MENU_CURSOR)) || prefix='❯ '
-        if [[ "$row" == g:* ]]; then
-            group="${row#g:}"; selected=0; total=0
-            for id in "${!MENU_IDS[@]}"; do
-                [[ "${MENU_GROUPS[$id]}" == "$group" ]] || continue
-                total=$((total+1)); ${MENU_SELECTED[${MENU_IDS[$id]}]} && selected=$((selected+1))
-            done
-            mark='▸'; [[ "${MENU_OPEN[$group]}" == false && -z "$MENU_QUERY" ]] || mark='▾'
-            text="$group"
-            for id in "${!MENU_GROUP_IDS[@]}"; do [[ "${MENU_GROUP_IDS[$id]}" != "$group" ]] || text="${MENU_GROUP_LABELS[$id]}"; done
-            _menu_line " $prefix$mark ── $text ($selected/$total)" 36
-        else
-            local focused=false
-            ((start != MENU_CURSOR)) || focused=true
-            _menu_choice_line "$prefix" "${MENU_LABELS[$row]}" "${MENU_SELECTED[${MENU_IDS[$row]}]}" "$focused"
-        fi
-    done
-    if $MENU_REVIEW; then
-        detail='Only the listed actions run. Individual prompts still apply.'
-    elif ((${#MENU_ROWS[@]})); then
-        row="${MENU_ROWS[$MENU_CURSOR]}"
-        if [[ "$row" == g:* ]]; then detail='Space/Left/Right: fold group. s: select/clear its actions.'
-        else detail="${MENU_DETAILS[$row]}"; fi
-    else detail='No matches. Backspace edits the search; Esc clears it.'; fi
-    _menu_line "  ── ${MENU_NOTICE:-Details}" 36
-    # Wrap details into two bounded rows without external commands.
-    _menu_line "${detail:0:MENU_WIDTH}" 90
-    _menu_line "${detail:MENU_WIDTH:MENU_WIDTH}" 90
-    _menu_line '↑↓/jk Move · Home/End · PgUp/PgDn' 90
-    if $MENU_REVIEW; then
-        _menu_line 'Enter Run · b Back · q Cancel' 90
-    else
-        _menu_line 'Space Toggle s Group c Clear r Defaults' 90
-        _menu_line '←→ Groups / Search Enter Review q Cancel' 90
-    fi
-    _menu_present
-}
-_multiselect() {
-    local MENU_QUERY="" MENU_CURSOR=0 MENU_OFFSET=0 MENU_REVIEW=false MENU_SEARCH=false
-    local MENU_WIDTH MENU_HEIGHT MENU_PAGE row group id key i length
-    local MENU_NOTICE='' _MENU_KEY
-    local -a MENU_ROWS=() MENU_PLAN=() MENU_LAST_FRAME=()
-    local MENU_LAST_WIDTH=0 MENU_LAST_HEIGHT=0
-    local -A MENU_SELECTED=() MENU_OPEN=()
-    _menu_defaults
-    for group in "${MENU_GROUP_IDS[@]}"; do MENU_OPEN[$group]=false; done
-    MENU_OPEN[routine]=true
-    _MS_RESULT=$(mktemp)
-    # Status, not exit code: callers must not wrap the menu in `||`/`if`,
-    # which would disable errexit for the whole menu call tree.
-    _MS_STATUS=ok
-    if ! { : </dev/tty; } 2>/dev/null || [[ "${TERM:-dumb}" == dumb ]]; then
-        _MS_STATUS=notty
-        return 0
-    fi
-    _tui_start
-    _MENU_STTY=$(stty -g </dev/tty)
-    _MENU_ACTIVE=true
-    stty -echo -icanon min 1 time 0 </dev/tty
-    printf '\033[?1049h\033[?25l\033[H\033[2J' >/dev/tty
-    while true; do
-        MENU_WIDTH=$(tput cols 2>/dev/null) || MENU_WIDTH=80
-        MENU_HEIGHT=$(tput lines 2>/dev/null) || MENU_HEIGHT=24
-        MENU_PAGE=$((MENU_HEIGHT-11)); ((MENU_PAGE > 0)) || MENU_PAGE=1
-        _menu_rows
-        length=${#MENU_ROWS[@]}
-        if $MENU_REVIEW; then length=${#MENU_PLAN[@]}; fi
-        ((MENU_CURSOR < length)) || MENU_CURSOR=$((length>0 ? length-1 : 0))
-        ((MENU_CURSOR >= MENU_OFFSET)) || MENU_OFFSET=$MENU_CURSOR
-        ((MENU_CURSOR < MENU_OFFSET+MENU_PAGE)) || MENU_OFFSET=$((MENU_CURSOR-MENU_PAGE+1))
-        ((MENU_OFFSET <= MENU_CURSOR)) || MENU_OFFSET=$MENU_CURSOR
-        _menu_draw
-        _menu_read_key
-        key="$_MENU_KEY"
-        [[ "$key" != cancel ]] || { _menu_leave; _tui_end; _MS_STATUS=cancel; return 0; }
-        # A too-small terminal permits cancellation and resize only.
-        if ((MENU_HEIGHT < 12 || MENU_WIDTH < 40)); then
-            [[ "$key" != q && "$key" != escape && "$key" != $'\x03' ]] || { _menu_leave; _tui_end; _MS_STATUS=cancel; return 0; }
-            continue
-        fi
-        if $MENU_SEARCH; then
-            case "$key" in
-                '') MENU_SEARCH=false ;;
-                escape) MENU_QUERY=""; MENU_SEARCH=false ;;
-                $'\x7f'|$'\b') MENU_QUERY="${MENU_QUERY%?}" ;;
-                tick|ignored|up|down|left|right|home|end|pageup|pagedown) ;;
-                $'\x03') _menu_leave; _tui_end; _MS_STATUS=cancel; return 0 ;;
-                *) [[ "$key" == [[:print:]] ]] && MENU_QUERY+="$key" ;;
-            esac
-            MENU_CURSOR=0; MENU_OFFSET=0
-            continue
-        fi
-        case "$key" in
-            q|$'\x03') _menu_leave; _tui_end; _MS_STATUS=cancel; return 0 ;;
-            escape)
-                if $MENU_REVIEW; then MENU_REVIEW=false
-                elif [[ -n "$MENU_QUERY" ]]; then MENU_QUERY=""
-                else _menu_leave; _tui_end; _MS_STATUS=cancel; return 0; fi
-                MENU_CURSOR=0; MENU_OFFSET=0 ;;
-            up|k) ((MENU_CURSOR<=0)) || MENU_CURSOR=$((MENU_CURSOR-1)) ;;
-            down|j) ((MENU_CURSOR>=length-1)) || MENU_CURSOR=$((MENU_CURSOR+1)) ;;
-            home) MENU_CURSOR=0 ;;
-            end) MENU_CURSOR=$((length>0 ? length-1 : 0)) ;;
-            pageup) MENU_CURSOR=$((MENU_CURSOR>MENU_PAGE ? MENU_CURSOR-MENU_PAGE : 0)) ;;
-            pagedown) MENU_CURSOR=$((MENU_CURSOR+MENU_PAGE < length ? MENU_CURSOR+MENU_PAGE : length>0 ? length-1 : 0)) ;;
-            b) if $MENU_REVIEW; then MENU_REVIEW=false; MENU_CURSOR=0; MENU_OFFSET=0; fi ;;
-            '')
-                if $MENU_REVIEW; then
-                    : > "$_MS_RESULT"
-                    for id in "${MENU_ORDER[@]}"; do ${MENU_SELECTED[$id]} && printf '%s\n' "$id" >> "$_MS_RESULT"; done
-                    _menu_leave; _tui_end; return 0
-                fi
-                _menu_plan
-                if ((${#MENU_PLAN[@]})); then MENU_REVIEW=true; MENU_CURSOR=0; MENU_OFFSET=0
-                else MENU_NOTICE='Select at least one action'; fi ;;
-            *)
-                $MENU_REVIEW && continue
-                case "$key" in
-                    /) MENU_SEARCH=true ;;
-                    c) _menu_clear; MENU_NOTICE='All actions cleared' ;;
-                    r) _menu_defaults; MENU_NOTICE='Default selection restored' ;;
-                    ' '|left|right|s|$'\x01')
-                        ((${#MENU_ROWS[@]})) || continue
-                        row="${MENU_ROWS[$MENU_CURSOR]}"
-                        if [[ "$row" == g:* ]]; then group="${row#g:}"
-                        else group="${MENU_GROUPS[$row]}"; fi
-                        if [[ "$key" == s || "$key" == $'\x01' ]]; then
-                            _menu_group_select "$group"; MENU_NOTICE="Selection changed for $group"
-                        elif [[ "$row" == g:* || "$key" == left || "$key" == right ]]; then
-                            case "$key" in
-                                left) MENU_OPEN[$group]=false ;;
-                                right) MENU_OPEN[$group]=true ;;
-                                *) if ${MENU_OPEN[$group]}; then MENU_OPEN[$group]=false; else MENU_OPEN[$group]=true; fi ;;
-                            esac
-                            # Keep focus on the group when its children disappear.
-                            for i in "${!MENU_ROWS[@]}"; do [[ "${MENU_ROWS[$i]}" != "g:$group" ]] || MENU_CURSOR=$i; done
-                        else
-                            id="${MENU_IDS[$row]}"
-                            if ${MENU_SELECTED[$id]}; then _menu_set "$id" false; else _menu_set "$id" true; fi
-                            MENU_NOTICE='Selection updated'
-                            [[ ! -v AUDIT_ACTIONS[$id] || "${MENU_SELECTED[$id]}" != true ]] || MENU_NOTICE='System health check enabled for this action'
-                            [[ "$id" != audit || "${MENU_SELECTED[audit]}" != false ]] || MENU_NOTICE='Health check and its repair options cleared'
-                        fi ;;
-                esac ;;
-        esac
-    done
-}
-_bootstrap_multiselect() { _menu_catalog; _multiselect; }
+# Action IDs for --actions (vj's MAINT list uses the same IDs; fish completion reads this line).
+MENU_ORDER=(sources install services snapper automount optimize keyboard kernels greeter keyring-pam install-scripts fish dms-plugins dms-export claude caveman-code ollama vms steam-launchers app-launchers dotfiles-export stow-symlinks dms-import audit orphan-removal rebuild python-rebuild pacnew-merge manual-steps)
 
 # Accept stable IDs; keep legacy programmatic selection payloads compatible.
 _selected_action() {
@@ -2960,7 +2420,23 @@ phase_configure() {
     return 0
 }
 phase_update()   { system_update; flatpak_update; clean_caches; }
-phase_audit()    { check_held_updates; check_foreign_orphans; check_unused_apps; check_flatpak_orphans; check_rebuilds; check_python_rebuilds; check_pacnew; check_modified_configs; check_dms_owner; check_logins; check_firmware; check_aur_malware; check_pacman_db; return 0; }
+# One list for the audit phase and --check, so they can't drift. Each check
+# only reports unless its AUDIT_ACTIONS flag was set (orphans, rebuilds, pacnew).
+AUDIT_CHECKS=(check_held_updates check_foreign_orphans check_unused_apps check_rebuilds
+              check_python_rebuilds check_pacnew check_modified_configs check_dms_owner
+              check_logins check_firmware check_aur_malware check_pacman_db)
+_run_audit_checks() { local c; for c in "${AUDIT_CHECKS[@]}"; do "$c"; done; }
+# The audit phase also removes unused flatpak runtimes; --check stays report-only.
+# vj shows this on its Maintenance row (the weekly timer runs --check too).
+_save_last_check() {
+    local i f="$STAMP_DIR/last-check.tsv"
+    mkdir -p "$STAMP_DIR"
+    {
+        for i in "${!_RESULT_NAMES[@]}"; do printf '%s\t%s\n' "${_RESULT_NAMES[$i]}" "${_RESULT_STATES[$i]}"; done
+        printf '@warnings\t%s\n' "${#WARNINGS[@]}"
+    } > "$f.tmp" && mv "$f.tmp" "$f"
+}
+phase_audit()    { check_flatpak_orphans; _run_audit_checks; return 0; }
 
 # ─── Main ────────────────────────────────────────────────
 bootstrap() {
@@ -2968,24 +2444,14 @@ bootstrap() {
         SKIP_PHASES=""
         local _selected
         detect_machine
-        if [[ -n "${VJ_ACTIONS:-}" ]]; then
-            # Chosen in vj (or on the command line): same IDs as the menu, no menu.
-            _menu_catalog
-            local _id
-            _selected=""
-            for _id in ${VJ_ACTIONS//,/ }; do
-                [[ " ${MENU_IDS[*]} " == *" $_id "* ]] || die "unknown action: $_id"
-                _selected+="$_id"$'\n'
-            done
-        else
-            _MS_STATUS=ok
-            _bootstrap_multiselect
-            case "$_MS_STATUS" in
-                cancel) warn "Aborted."; exit 0 ;;
-                notty)  die "Interactive menu needs a terminal; use --yes or --dry-run." ;;
-            esac
-            _selected=$(cat "$_MS_RESULT")
-        fi
+        # Chosen in vj (or on the command line). The menu lives in vj only.
+        [[ -n "${VJ_ACTIONS:-}" ]] || die "no actions given: run 'vj', or vjupdate --actions A,B / --yes"
+        local _id
+        _selected=""
+        for _id in ${VJ_ACTIONS//,/ }; do
+            [[ " ${MENU_ORDER[*]} " == *" $_id "* ]] || die "unknown action: $_id"
+            _selected+="$_id"$'\n'
+        done
         _ensure_dots_repo
 
         local _phase_keys=(sources install dotfiles audit)
@@ -3068,18 +2534,8 @@ check() {
     echo -e "${BLU}╚═════════════════════════════════════╝${NC}"
     echo ""
 
-    check_held_updates
-    check_foreign_orphans
-    check_unused_apps
-    check_rebuilds
-    check_python_rebuilds
-    check_pacnew
-    check_modified_configs
-    check_dms_owner
-    check_logins
-    check_firmware
-    check_aur_malware
-    check_pacman_db
+    _run_audit_checks
+    _save_last_check
     print_recap
 }
 
@@ -3231,9 +2687,8 @@ plan_preview() {
             return 0 ;;
         --update|-u)
             detect_machine
-            info "Update: malware gate, package replacement, mirror refresh, system and Flatpak upgrades"
+            info "Update: malware gate, conflict removal + demotions, mirror refresh, system and Flatpak upgrades"
             _preview_holds
-            echo "      Would replace libreoffice-fresh with libreoffice-still if installed."
             echo "      Would remove unused Flatpak runtimes."
             _unknown "available upgrades and malware verdict: network checks have not run"
             info "Cleanup: paccache -rk2 / -ruk0"
@@ -3333,8 +2788,7 @@ plan_preview() {
 usage() {
     echo "Usage: vjupdate [OPTION]"
     echo ""
-    echo "  (no args)           Scrollable action menu, then execution-order review"
-    echo "                      Space toggle; / search; Enter review/run; q cancel."
+    echo "  (no args)           Open vj (the TUI); it runs vjupdate --actions for you"
     echo "  --interactive, -i   Same as no args (explicit)"
     echo "  --yes, -y           Full bootstrap, non-interactive"
     echo "  --actions A,B,...   Run exactly these menu action IDs, no menu (used by vj)"
@@ -3412,6 +2866,12 @@ done
 
 # --help and --dry-run are read-only: no lock, no log rotation, no stamps.
 if [[ "$ACTION" == help ]]; then usage; exit 0; fi
+# The interactive menu is vj's job; vj calls back with --actions.
+if ! $DRY_RUN && [[ -z "$ACTION" || "$ACTION" == --interactive || "$ACTION" == -i ]]; then
+    [[ -t 0 && -t 1 ]] || die "no terminal: use --yes, --actions A,B or --dry-run"
+    command -v vj >/dev/null || die "vj not found in PATH — stow scripts, or use --yes / --actions"
+    exec vj
+fi
 # Root would write stamps, logs and links into /root; sudo is called per command.
 (( EUID != 0 )) || die "run vjupdate as your user, not root — it calls sudo itself"
 _ensure_plan
@@ -3425,7 +2885,6 @@ if $DRY_RUN; then
 fi
 
 case "$ACTION" in
-    --interactive|-i)    _init_runtime; INTERACTIVE=true;  bootstrap ;;
     --actions)           _init_runtime; INTERACTIVE=true;  bootstrap ;;
     --yes|-y)            _init_runtime; INTERACTIVE=false; bootstrap ;;
     --update|-u)         _init_runtime; update ;;
@@ -3441,6 +2900,5 @@ case "$ACTION" in
     --app-launchers)     _init_runtime; check_app_launchers ;;
     --rebuild)           _init_runtime; check_aur_malware; _enable_audit_action rebuild; check_rebuilds ;;
     --pacnew)            _init_runtime; _enable_audit_action pacnew-merge; check_pacnew ;;
-    "")                  _init_runtime; bootstrap ;;
     *)                   die "Unknown option: $ACTION. Use --help." ;;
 esac

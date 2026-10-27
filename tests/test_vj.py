@@ -8,6 +8,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,6 +43,8 @@ class Tmp(unittest.TestCase):
         self.root = Path(t.name)
         self.dots = fixture_repo(self.root)
         self.cfg_path = self.root / "cfg/config.toml"
+        # recap() reads last-check.tsv from the state dir; keep the real one out.
+        self.enterContext(patch.dict(os.environ, {"XDG_STATE_HOME": str(self.root / "state")}))
 
 
 class ConfigTests(Tmp):
@@ -316,6 +319,37 @@ class StateTests(Tmp):
         self.assertIn("obs", st.to_install()["paru"])
         self.assertIn("remove 1", st.recap("packages"))
 
+    def test_flatpak_remove_is_rejected_without_changing_selection(self):
+        st = self.ready()
+        self.assertFalse(st.toggle_remove("flatpak:com.spotify.Client"))
+        self.assertEqual(st.cfg["flatpak"]["remove"], [])
+        self.assertIn("com.spotify.Client", resolve.resolve(st.repo, st.cfg)["flatpak_install"])
+
+    def test_legacy_flatpak_exclusion_is_not_reported_as_uninstall(self):
+        st = self.ready()
+        st.cfg["flatpak"]["remove"] = ["com.spotify.Client"]
+        self.assertNotIn("remove", st.recap("packages"))
+
+    def test_legacy_flatpak_exclusion_can_be_cleared(self):
+        st = self.ready()
+        st.cfg["flatpak"]["remove"] = ["com.spotify.Client"]
+        self.assertTrue(st.toggle_remove("flatpak:com.spotify.Client"))
+        self.assertEqual(st.cfg["flatpak"]["remove"], [])
+
+
+
+class LastCheckTests(Tmp):
+    def test_summary_from_last_check_file(self):
+        from vj import state
+        f = self.root / "last-check.tsv"
+        self.assertEqual(state.last_check(f), "")
+        f.write_text("pacman-db\tok\n@warnings\t0\n")
+        self.assertIn("check today: ok", state.last_check(f))
+        f.write_text("pacman-db\tfail\nfirmware\tok\n@warnings\t2\n")
+        self.assertIn("1 failed (pacman-db)", state.last_check(f))
+        f.write_text("x\tok\n@warnings\t2\n")
+        self.assertIn("2 warnings", state.last_check(f, now=f.stat().st_mtime + 3 * 86400))
+        self.assertIn("3d ago", state.last_check(f, now=f.stat().st_mtime + 3 * 86400))
 
 class UnlistedTests(Tmp):
     """#4: explicitly installed packages in no list, sorted from vj."""
@@ -381,6 +415,12 @@ class UnlistedTests(Tmp):
 
 @unittest.skipUnless(HAS_TEXTUAL, "textual not installed")
 class UiTests(Tmp):
+    def setUp(self):
+        super().setUp()
+        runtime = self.root / "runtime"
+        runtime.mkdir()
+        self.enterContext(patch.dict(os.environ, {"XDG_RUNTIME_DIR": str(runtime)}))
+
     def app(self, runner=None):
         from vj import ui
         return ui.VjApp(config.load_repo(self.dots), self.cfg_path, installed=set(), runner=runner, host="desktop")

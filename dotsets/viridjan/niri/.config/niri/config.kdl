@@ -298,9 +298,9 @@ window-rule {
     open-on-workspace "media"
     open-focused false
 }
-// dgop system monitor — media workspace, 75% width (restored from orphaned cfg/rules.kdl, 2026-08-24)
+// TMOG task manager (replaced the dgop terminal monitor 2026-10-27) — media workspace, 75% width
 window-rule {
-    match title="dgop-monitor"
+    match app-id="^com\\.tmog\\.taskmanager$"
     open-on-workspace "media"
     open-focused false
     default-column-width { proportion 0.75; }

@@ -99,7 +99,6 @@ echo BAD_CONTINUED
 _init_runtime
 detect_machine() { :; }
 check_aur_malware() { :; }
-_swap_pkg() { :; }
 refresh_mirrors() { :; }
 _syuu() { return 42; }
 flatpak_update() { :; }
@@ -237,7 +236,7 @@ _run_phase fixture broken_step
 
     def test_configure_kernel_action_scans_first(self):
         r = self.shell('''
-_bootstrap_multiselect() { _MS_RESULT=$(mktemp); echo 'kernels — install/remove' > "$_MS_RESULT"; }
+VJ_ACTIONS=kernels
 detect_machine() { MACHINE=desktop; }
 _ensure_dots_repo() { :; }
 _check_packages_against_malware() { :; }
@@ -339,8 +338,7 @@ esac
 
     def test_menu_uses_stable_ids_and_one_dms_import(self):
         r = self.shell('''
-_menu_catalog
-printf '%s\\n' "${MENU_IDS[@]}"
+printf '%s\\n' "${MENU_ORDER[@]}"
 ''')
         self.assertEqual(r.returncode, 0, r.stderr)
         ids = r.stdout.splitlines()
@@ -494,6 +492,20 @@ print_recap
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual((state / "vjupdate.log.1").read_text(), "original log")
 
+    def test_stow_23_conflict_format(self):
+        # Ubuntu (CI) ships Stow 2.3, which words the conflict line differently.
+        repo = self.fixture_repo()
+        self.assertTrue((repo / "sample/config file").exists())
+        out = ("WARNING! stowing sample would cause conflicts:\n"
+               "  * existing target is neither a link nor a directory: config file\n"
+               "All operations aborted.\n")
+        self.mock("stow", "printf '%s' " + shlex.quote(out) + "; exit 1")
+        r = self.shell('cd "$DOTS_DIR"\n_adopt_backup -t "$HOME" sample')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        copies = [p.read_text() for p in (self.home / ".state").rglob("*") if p.is_file()]
+        self.assertIn("live original", copies)
+        self.assertIn("repo original", copies)
+
     @unittest.skipUnless(Path("/usr/bin/stow").exists(), "installed Stow unavailable")
     def test_installed_stow_conflict_format(self):
         repo = self.fixture_repo()
@@ -636,15 +648,6 @@ class BuildTimeEstimateTests(FixtureCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("3 AUR builds pending — est. ~7 min (foo 6m, bar 1m); no history: new",
                       r.stdout)
-
-    def test_review_plan_shows_estimate_once(self):
-        self.write_times("aur:foo\t600\n")
-        self.mock("paru", 'printf "%s\\n" "$*" >> "$CALLS"; echo "foo 1 -> 2"')
-        r = self.shell('declare -A MENU_SELECTED=([sources]=false [install]=true [kernels]=false [orphan-removal]=false [rebuild]=false [python-rebuild]=false)\n'
-                       'MENU_ORDER=(install); MENU_IDS=(install); MENU_LABELS=("Upgrade")\n'
-                       '_menu_plan; _menu_plan; printf "%s\\n" "${MENU_PLAN[@]}"')
-        self.assertIn("Upgrade — 1 AUR build pending — est. ~10 min (foo 10m)", r.stdout, r.stderr)
-        self.assertEqual(Path(self.env["CALLS"]).read_text().splitlines(), ["-Qua"])
 
     def test_record_time_merges_and_sorts(self):
         self.write_times("aur:zed\t5\n@pacman-per-pkg\t9\n")
@@ -904,7 +907,6 @@ fi
 
     def test_update_preserves_failure_detail(self):
         r = self.shell('''
-_swap_pkg() { :; }
 refresh_mirrors() { :; }
 _syuu() { SYUU_FAIL_DETAIL="AUR build failed: example"; return 1; }
 system_update
@@ -943,21 +945,23 @@ exit 0
         self.assertIn(r"/mnt/My\040Disk", written)
         self.assertNotIn("/mnt/My Disk", written)
         self.assertIn("uid=1234,gid=2345", written)
-        r = self.shell("_fstab_escape $'/mnt/a\\tb\\\\c'")
+        r = self.shell("source \"$_AUTOMOUNT_LIB\"; _fstab_escape $'/mnt/a\\tb\\\\c'")
         self.assertEqual(r.stdout, r"/mnt/a\011b\134c")
 
 
 class ReviewFollowupTests(FixtureCase):
-    def test_menu_without_terminal_fails_and_cancel_succeeds(self):
-        base = 'detect_machine() { MACHINE=desktop; }\n_ensure_dots_repo() { echo BAD_CONTINUED; }\n'
-        r = self.shell('TERM=dumb\n' + base + 'bootstrap')
+    def test_bootstrap_without_actions_points_to_vj(self):
+        r = self.shell('detect_machine() { MACHINE=desktop; }\n_ensure_dots_repo() { echo BAD_CONTINUED; }\nbootstrap')
         self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn('needs a terminal', r.stderr)
+        self.assertIn("run 'vj'", r.stderr)
         self.assertNotIn('BAD_CONTINUED', r.stdout)
-        r = self.shell(base + '_bootstrap_multiselect() { _MS_RESULT=$(mktemp); _MS_STATUS=cancel; }\nbootstrap')
-        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn('Aborted', r.stdout + r.stderr)
-        self.assertNotIn('BAD_CONTINUED', r.stdout)
+
+    def test_bare_run_without_terminal_does_not_open_vj(self):
+        self.mock("vj", 'echo BAD_VJ')
+        r = self.cli()
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn('no terminal', r.stderr)
+        self.assertNotIn('BAD_VJ', r.stdout)
 
     def test_unreadable_conflict_and_flatpak_lists_fail(self):
         self.plan("paru-remove.list", "conflict\n")
@@ -1046,6 +1050,28 @@ class RunPlanTests(FixtureCase):
         self.assertIn("paru -S --needed --noconfirm fish", calls)
         self.assertNotIn("skipped", calls.replace("skipped (skip list)", ""))
 
+
+    def test_update_removes_only_installed_conflicts_and_demotes(self):
+        self.plan("paru-remove.list", "gone\nhere\n")
+        self.mock("pacman", '[[ "$1" == -Qq && "$2" != here ]] && exit 1; exit 0')
+        self.mock("sudo", 'echo "sudo $*" >> "$CALLS"')
+        r = self.shell('refresh_mirrors() { :; }\n_demote_packages() { echo DEMOTED; }\n'
+                       '_check_disk_space() { :; }\n_review_aur_updates() { :; }\n'
+                       '_estimate_aur_builds() { :; }\n_syuu() { return 0; }\nsystem_update')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        calls = Path(self.env["CALLS"]).read_text()
+        self.assertIn("pacman -Rdd --noconfirm here", calls)
+        self.assertNotIn("gone", calls)
+        self.assertIn("DEMOTED", r.stdout)
+        self.assertIn("vjupdate --actions install", r.stdout)
+
+    def test_check_saves_results_for_vj(self):
+        r = self.shell('detect_machine() { :; }\n'
+                       'AUDIT_CHECKS=(a b)\na() { _record pacman-db fail; }\nb() { warn w1; _record firmware ok; }\n'
+                       'check')
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+        saved = (self.home / ".state/dots/last-check.tsv").read_text()
+        self.assertEqual(saved, "pacman-db\tfail\nfirmware\tok\n@warnings\t1\n")
 
 class ActionsTests(FixtureCase):
     """`--actions` runs exactly the given menu IDs without the menu (used by vj)."""

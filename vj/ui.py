@@ -130,7 +130,9 @@ class PackagesChecklist(Checklist):
 
     def action_remove(self):
         if self.current():
-            self.state.toggle_remove(self.current())
+            if not self.state.toggle_remove(self.current()):
+                self.notify("Flatpak removal is not supported. Untick the app to exclude it from installation.",
+                            severity="warning")
             self.reload()
 
 
