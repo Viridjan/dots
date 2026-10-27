@@ -119,7 +119,6 @@ install = [
     "telegram-desktop",
     "claude-code",
     "rofi-ykman-git",
-    "tmog-bin",          # Task Manager OG (tmog.org); not in repos or Flathub
 
     # Chromium (webapp launcher — used by .desktop app shortcuts)
     "chromium",

@@ -394,7 +394,7 @@ disables it on the next run), and `[npm]` / `[uv]` global tools.
 | Package | What it stows |
 |---|---|
 | `niri` | `~/.config/niri/` — common kdl files (cfg/ minus display+input) |
-| `desktop` | `~/.config/niri/cfg/display.kdl` + `input.kdl` + `surface-layout.kdl` (empty) + `autostart-machine.kdl` (Thunderbird, Telegram, Steam, TMOG task manager…) for the tower |
+| `desktop` | `~/.config/niri/cfg/display.kdl` + `input.kdl` + `surface-layout.kdl` (empty) + `autostart-machine.kdl` (Thunderbird, Telegram, Steam) for the tower |
 | `surface` | `~/.config/niri/cfg/display.kdl` + `input.kdl` + `surface-layout.kdl` (50% default window width) + empty `autostart-machine.kdl` for Surface Pro 9 |
 | `fish` | `~/.config/fish/` |
 | `alacritty` | `~/.config/alacritty/` |
