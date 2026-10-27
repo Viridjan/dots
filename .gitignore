@@ -58,3 +58,6 @@ dotsets/*/claude/.claude/skills/synced/
 
 # Machine-local link to the VM disk on /mnt/data — setup_vms recreates it
 windows/storage
+
+# Python bytecode (rewritten by every run)
+__pycache__/
