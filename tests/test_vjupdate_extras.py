@@ -76,14 +76,67 @@ exit 0''')
 
 
 class ServiceTests(ExtrasCase):
+    def test_failed_enable_is_not_recorded_as_managed(self):
+        self.plan("systemd-enable.list", "cups\n")
+        self.plan("systemd-user.list", "mpd\n")
+        r = self.shell('enable_services; echo FAILED=$_FAILED')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("FAILED=1", r.stdout)
+        self.assertEqual((self.home / ".state/dots/managed-units").read_text(), "")
+
+    def test_failed_disable_is_retained_until_retry_succeeds(self):
+        self.plan("systemd-enable.list", "")
+        self.plan("systemd-user.list", "")
+        state = self.home / ".state/dots"
+        state.mkdir(parents=True)
+        managed = state / "managed-units"
+        managed.write_text("system cups\nuser mpd\n")
+        r = self.shell('enable_services; echo FAILED=$_FAILED')
+        self.assertIn("FAILED=1", r.stdout)
+        self.assertEqual(managed.read_text(), "system cups\nuser mpd\n")
+        self.recorder("systemctl")
+        self.recorder("sudo", '"$@"')
+        r = self.shell("enable_services")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(managed.read_text(), "")
+        self.assertIn("sudo systemctl disable cups", self.calls())
+        self.assertIn("systemctl --user disable mpd", self.calls())
+
+    def test_enabled_but_failed_start_stays_managed(self):
+        # enable --now: unit gets enabled, start fails. Must stay tracked so
+        # dropping it from the plan later disables it.
+        self.mock("sudo", '"$@"')
+        self.mock("systemctl", '''
+printf "%s\\n" "systemctl $*" >> "$CALLS"
+case "$*" in
+  *"enable --now"*) exit 1 ;;
+  *is-enabled*) exit 0 ;;
+esac
+exit 0''')
+        self.plan("systemd-enable.list", "cups\n")
+        self.plan("systemd-user.list", "mpd\n")
+        r = self.shell('enable_services; echo FAILED=$_FAILED')
+        self.assertIn("FAILED=1", r.stdout, r.stderr)
+        managed = self.home / ".state/dots/managed-units"
+        self.assertEqual(managed.read_text(), "system cups\nuser mpd\n")
+        self.plan("systemd-enable.list", "")
+        self.plan("systemd-user.list", "")
+        r = self.shell("enable_services")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("systemctl disable cups", self.calls())
+        self.assertIn("systemctl --user disable mpd", self.calls())
+        self.assertEqual(managed.read_text(), "")
+
     def test_enables_lists_and_disables_dropped_units_after_first_run(self):
         self.recorder("systemctl")
+        self.recorder("sudo", '"$@"')
         self.plan("systemd-enable.list", "cups\nbluetooth\n")
         self.plan("systemd-user.list", "mpd\n")
         r = self.shell("enable_services")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         calls = self.calls()
         self.assertIn("systemctl enable --now cups", calls)
+        self.assertIn("sudo systemctl enable --now cups", calls)
         self.assertIn("systemctl --user enable --now mpd", calls)
         self.assertNotIn("disable", calls)
         Path(self.env["CALLS"]).unlink()
@@ -103,6 +156,121 @@ class ServiceTests(ExtrasCase):
         r = self.shell("enable_services; echo FAILED=$_FAILED")
         self.assertIn("FAILED=1", r.stdout)
         self.assertNotIn("disable", self.calls())
+
+
+class SetupResultTests(ExtrasCase):
+    def test_failed_keyboard_setup_never_emits_success(self):
+        self.env["VJ_RESULT_FILE"] = str(self.root / "results")
+        r = self.shell('''
+CONFIGURE_PROMPTED=true
+CONFIGURE_ITEMS=keyboard
+phase_configure
+echo FAILED=$_FAILED
+''')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        results = (self.root / "results").read_text()
+        self.assertIn("action:keyboard\tfail", results)
+        self.assertNotIn("action:keyboard\tok", results)
+        self.assertIn("FAILED=1", r.stdout)
+
+    def test_failed_installer_fails_action_and_recap(self):
+        self.env["VJ_RESULT_FILE"] = str(self.root / "results")
+        self.mock("npm", "exit 1")
+        r = self.shell('''
+CONFIGURE_PROMPTED=true
+CONFIGURE_ITEMS=$'caveman-code\nfish'
+phase_configure
+print_recap
+''')
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        results = (self.root / "results").read_text()
+        self.assertIn("action:caveman-code\tfail", results)
+        # fish missing = intentional skip, not contaminated by the npm failure
+        self.assertIn("action:fish\tskip", results)
+
+    def test_successful_setup_records_ok(self):
+        self.env["VJ_RESULT_FILE"] = str(self.root / "results")
+        self.mock("npm", 'echo "$HOME/npm-root"')
+        (self.home / ".local/bin").mkdir(parents=True)
+        r = self.shell('_act caveman-code setup_caveman_code')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("action:caveman-code\tok", (self.root / "results").read_text())
+
+    def _flatpak_install(self, install_rc, update_rc):
+        self.plan("flatpak-install.list", "org.example.App\n")
+        self.plan("paru-install.list", "")
+        self.mock("paru", "exit 0")
+        self.mock("flatpak", f'''
+case "$1" in info) exit 1 ;; install) exit {install_rc} ;; update) exit {update_rc} ;; esac
+exit 0''')
+        return self.shell('''
+_remove_conflicts() { :; }; _demote_packages() { :; }; _check_disk_space() { :; }
+_review_aur_updates() { :; }; _estimate_aur_builds() { :; }; _syuu() { :; }
+_install_list() { :; }; install_user_tools() { :; }; clean_caches() { :; }
+install_all
+print_recap
+''')
+
+    def test_flatpak_install_failure_fails_recap(self):
+        r = self._flatpak_install(1, 0)
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("org.example.App", r.stdout)
+
+    def test_flatpak_update_failure_fails_recap(self):
+        r = self._flatpak_install(0, 1)
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_flatpak_success_passes_recap(self):
+        r = self._flatpak_install(0, 0)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_warning_only_setup_is_not_stamped_done(self):
+        self.env["VJ_RESULT_FILE"] = str(self.root / "results")
+        r = self.shell('_act fish setup_fish')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        results = (self.root / "results").read_text()
+        self.assertNotIn("action:fish\tok", results)
+        self.assertIn("action:fish\tskip", results)
+
+    def test_mirror_override_replaces_existing_boot_trigger(self):
+        self.env["TIMER_OUTPUT"] = str(self.root / "timer.conf")
+        # Redirect the fixed /etc path in a test copy so host overrides cannot
+        # cause this test to skip generating the configuration.
+        script = self.root / "vjupdate"
+        script.write_text(Path(self.env["SCRIPT"]).read_text().replace(
+            "/etc/systemd/system/cachyos-rate-mirrors.timer.d/override.conf",
+            str(self.root / "override.conf")))
+        self.env["SCRIPT"] = str(script)
+        for existing in (None, "[Timer]\nOnBootSec=2h\n", "[Timer]\nOnBootSec=3h\n"):
+            with self.subTest(existing=existing):
+                override = self.root / "override.conf"
+                if existing is not None:
+                    override.write_text(existing)
+                output = Path(self.env["TIMER_OUTPUT"])
+                output.unlink(missing_ok=True)
+                r = self.shell('''
+systemctl() { [[ "$1" == list-unit-files ]]; }
+lsblk() { echo LVM2_member; }
+sudo() {
+    if [[ "$1" == tee ]]; then cat > "$TIMER_OUTPUT"; fi
+    return 0
+}
+optimize_system
+''')
+                self.assertEqual(r.returncode, 0, r.stderr)
+                if existing and "3h" in existing:
+                    self.assertFalse(output.exists(), "custom override overwritten")
+                    self.assertEqual(override.read_text(), existing)
+                    continue
+                triggers = ["10min"]
+                for line in output.read_text().splitlines():
+                    if line.startswith("OnBootSec="):
+                        value = line.partition("=")[2]
+                        if value:
+                            triggers.append(value)
+                        else:
+                            triggers.clear()
+                self.assertEqual(triggers, ["2h"])
 
 
 class LinkTests(ExtrasCase):
@@ -251,6 +419,25 @@ exit 0''')
         self.assertNotIn("i -g @a/have", calls)
         self.assertIn("uv tool install newtool", calls)
         self.assertNotIn("install graphifyy", calls)
+
+
+class ClaudePluginTests(ExtrasCase):
+    def test_failed_plugin_records_failure_and_continues(self):
+        self.mock("claude", '[[ "$*" != "plugin install graphify --scope user" ]]')
+        r = self.shell('''
+setup_claude
+printf 'FAILED=%s\\n' "$_FAILED"
+printf 'RESULT=%s\\n' "${_RESULT_NAMES[@]}"
+printf 'STATE=%s\\n' "${_RESULT_STATES[@]}"
+''')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("FAILED=1", r.stdout)
+        self.assertEqual(r.stdout.count("RESULT=claude\n"), 1)
+        self.assertEqual(r.stdout.count("STATE=fail\n"), 1)
+        self.assertIn("run manually: claude plugin marketplace add safishamsi/graphify && claude plugin install graphify --scope user", r.stdout)
+        for plugin in ("caveman", "superpowers", "ponytail"):
+            self.assertIn(f"installed: {plugin}", r.stdout)
+        self.assertNotIn("installed: graphify", r.stdout)
 
 
 class PinnedInstallerTests(ExtrasCase):

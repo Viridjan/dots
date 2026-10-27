@@ -24,6 +24,20 @@ section() { echo -e "\n${CYN}━━━━━━━━━━━━━━━━━
             echo -e "${CYN}  ▶  ${1^^}${NC}"; \
             echo -e "${CYN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; }
 
+# _banner COLOR TITLE [box]
+_banner() {
+    echo ""
+    if [[ "${3:-}" == box ]]; then
+        echo -e "$1╔═════════════════════════════════════╗${NC}"
+        printf '%b║      %s%*s║%b\n' "$1" "$2" "$((31 - ${#2}))" "" "$NC"
+        echo -e "$1╚═════════════════════════════════════╝${NC}"
+    else
+        echo -e "$1════════════════════════════════════════════${NC}"
+        echo -e "$1  $2${NC}"
+        echo -e "$1════════════════════════════════════════════${NC}"
+    fi
+}
+
 # Prompt yes/no; returns 0 only on y/Y. Usage: _confirm "Question? [y/N]" && ...
 _confirm() { local _r; read -rp "$1 " _r; [[ "$_r" =~ ^[Yy]$ ]]; }
 
@@ -120,6 +134,9 @@ _record() {
     [[ -z "${VJ_RESULT_FILE:-}" ]] || printf '%s\t%s\n' "$1" "$2" >> "$VJ_RESULT_FILE"
     return 0
 }
+# A command the user asked for failed: record it (nonzero recap) and warn.
+# Plain warn is for intentional skips (tool missing, profile, declined).
+_failw() { _record "$1" fail "$2"; warn "$2"; }
 # ─── Dry-run helper ──────────────────────────────────────
 # Mutating commands go through this. In --dry-run it prints and does nothing.
 _mutate() {
@@ -203,9 +220,11 @@ _tui_end() {
     exec > >(tee -a "$LOG_FILE") 2>&1
     _TEE_PID=$!
 }
+_skipped() { [[ " ${SKIP_PHASES:-} " == *" $1 "* ]]; }
+
 _run_phase() {
     local name="$1"; shift
-    if [[ " ${SKIP_PHASES:-} " == *" $name "* ]]; then
+    if _skipped "$name"; then
         _record "phase:$name" skip "not selected"
         return 0
     fi
@@ -392,9 +411,11 @@ _record_build_times() {
 # Print a rough wall-clock estimate for pending AUR upgrades from past builds.
 # ponytail: last build time only, no averaging — a version bump that changes
 # build size skews one run, then self-corrects.
+_pending_aur() { paru -Qua 2>/dev/null || true; }
+
 _aur_estimate_text() {
     local pending
-    pending=$(paru -Qua 2>/dev/null | awk '{ print $1 }' | _without_held_packages) || true
+    pending=$(_pending_aur | awk '{ print $1 }' | _without_held_packages) || true
     [[ -n "$pending" ]] || return 0
     awk -F'\t' -v times="$BUILD_TIMES" '
         BEGIN { while ((getline line < times) > 0) { split(line, f, "\t"); t[f[1]] = f[2] } }
@@ -495,7 +516,7 @@ check_held_updates() {
     local held pending line pkg
     held=$(_held_packages)
     [[ -n "$held" ]] || return 0
-    pending=$(paru -Qua 2>/dev/null || true)
+    pending=$(_pending_aur)
     while IFS= read -r line; do
         pkg=${line%% *}
         [[ -n "$pkg" ]] || continue
@@ -741,25 +762,33 @@ _remove_conflicts() {
     done <<< "$_conflicts"
 }
 
+# _upgrade_system OK-MESSAGE PROGRESS-MESSAGE [warn-conflicts]
+_upgrade_system() {
+    _remove_conflicts
+    _demote_packages
+    if [[ "${3:-}" == warn-conflicts ]]; then
+        ((${#REMOVED_CONFLICTS[@]} == 0)) \
+            || warn "removed ${REMOVED_CONFLICTS[*]}; install replacements with: vjupdate --actions install"
+    fi
+    _check_disk_space
+    _review_aur_updates
+    _estimate_aur_builds
+    info "$2"
+    # A failed upgrade must not abort before clean_caches and print_recap
+    # can report it; never announce success unconditionally.
+    if _syuu; then
+        _record "full-upgrade" ok
+        ok "$1"
+    else
+        _record_upgrade_failure
+    fi
+}
+
 install_all() {
     command -v paru    &>/dev/null && ok "already installed: paru"    || die "paru not found — run sources phase first"
     command -v flatpak &>/dev/null && ok "already installed: flatpak" || warn "flatpak not found — flatpak installs will be skipped"
 
-    _remove_conflicts
-    _demote_packages
-
-    _check_disk_space
-    _review_aur_updates
-    _estimate_aur_builds
-    info "Upgrading existing packages..."
-    # Never announce success unconditionally: this used to print
-    # "upgraded: system" even when _syuu had just failed.
-    if _syuu; then
-        _record "full-upgrade" ok
-        ok "upgraded: system"
-    else
-        _record_upgrade_failure
-    fi
+    _upgrade_system "upgraded: system" "Upgrading existing packages..."
 
     _do_install() {
         info "Installing packages (profile: ${MACHINE:-?})..."
@@ -803,12 +832,12 @@ install_all() {
                     _record_time @flatpak-per-pkg "$(( _sec > 0 ? _sec : 1 ))"
                     ok "installed: $app"
                 else
-                    warn "failed to install: $app"
+                    _failw "flatpak:$app" "failed to install: $app"
                 fi
             fi
         done <<< "$_apps"
         info "Updating flatpak apps..."
-        flatpak update -y &>/dev/null && ok "flatpaks up to date" || warn "flatpak update had warnings"
+        flatpak update -y &>/dev/null && ok "flatpaks up to date" || _failw flatpak-update "flatpak update failed"
     fi
 
     install_user_tools
@@ -882,7 +911,7 @@ _AUR_FLAGGED=()
 _review_aur_updates() {
     local clones="$HOME/.cache/paru/clone" dir="$STAMP_DIR/aur-review" pending held line pkg base hits
     [[ -d "$clones" ]] || return 0
-    pending=$(paru -Qua 2>/dev/null || true)
+    pending=$(_pending_aur)
     [[ -n "$pending" ]] || return 0
     held=$(_held_packages)
     mkdir -p "$dir"
@@ -934,46 +963,30 @@ _import_aur_keys() {
 
 # Global npm and uv tools from packages.toml [npm]/[uv]. Install-only: both
 # tools update themselves through their own commands.
+_npm_have() { npm ls -g --depth=0 --parseable | sed -n 's|.*/node_modules/||p'; }
+_uv_have() { uv tool list | awk '$1 !~ /^-/ {print $1}'; }
+
+# _user_tools TOOL LIST LIST-CALLBACK INSTALL-ARGV...
+_user_tools() {
+    local tool="$1" list="$VJ_PLAN_DIR/$2" listing="$3" have pkg; shift 3
+    [[ -s "$list" ]] || return 0
+    command -v "$tool" &>/dev/null || { warn "$tool not found — $tool tools skipped"; return 0; }
+    have=$("$listing" 2>/dev/null || true)
+    while IFS= read -r pkg; do
+        [[ -n "$pkg" ]] || continue
+        if grep -qxF -- "$pkg" <<< "$have"; then
+            ok "already installed: $pkg ($tool)"
+        elif "$@" "$pkg" >/dev/null 2>&1; then
+            ok "installed: $pkg ($tool)"
+        else
+            _failw "$tool:$pkg" "failed to install: $pkg ($tool)"
+        fi
+    done < <(_pkg_list "$list")
+}
+
 install_user_tools() {
-    local list pkg have
-    list="$VJ_PLAN_DIR/npm-install.list"
-    if [[ -s "$list" ]]; then
-        if ! command -v npm &>/dev/null; then
-            warn "npm not found — npm tools skipped"
-        else
-            have=$(npm ls -g --depth=0 --parseable 2>/dev/null | sed -n 's|.*/node_modules/||p' || true)
-            while IFS= read -r pkg; do
-                [[ -n "$pkg" ]] || continue
-                if grep -qxF -- "$pkg" <<< "$have"; then
-                    ok "already installed: $pkg (npm)"
-                elif npm i -g "$pkg" >/dev/null 2>&1; then
-                    ok "installed: $pkg (npm)"
-                else
-                    _record "npm:$pkg" fail "npm i -g failed"
-                    warn "failed to install: $pkg (npm)"
-                fi
-            done < <(_pkg_list "$list")
-        fi
-    fi
-    list="$VJ_PLAN_DIR/uv-install.list"
-    if [[ -s "$list" ]]; then
-        if ! command -v uv &>/dev/null; then
-            warn "uv not found — uv tools skipped"
-        else
-            have=$(uv tool list 2>/dev/null | awk '$1 !~ /^-/ {print $1}' || true)
-            while IFS= read -r pkg; do
-                [[ -n "$pkg" ]] || continue
-                if grep -qxF -- "$pkg" <<< "$have"; then
-                    ok "already installed: $pkg (uv)"
-                elif uv tool install "$pkg" >/dev/null 2>&1; then
-                    ok "installed: $pkg (uv)"
-                else
-                    _record "uv:$pkg" fail "uv tool install failed"
-                    warn "failed to install: $pkg (uv)"
-                fi
-            done < <(_pkg_list "$list")
-        fi
-    fi
+    _user_tools npm npm-install.list _npm_have npm i -g
+    _user_tools uv uv-install.list _uv_have uv tool install
     return 0
 }
 
@@ -1229,9 +1242,9 @@ _adopt_backup() {
 }
 
 # ─── Phase 5: Services ───────────────────────────────────
-_enable() {
-    # Enable a service, silently skip if unit doesn't exist
-    systemctl enable --now "$1" 2>/dev/null && ok "enabled: $1" || warn "skipped (not found): $1"
+_sc() {
+    local kind="$1"; shift
+    if [[ "$kind" == user ]]; then systemctl --user "$@"; else sudo systemctl "$@"; fi
 }
 
 # Units come from packages.toml/profiles [systemd] (systemd-*.list in the plan).
@@ -1248,15 +1261,21 @@ enable_services() {
         return 0
     fi
     info "Enabling services..."
-    while IFS= read -r u; do
+    while read -r kind u; do
         [[ -n "$u" ]] || continue
-        _enable "$u"; now+="system $u"$'\n'
-    done < <(_pkg_list "$sys")
-    while IFS= read -r u; do
-        [[ -n "$u" ]] || continue
-        systemctl --user enable --now "$u" 2>/dev/null && ok "enabled: $u (user)" || warn "skipped (not found): $u (user)"
-        now+="user $u"$'\n'
-    done < <(_pkg_list "$usr")
+        local tag="$u"; [[ "$kind" == user ]] && tag="$u (user)"
+        if _sc "$kind" enable --now "$u"; then
+            ok "enabled: $tag"
+            now+="$kind $u"$'\n'
+        else
+            _failw "service:$kind:$u" "could not enable: $tag"
+            # enable --now may enable and then fail to start: keep tracking it.
+            if _sc "$kind" is-enabled --quiet "$u" 2>/dev/null \
+                || { [[ -f "$managed" ]] && grep -qxF "$kind $u" "$managed"; }; then
+                now+="$kind $u"$'\n'
+            fi
+        fi
+    done < <(_pkg_list "$sys" | sed 's/^/system /'; _pkg_list "$usr" | sed 's/^/user /')
 
     if _has_feature desktop-services; then
         sudo systemctl daemon-reload 2>/dev/null || true
@@ -1268,14 +1287,17 @@ enable_services() {
         while read -r kind u; do
             [[ -n "$u" ]] || continue
             grep -qxF "$kind $u" <<< "$now" && continue
-            if [[ "$kind" == user ]]; then
-                systemctl --user disable "$u" 2>/dev/null && ok "disabled (no longer listed): $u (user)" || warn "could not disable: $u (user)"
+            local tag="$u"; [[ "$kind" == user ]] && tag="$u (user)"
+            if _sc "$kind" disable "$u"; then
+                ok "disabled (no longer listed): $tag"
             else
-                systemctl disable "$u" 2>/dev/null && ok "disabled (no longer listed): $u" || warn "could not disable: $u"
+                _failw "service:$kind:$u" "could not disable: $tag (will retry)"
+                now+="$kind $u"$'\n'
             fi
         done < "$managed"
     fi
-    printf '%s' "$now" > "$managed"
+    printf '%s' "$now" > "$managed.tmp"
+    mv "$managed.tmp" "$managed"
 }
 
 # ─── Phase 7: Snapper ────────────────────────────────────
@@ -1296,9 +1318,11 @@ automount_disks() { source "$_AUTOMOUNT_LIB" && automount_disks "$@"; }
 # ─── Phase 7a: Greeter ───────────────────────────────────
 setup_keyboard() {
     info "Setting X11/XWayland keyboard layout (us intl)..."
-    sudo localectl set-x11-keymap us pc105 intl \
-        && ok "configured: keyboard (us intl)" \
-        || warn "keyboard: localectl failed"
+    if sudo localectl set-x11-keymap us pc105 intl; then
+        ok "configured: keyboard (us intl)"
+    else
+        _failw keyboard "keyboard: localectl failed"
+    fi
 }
 
 setup_greeter() {
@@ -1308,9 +1332,10 @@ setup_greeter() {
         return
     fi
     info "Configuring DMS greeter (greetd)..."
-    dms-greeter install --yes && ok "configured: greeter" || warn "greeter: install failed — run: dms-greeter install"
-    sudo mkdir -p /var/cache/dms-greeter && sudo chown greeter:greeter /var/cache/dms-greeter
-    dms-greeter sync && ok "synced: greeter" || warn "greeter: sync failed — run: dms-greeter sync"
+    dms-greeter install --yes && ok "configured: greeter" || _failw greeter "greeter: install failed — run: dms-greeter install"
+    sudo mkdir -p /var/cache/dms-greeter && sudo chown greeter:greeter /var/cache/dms-greeter \
+        || _failw greeter "greeter: cannot prepare /var/cache/dms-greeter"
+    dms-greeter sync && ok "synced: greeter" || _failw greeter "greeter: sync failed — run: dms-greeter sync"
 }
 
 # ─── Phase 7f: Keyring PAM integration ───────────────────
@@ -1325,7 +1350,7 @@ setup_keyring_pam() {
     printf '\nauth       optional     pam_gnome_keyring.so\nsession    optional     pam_gnome_keyring.so auto_start\n' \
         | sudo tee -a "$pam" > /dev/null \
         && ok "configured: keyring PAM (/etc/pam.d/greetd)" \
-        || warn "keyring PAM: failed — add manually to /etc/pam.d/greetd"
+        || _failw keyring-pam "keyring PAM: failed — add manually to /etc/pam.d/greetd"
 }
 
 # ─── Phase 7e: System optimisations ──────────────────────
@@ -1375,9 +1400,11 @@ optimize_system() {
     # 4. cachyos-rate-mirrors — delay post-boot run from 10min to 2h
     if systemctl list-unit-files cachyos-rate-mirrors.timer &>/dev/null; then
         local _ovr=/etc/systemd/system/cachyos-rate-mirrors.timer.d/override.conf
-        if [[ ! -f "$_ovr" ]]; then
+        if [[ ! -f "$_ovr" ]] || [[ "$(cat "$_ovr")" == $'[Timer]\nOnBootSec=2h' ]]; then
             sudo mkdir -p "$(dirname "$_ovr")"
-            printf '[Timer]\nOnBootSec=2h\n' | sudo tee "$_ovr" >/dev/null
+            # Timer assignments accumulate. Clear the original boot trigger;
+            # also migrate the exact override generated by older vjupdate.
+            printf '[Timer]\nOnBootSec=\nOnBootSec=2h\n' | sudo tee "$_ovr" >/dev/null
             sudo systemctl daemon-reload
             ok "cachyos-rate-mirrors: OnBootSec → 2h"
         else
@@ -1425,6 +1452,19 @@ _dms_repo() {
 DMS_MANUAL=(alttab.kdl binds.kdl cursor.kdl layout.kdl windowrules.kdl wpblur.kdl)
 DMS_AUTO=(colors.kdl)
 
+# _dms_copy FROM TO VERB MISSING-TEXT FILE...
+_dms_copy() {
+    local from="$1" to="$2" verb="$3" missing="$4" f; shift 4
+    for f in "$@"; do
+        if [[ -f "$from/$f" ]]; then
+            cp "$from/$f" "$to/$f"
+            ok "$verb: $f"
+        else
+            warn "$missing: $f"
+        fi
+    done
+}
+
 dms_export() {
     if [[ ! -d "$DMS_LIVE" ]]; then
         warn "DMS live dir not found: $DMS_LIVE — skipping"
@@ -1436,14 +1476,7 @@ dms_export() {
     # regenerated colors.kdl into the repo, silently reverting manual theme
     # overrides. That is exactly how the green focus-ring override was lost
     # in ff2cd4e (2026-06-17), unnoticed for two months.
-    for f in "${DMS_MANUAL[@]}"; do
-        if [[ -f "$DMS_LIVE/$f" ]]; then
-            cp "$DMS_LIVE/$f" "$DMS_REPO/$f"
-            ok "exported: $f"
-        else
-            warn "not live, not exported: $f"
-        fi
-    done
+    _dms_copy "$DMS_LIVE" "$DMS_REPO" exported "not live, not exported" "${DMS_MANUAL[@]}"
     info "skipped (auto-generated, repo copy is authoritative): ${DMS_AUTO[*]}"
     ok "exported: DMS config (commit niri/dms/)"
 }
@@ -1457,14 +1490,7 @@ dms_import() {
     info "Importing DMS manual overrides: repo → live..."
     # DMS_AUTO included here on purpose: DMS regenerates these live, so pushing
     # the repo's curated copy back is the only way manual theme overrides stick.
-    for f in "${DMS_MANUAL[@]}" "${DMS_AUTO[@]}"; do
-        if [[ -f "$DMS_REPO/$f" ]]; then
-            cp "$DMS_REPO/$f" "$DMS_LIVE/$f"
-            ok "imported: $f"
-        else
-            warn "not in repo: $f"
-        fi
-    done
+    _dms_copy "$DMS_REPO" "$DMS_LIVE" imported "not in repo" "${DMS_MANUAL[@]}" "${DMS_AUTO[@]}"
 }
 
 # ─── Phase 7b: DMS Plugins ───────────────────────────────
@@ -1491,7 +1517,7 @@ install_dms_plugins() {
         else
             dms plugins install "$plugin" 2>/dev/null \
                 && ok "installed: $plugin" \
-                || warn "failed to install: $plugin"
+                || _failw "dms-plugin:$plugin" "failed to install: $plugin"
         fi
     done < "$list"
 
@@ -1571,7 +1597,7 @@ setup_ollama() {
     info "Pulling ollama model: qwen3:14b..."
     ollama pull qwen3:14b \
         && ok "qwen3:14b ready" \
-        || warn "ollama pull failed — run manually: ollama pull qwen3:14b"
+        || _failw ollama "ollama pull failed — run manually: ollama pull qwen3:14b"
 }
 
 # ─── Phase 7f: VM setup ──────────────────────────────────
@@ -1593,7 +1619,7 @@ setup_vms() {
     info "Pulling VM images..."
     docker pull dockurr/windows &>/dev/null \
         && ok "pulled: VM images" \
-        || warn "docker pull dockurr/windows failed"
+        || _failw vms "docker pull dockurr/windows failed"
 }
 
 # ─── Phase 7e: Fish plugins (tide prompt) ────────────────
@@ -1609,7 +1635,7 @@ setup_fish() {
     info "Installing fish plugins (tide)..."
     fish -c 'fisher install IlanCosman/tide@v6' >/dev/null 2>&1 \
         && ok "installed: tide" \
-        || warn "tide install failed — run manually: fisher install IlanCosman/tide@v6"
+        || _failw fish "tide install failed — run manually: fisher install IlanCosman/tide@v6"
 
     # Configure only on first setup so later manual tweaks aren't overwritten.
     if fish -c 'set -q _tide_left_items' 2>/dev/null; then
@@ -1618,7 +1644,7 @@ setup_fish() {
         info "Applying tide rainbow preset..."
         fish -c "tide configure --auto --style=Rainbow --prompt_colors='True color' --show_time='24-hour format' --rainbow_prompt_separators=Angled --powerline_prompt_heads=Sharp --powerline_prompt_tails=Flat --powerline_prompt_style='One line' --prompt_connection=Disconnected --powerline_right_prompt_frame=No --prompt_connection_andor_frame_color=Lightest --prompt_spacing=Sparse --icons='Many icons' --transient=No" \
             && ok "configured: tide (rainbow)" \
-            || warn "tide configure failed — run manually: tide configure"
+            || _failw fish "tide configure failed — run manually: tide configure"
     fi
 
     # Apply theme colors — idempotent, runs every bootstrap so colors
@@ -1649,7 +1675,7 @@ setup_fish() {
         set -U tide_prompt_color_frame_and_connection 124a73
         set -U tide_prompt_color_separator_same_color 4087bc
     " && ok "applied: tide colors (blue/steel)" \
-      || warn "tide color set failed — run manually: set -U tide_pwd_bg_color 124a73"
+      || _failw fish "tide color set failed — run manually: set -U tide_pwd_bg_color 124a73"
 }
 
 # ─── Phase 8: Claude Code ────────────────────────────────
@@ -1662,24 +1688,22 @@ setup_claude() {
     info "Setting up Claude Code plugins..."
     # settings.json is already stowed and sets enabledPlugins.
     # These commands install the plugin assets (skills, hook scripts).
-    claude plugin marketplace add JuliusBrussee/caveman 2>/dev/null || true
-    claude plugin install caveman --scope user 2>/dev/null \
-        && ok "installed: caveman" \
-        || warn "caveman plugin install failed — run manually: claude plugin marketplace add JuliusBrussee/caveman && claude plugin install caveman --scope user"
-
-    claude plugin install superpowers@claude-plugins-official --scope user 2>/dev/null \
-        && ok "installed: superpowers" \
-        || warn "superpowers plugin install failed — run manually: claude plugin install superpowers@claude-plugins-official --scope user"
-
-    claude plugin marketplace add safishamsi/graphify 2>/dev/null || true
-    claude plugin install graphify --scope user 2>/dev/null \
-        && ok "installed: graphify" \
-        || warn "graphify plugin install failed — run manually: claude plugin marketplace add safishamsi/graphify && claude plugin install graphify --scope user"
-
-    claude plugin marketplace add DietrichGebert/ponytail 2>/dev/null || true
-    claude plugin install ponytail --scope user 2>/dev/null \
-        && ok "installed: ponytail" \
-        || warn "ponytail plugin install failed — run manually: claude plugin marketplace add DietrichGebert/ponytail && claude plugin install ponytail --scope user"
+    local entry market plugin hint
+    # "marketplace-repo plugin-id"; "-" uses the official marketplace.
+    for entry in "JuliusBrussee/caveman caveman" \
+                 "- superpowers@claude-plugins-official" \
+                 "safishamsi/graphify graphify" \
+                 "DietrichGebert/ponytail ponytail"; do
+        read -r market plugin <<< "$entry"
+        hint="claude plugin install $plugin --scope user"
+        [[ "$market" == - ]] || {
+            claude plugin marketplace add "$market" 2>/dev/null || true
+            hint="claude plugin marketplace add $market && $hint"
+        }
+        claude plugin install "$plugin" --scope user 2>/dev/null \
+            && ok "installed: ${plugin%@*}" \
+            || _failw claude "${plugin%@*} plugin install failed — run manually: $hint"
+    done
 
     # No statusline wiring here on purpose. settings.json is stowed and points at
     # ~/.claude/statusline.sh, which globs the version-hashed plugin paths at
@@ -1697,7 +1721,7 @@ setup_caveman_code() {
     info "Installing caveman-code..."
     npm install -g @juliusbrussee/caveman-code 2>/dev/null \
         && ok "installed: caveman-code" \
-        || { warn "caveman-code npm install failed"; return; }
+        || { _failw caveman-code "caveman-code npm install failed"; return; }
 
     local cli
     cli="$(npm root -g 2>/dev/null)/@juliusbrussee/caveman-code/dist/cli.js"
@@ -1734,23 +1758,7 @@ _record_upgrade_failure() {
 # ─── Maintenance: system update ──────────────────────────
 system_update() {
     refresh_mirrors
-    _remove_conflicts
-    _demote_packages
-    ((${#REMOVED_CONFLICTS[@]} == 0)) \
-        || warn "removed ${REMOVED_CONFLICTS[*]}; install replacements with: vjupdate --actions install"
-
-    _check_disk_space
-    _review_aur_updates
-    _estimate_aur_builds
-    info "Updating all packages..."
-    # Match install_all: a failed upgrade must not abort the run before
-    # clean_caches and print_recap get to report what happened.
-    if _syuu; then
-        _record "full-upgrade" ok
-        ok "system up to date"
-    else
-        _record_upgrade_failure
-    fi
+    _upgrade_system "system up to date" "Updating all packages..." warn-conflicts
 }
 
 # ─── Maintenance: flatpak update ─────────────────────────
@@ -2187,10 +2195,7 @@ check_pacman_db() {
 # ─── Warnings recap ──────────────────────────────────────
 print_recap() {
     if [[ ${#_RESULT_NAMES[@]} -gt 0 ]]; then
-        echo ""
-        echo -e "${CYN}════════════════════════════════════════════${NC}"
-        echo -e "${CYN}  Results${NC}"
-        echo -e "${CYN}════════════════════════════════════════════${NC}"
+        _banner "$CYN" "Results"
         local i mark col
         for i in "${!_RESULT_NAMES[@]}"; do
             case "${_RESULT_STATES[$i]}" in
@@ -2206,10 +2211,7 @@ print_recap() {
     if [[ ${#WARNINGS[@]} -eq 0 ]]; then
         echo ""; ok "no warnings"
     else
-        echo ""
-        echo -e "${YEL}════════════════════════════════════════════${NC}"
-        echo -e "${YEL}  ⚠  Warnings / Errors (${#WARNINGS[@]})${NC}"
-        echo -e "${YEL}════════════════════════════════════════════${NC}"
+        _banner "$YEL" "⚠  Warnings / Errors (${#WARNINGS[@]})"
         for w in "${WARNINGS[@]}"; do
             echo -e "${YEL}  [!] $w${NC}"
         done
@@ -2223,10 +2225,7 @@ print_recap() {
 
 # ─── Phase 9: Summary ────────────────────────────────────
 print_manual_steps() {
-    echo ""
-    echo -e "${YEL}════════════════════════════════════════════${NC}"
-    echo -e "${YEL}  Manual steps required after this script   ${NC}"
-    echo -e "${YEL}════════════════════════════════════════════${NC}"
+    _banner "$YEL" "Manual steps required after this script   "
     echo ""
     echo "  1. Git identity:"
     echo "       git config --global user.name 'Viridjan'"
@@ -2371,8 +2370,23 @@ export_dotfiles() {
 }
 
 # Run one selected action and record it, so vj can stamp one-time tasks.
-# A failure aborts through errexit before the ok record, as before.
-_act() { local id="$1"; shift; "$@"; _record "action:$id" ok; }
+# Unexpected failures still abort through errexit. Handled failures and
+# warnings must not stamp an incomplete one-time task as done.
+_act() {
+    local id="$1" start=${#_RESULT_STATES[@]} warnings=${#WARNINGS[@]} i state=ok
+    shift
+    "$@"
+    for (( i=start; i<${#_RESULT_STATES[@]}; i++ )); do
+        case "${_RESULT_STATES[$i]}" in
+            fail) state=fail; break ;;
+            skip) state=skip ;;
+        esac
+    done
+    if [[ "$state" == ok ]] && (( ${#WARNINGS[@]} > warnings )); then
+        state=skip
+    fi
+    _record "action:$id" "$state"
+}
 
 phase_configure() {
     local _selected
@@ -2484,9 +2498,9 @@ bootstrap() {
     # Gate package mutations, including rebuilds and the optional kernel action.
     # A dotfiles-only run still needs no network. The post-audit scan is too late
     # to guard rebuilds because they execute before it.
-    if [[ " ${SKIP_PHASES:-} " != *" install "* || " ${SKIP_PHASES:-} " != *" sources "* ]] \
-        || { [[ " ${SKIP_PHASES:-} " != *" audit "* ]] && { $AUDIT_REBUILD || $AUDIT_PYTHON_REBUILD || $AUDIT_ORPHAN_REMOVAL; }; } \
-        || { [[ " ${SKIP_PHASES:-} " != *" configure "* ]] && _selected_action kernels "$CONFIGURE_ITEMS"; }; then
+    if { ! _skipped install || ! _skipped sources; } \
+        || { ! _skipped "audit" && { $AUDIT_REBUILD || $AUDIT_PYTHON_REBUILD || $AUDIT_ORPHAN_REMOVAL; }; } \
+        || { ! _skipped "configure" && _selected_action kernels "$CONFIGURE_ITEMS"; }; then
         _check_packages_against_malware
         # phase_install runs paru -Syuu, which rebuilds installed AUR packages
         # from upstream PKGBUILDs — the exact vector the scan exists to catch.
@@ -2496,7 +2510,7 @@ bootstrap() {
         # Definitions were just refreshed, so this reuses them without re-pulling.
         check_aur_malware
     fi
-    info "phases active: $({ for _p in sources install dotfiles configure audit; do [[ " ${SKIP_PHASES:-} " == *" $_p "* ]] || printf '%s ' "$_p"; done; })"
+    info "phases active: $({ for _p in sources install dotfiles configure audit; do _skipped "$_p" || printf '%s ' "$_p"; done; })"
     _run_phase "sources"   phase_sources
     _run_phase "install"   phase_install
     _run_phase "dotfiles"  phase_dotfiles
@@ -2509,10 +2523,7 @@ bootstrap() {
 }
 
 update() {
-    echo ""
-    echo -e "${BLU}╔═════════════════════════════════════╗${NC}"
-    echo -e "${BLU}║      vjupdate — update              ║${NC}"
-    echo -e "${BLU}╚═════════════════════════════════════╝${NC}"
+    _banner "$BLU" "vjupdate — update" box
     echo ""
 
     detect_machine
@@ -2528,10 +2539,7 @@ update() {
 }
 
 check() {
-    echo ""
-    echo -e "${BLU}╔═════════════════════════════════════╗${NC}"
-    echo -e "${BLU}║      vjupdate — check               ║${NC}"
-    echo -e "${BLU}╚═════════════════════════════════════╝${NC}"
+    _banner "$BLU" "vjupdate — check" box
     echo ""
 
     _run_audit_checks
@@ -2704,18 +2712,18 @@ plan_preview() {
     info "Bootstrap phases (--yes baseline):"
     local p
     for p in sources install dotfiles configure audit; do
-        if [[ " ${SKIP_PHASES:-} " == *" $p "* ]]; then
+        if _skipped "$p"; then
             echo "      – $p (skipped)"
         else
             echo "      ✓ $p"
         fi
     done
 
-    if [[ " ${SKIP_PHASES:-} " != *" sources "* ]]; then
+    if ! _skipped "sources"; then
         info "Sources: install paru if missing, keyrings, mirrors, Flathub remote, clone projects"
         _unknown "definition refresh and malware scan: not run"
     fi
-    if [[ " ${SKIP_PHASES:-} " != *" install "* ]]; then
+    if ! _skipped "install"; then
         info "Packages that would be installed:"
         local installed list pkg missing=0
         if [[ -r "$VJ_PLAN_DIR/paru-install.list" ]] && installed=$(pacman -Qq 2>/dev/null); then
@@ -2745,7 +2753,7 @@ plan_preview() {
         _unknown "available upgrades and malware verdict: network checks have not run"
     fi
 
-    if [[ " ${SKIP_PHASES:-} " != *" dotfiles "* ]]; then
+    if ! _skipped "dotfiles"; then
         info "Dotfile deployment:"
         if [[ -z "${VJ_DOTSET_DIR:-}" ]]; then
             echo "      Dotfile set: none — only scripts would be linked."
@@ -2769,14 +2777,14 @@ plan_preview() {
             _unknown "cannot read $VJ_DOTSET_DIR — stow conflicts not checked"
         fi
     fi
-    if [[ " ${SKIP_PHASES:-} " != *" configure "* ]]; then
+    if ! _skipped "configure"; then
         info "Configure (--yes): custom install scripts and fish setup"
         _unknown "installer effects: commands are not executed in preview"
     fi
-    if [[ " ${SKIP_PHASES:-} " != *" audit "* ]]; then
+    if ! _skipped "audit"; then
         info "Audit: foreign/orphan packages, unused Flatpak runtimes, rebuild checks, pacnew, firmware, malware, database"
     fi
-    if [[ " ${SKIP_PHASES:-} " != *" install "* ]]; then
+    if ! _skipped "install"; then
         info "Cleanup: paccache -rk2 / -ruk0"
         $CLEAN_AGGRESSIVE && echo "      Would remove ~/.cache/paru and ~/.cache/yay." \
             || echo "      AUR sources preserved."
