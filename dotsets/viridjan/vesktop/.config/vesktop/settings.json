@@ -3,5 +3,29 @@
     "minimizeToTray": true,
     "arRPC": true,
     "splashColor": "rgb(239, 239, 241)",
-    "splashBackground": "rgb(18, 18, 20)"
+    "splashBackground": "rgb(18, 18, 20)",
+    "hardwareAcceleration": true,
+    "hardwareVideoAcceleration": false,
+    "nativeTitleBar": false,
+    "staticTitle": false,
+    "enableMenu": false,
+    "enableShadow": true,
+    "enableRoundedCorners": true,
+    "enableSplashScreen": true,
+    "splashTheming": true,
+    "tray": true,
+    "clickTrayToShowHide": false,
+    "disableMinSize": false,
+    "disableSmoothScroll": false,
+    "enableTaskbarFlashing": false,
+    "openLinksWithElectron": false,
+    "autoStartMinimized": false,
+    "splashPixelated": false,
+    "webRTCIPHandlingPolicy": "default",
+    "appBadge": true,
+    "transparencyOption": "none",
+    "spellCheckLanguages": [
+        "en-GB",
+        "en"
+    ]
 }
