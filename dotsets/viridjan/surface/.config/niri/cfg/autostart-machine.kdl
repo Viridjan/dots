@@ -1,1 +1,2 @@
-// surface: no autostart
+// surface: no app autorun
+spawn-at-startup "iio-niri" "listen" "--monitor" "eDP-1"

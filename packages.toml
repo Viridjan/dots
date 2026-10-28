@@ -42,6 +42,12 @@ install = [
     "matugen",
     "qt6-multimedia-ffmpeg",
 
+    # niri IPC helpers (from awesome-niri; started in config.kdl)
+    "oniri",                       # maximize a workspace's only window
+    "nirius",                      # niriusd + focus-or-spawn/scratchpad/follow commands
+    "nirinit",                     # save/restore window layout (skip list: dotset nirinit)
+    "niri-autoselect-portal-git",  # screencast without picker (dotset xdg-desktop-portal)
+
     # System tools
     "fwupd",
     "kimageformats",

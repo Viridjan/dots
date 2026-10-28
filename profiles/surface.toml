@@ -25,6 +25,7 @@ install = [
 
     # Accelerometer / auto-rotate support
     "iio-sensor-proxy",
+    "iio-niri",          # applies the sensor's rotation to niri (cfg/autostart-machine.kdl)
 
     # Surface Pen (Wacom protocol)
     "libwacom",

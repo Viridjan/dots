@@ -1,0 +1,17 @@
+# nirinit 0.1.x relaunches each saved window by its app_id (or the [launch]
+# mapping). Skip apps the niri autostart already opens (cfg/autostart-machine.kdl,
+# vesktop via XDG autostart) so they don't open twice, plus gamescope.
+[skip]
+apps = [
+    "org.mozilla.Thunderbird",
+    "com.ktechpit.whatsie",
+    "org.telegram.desktop",
+    "steam",
+    "spotify",
+    "vesktop",
+    "Alacritty",
+    "gamescope",
+]
+
+[launch]
+"org.gnome.Nautilus" = "nautilus"

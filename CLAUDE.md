@@ -72,6 +72,8 @@ dots/
       cave/           → ~/.cave/  (Cave AI agent config + ollama extension)
       caveman/        → ~/.config/caveman/  (caveman plugin defaultMode = ultra)
       ollama/         → /etc/systemd/system/ollama.service.d/  (ROCm drop-in; stow -t /)
+      nirinit/        → ~/.config/nirinit/  (skip list: apps the niri autostart already opens)
+      xdg-desktop-portal/ → ~/.config/xdg-desktop-portal/  (niri-portals.conf: copy of /usr/share's + ScreenCast=niri-autoselect)
   scripts/        → ~/.local/bin/ + ~/.local/lib/vjupdate/ (automount.sh)  (vjupdate, vj, start-windows, start-open-notebook, start-keep, gamescope-media; stowed --no-folding,
                     always from the repo root — tooling, not part of a dotfile set)
                   + ~/.local/share/applications/  (.desktop launchers)
@@ -158,6 +160,15 @@ EOF
 `desktop/` and `surface/` inside a set are not stow packages: `_stow_niri_cfg` links the files of the dir named after the active profile.
 
 ## Niri config structure
+
+**IPC helpers (2026-10-28, from awesome-niri):** `config.kdl` starts `oniri
+--tiling-layout` (lone window maximized, un-maximized when a second opens),
+`niriusd` and `nirinit`. No vertical stacking: niri_tilemod (auto-stack) was
+dropped and the `consume-or-expel` binds removed; `Mod+Period` still expels. Surface
+also runs `iio-niri listen --monitor eDP-1`. `niri-autoselect-portal` removes the
+screencast picker: pick the target with `Mod+Ctrl+S` (window) /
+`Mod+Ctrl+Shift+S` (monitor), clear with `Mod+Ctrl+X`. nirinit 0.1.x relaunches
+saved windows by app_id; add autostarted apps to its skip list.
 
 ```
 niri/.config/niri/
@@ -675,7 +686,7 @@ Binaries land in `~/.local/bin/` (already in PATH). Required for `caveman-code` 
 | Keyboard layout | us intl | cfg/input.kdl (desktop/surface pkg; restored 2026-08-24 — was silently inert before) |
 | Screenshot path | ~/Pictures/Screenshots/ | config.kdl (inline `screenshot-path`) |
 | Terminal keybind | ⌘⏎ | dms/binds.kdl |
-| File manager / Browser keybind | ⌘E (dolphin) / ⌘B (brave-browser) | dms/binds.kdl (ported from the deleted cfg/keybinds.kdl, 2026-08-24) |
+| App keybinds (Dolphin / Brave / Spotify / Vesktop / Whatsie / Telegram / Thunderbird) | ⌘⌥E / ⌘⌥B / ⌘⌥S / ⌘⌥D / ⌘⌥W / ⌘⌥T / ⌘⌥M — `nirius focus-or-spawn` (jump to open window, else launch; 2026-10-28) | dms/binds.kdl |
 | Overview keybind | ⌘D | dms/binds.kdl |
 | Power menu keybind | ⌘X | dms/binds.kdl |
 | Lock screen keybind | ⌘⌥L | dms/binds.kdl |

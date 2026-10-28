@@ -343,6 +343,12 @@ recent-windows {
     }
 }
 
+// niri IPC helpers, both machines (packages.toml). oniri maximizes a lone
+// window and un-maximizes it when a second opens (--tiling-layout).
+spawn-sh-at-startup "oniri --tiling-layout"
+spawn-at-startup "niriusd"
+spawn-at-startup "nirinit"
+
 // Machine-specific overrides (surface vs desktop)
 include "cfg/autostart-machine.kdl"
 include "cfg/surface-layout.kdl"

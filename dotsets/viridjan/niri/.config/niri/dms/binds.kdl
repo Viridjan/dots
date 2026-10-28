@@ -6,8 +6,14 @@ binds {
 
     // === Application Launchers ===
     Mod+Return hotkey-overlay-title="Open Terminal" { spawn "alacritty"; }
-    Mod+E hotkey-overlay-title="File Manager" { spawn "dolphin"; }
-    Mod+B hotkey-overlay-title="Open Browser" { spawn "brave-browser"; }
+    // nirius: jump to the open window, launch only if none (niriusd in config.kdl)
+    Mod+Alt+E hotkey-overlay-title="File Manager" { spawn "nirius" "focus-or-spawn" "--app-id" "^org\\.kde\\.dolphin$" "dolphin"; }
+    Mod+Alt+B hotkey-overlay-title="Browser" { spawn "nirius" "focus-or-spawn" "--app-id" "^brave-origin$" "brave-origin"; }
+    Mod+Alt+S hotkey-overlay-title="Spotify" { spawn "nirius" "focus-or-spawn" "--app-id" "^spotify$" "flatpak" "run" "com.spotify.Client"; }
+    Mod+Alt+D hotkey-overlay-title="Vesktop" { spawn "nirius" "focus-or-spawn" "--app-id" "^vesktop$" "vesktop"; }
+    Mod+Alt+W hotkey-overlay-title="WhatsApp" { spawn "nirius" "focus-or-spawn" "--app-id" "^com\\.ktechpit\\.whatsie$" "whatsie"; }
+    Mod+Alt+T hotkey-overlay-title="Telegram" { spawn "nirius" "focus-or-spawn" "--app-id" "^org\\.telegram\\.desktop$" "Telegram"; }
+    Mod+Alt+M hotkey-overlay-title="Mail" { spawn "nirius" "focus-or-spawn" "--app-id" "^org\\.mozilla\\.Thunderbird$" "thunderbird"; }
     Mod+Space hotkey-overlay-title="Application Launcher" {
         spawn "dms" "ipc" "call" "spotlight" "toggle";
     }
@@ -187,8 +193,6 @@ binds {
     Mod+Shift+9 { move-column-to-workspace 9; }
 
     // === Column Management ===
-    Mod+BracketLeft  { consume-or-expel-window-left; }
-    Mod+BracketRight { consume-or-expel-window-right; }
     Mod+Period { expel-window-from-column; }
 
     // === Sizing & Layout ===
@@ -212,6 +216,10 @@ binds {
     Print { screenshot; }
     Ctrl+Print { screenshot-screen; }
     Alt+Print { screenshot-window; }
+    // Screencast target: niri-autoselect-portal shares it without a picker
+    Mod+Ctrl+S hotkey-overlay-title="Cast this window" { set-dynamic-cast-window; }
+    Mod+Ctrl+Shift+S hotkey-overlay-title="Cast this monitor" { set-dynamic-cast-monitor; }
+    Mod+Ctrl+X hotkey-overlay-title="Stop casting target" { clear-dynamic-cast-target; }
     // === System Controls ===
     Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
     Mod+Shift+P { power-off-monitors; }
