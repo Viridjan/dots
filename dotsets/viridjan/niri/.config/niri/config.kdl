@@ -307,11 +307,14 @@ window-rule {
     match title="Dota 2"
     match app-id=r#"(?i)\.exe$"#
     match app-id=r#"(?i)retroarch"#
+    // start-battlenet (umu): launcher and its games share this app-id; the launcher goes back to media below
+    match app-id=r#"^steam_app_battlenet$"#
     open-on-workspace "games"
 }
 // Battle.net is a launcher (also an .exe): back to media. Must stay after the games rule.
 window-rule {
     match app-id=r#"(?i)^battle\.net\.exe$"#
+    match app-id=r#"^steam_app_battlenet$"# title=r#"^Battle\.net"#
     // start-battlenet (umu): every window in the prefix is steam_app_battlenet, games too
     match app-id=r#"^steam_app_battlenet$"# title=r#"^Battle\.net"#
     open-on-workspace "media"
@@ -337,6 +340,7 @@ window-rule {
 // No VRR here: monitor flickers under VRR (even on-demand) — see cfg/display.kdl note, 2026-08-25.
 window-rule {
     match app-id="^steam_app_"
+    exclude app-id=r#"^steam_app_battlenet$"# title=r#"^Battle\.net"#
     open-fullscreen true
     // Unity games in windowed mode set min==max size hints; niri floats those.
     // Force tiled so a windowed-mode game can't escape the fullscreen rule.
