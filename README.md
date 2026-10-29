@@ -416,7 +416,7 @@ disables it on the next run), and `[npm]` / `[uv]` global tools.
 | `fonts` | `~/.local/share/fonts/` — user fonts (Luminari) |
 | `mpd` | `~/.config/mpd/mpd.conf` |
 | `spotify-player` | `~/.config/spotify-player/keymap.toml` |
-| `scripts` | `~/.local/bin/{vjupdate,vj,start-windows,start-open-notebook,start-keep,gamescope-media}` + `.desktop` launchers — stowed `--no-folding`, so installers own the rest of `~/.local/bin` |
+| `scripts` | `~/.local/bin/{vjupdate,vj,start-windows,start-open-notebook,start-keep,start-battlenet,gamescope-media}` + `.desktop` launchers — stowed `--no-folding`, so installers own the rest of `~/.local/bin` |
 
 **niri note:** `cfg/display.kdl`, `cfg/input.kdl`, and `cfg/surface-layout.kdl` are NOT in the `niri` package —
 they come from `dotsets/viridjan/desktop/` or `…/surface/`, matching the profile name.
@@ -516,9 +516,18 @@ launcher symlink gets removed (`stow --no-folding --restow -t ~ scripts` brings 
 
 `Mod+Escape` toggles keyboard shortcut inhibition — when active, all keys pass through to the focused app (useful in games where niri intercepts shortcuts like `Mod+F`). Press `Mod+Escape` again to restore normal keybinds.
 
+### Battle.net
+
+Installed in the Wine prefix `~/Games/battlenet` (originally by Lutris, which
+is no longer used). Launch it from the app menu (**Battle.net**) or with
+`start-battlenet`: it runs `umu-run` with the newest Steam GE-Proton, falling
+back to `proton-cachyos`. The launcher window goes to `media`, games to `games`.
+If it won't start, a stale session may hold the prefix:
+`env WINEPREFIX=$HOME/Games/battlenet ~/.local/share/Steam/compatibilitytools.d/GE-Proton*/files/bin/wineserver -k`.
+
 ### Gamescope launch options
 
-Steam games (`steam_app_*`) open fullscreen on the `media` workspace without
+Steam games (`steam_app_*`) open fullscreen on the `games` workspace without
 taking focus, via window rules in `config.kdl`. Games run through gamescope
 can't match those rules: gamescope sets no app-id and its title arrives after
 the window opens. For those, use the `gamescope-media` wrapper in Steam →
@@ -530,7 +539,8 @@ gamescope-media %command%
 
 It runs `gamescope -f --adaptive-sync --expose-wayland` at the focused
 output's native size (3440×1440 desktop, 2880×1920 Surface; same line on both
-machines), then moves gamescope's windows to `media` without focus. It watches
+machines), then moves gamescope's windows to `games` without focus (the name predates
+that workspace). It watches
 for 120 s after launch; the window may flash on the current workspace first.
 MTG Arena uses it.
 

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Battle.net
+Comment=Blizzard launcher (Wine prefix ~/Games/battlenet)
+Exec=start-battlenet
+Icon=applications-games
+StartupWMClass=steam_app_battlenet
+Terminal=false
+Type=Application
+Categories=Game;
+Keywords=battle.net;blizzard;

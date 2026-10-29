@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Launch Battle.net from its Wine prefix via umu-run (no Lutris)
+set -euo pipefail
+
+PREFIX="$HOME/Games/battlenet"
+EXE="$PREFIX/drive_c/Program Files (x86)/Battle.net/Battle.net Launcher.exe"
+[ -f "$EXE" ] || { echo "Battle.net not installed in $PREFIX" >&2; exit 1; }
+
+# Newest GE-Proton Steam has; fall back to proton-cachyos (packages.toml)
+PROTON=$(ls -d "$HOME"/.local/share/Steam/compatibilitytools.d/GE-Proton* 2>/dev/null | sort -V | tail -1 || true)
+: "${PROTON:=/usr/share/steam/compatibilitytools.d/proton-cachyos-slr}"
+
+export WINEPREFIX="$PREFIX" GAMEID=umu-battlenet PROTONPATH="$PROTON"
+exec umu-run "$EXE"
