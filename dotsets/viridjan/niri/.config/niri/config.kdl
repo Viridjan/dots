@@ -154,6 +154,9 @@ overview {
 
 workspace "social"
 workspace "media"
+// games: nothing autostarts here, so it is empty at login; games open here
+// (rules below + gamescope-media), their launchers stay on media.
+workspace "games"
 workspace "main"
 
 environment {
@@ -292,9 +295,25 @@ window-rule {
 window-rule {
     match title="Spotify"
     match app-id=r#"^steam$"#
-    match app-id=r#"^steam_app_\d+$"#
-    match title="Dota 2"
+    match app-id=r#"^net\.lutris\.Lutris$"#
+    match app-id=r#"^com\.usebottles\.bottles$"#
     match app-id="BambuStudio"
+    open-on-workspace "media"
+    open-focused false
+}
+// Games. Wine games launched from Lutris/Bottles get their exe name as app-id.
+window-rule {
+    match app-id=r#"^steam_app_"#
+    match title="Dota 2"
+    match app-id=r#"(?i)\.exe$"#
+    match app-id=r#"(?i)retroarch"#
+    open-on-workspace "games"
+}
+// Battle.net is a launcher (also an .exe): back to media. Must stay after the games rule.
+window-rule {
+    match app-id=r#"(?i)^battle\.net\.exe$"#
+    // start-battlenet (umu): every window in the prefix is steam_app_battlenet, games too
+    match app-id=r#"^steam_app_battlenet$"# title=r#"^Battle\.net"#
     open-on-workspace "media"
     open-focused false
 }

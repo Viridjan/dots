@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Steam launch options: gamescope-media %command%
 # Runs the game in gamescope at the focused output's native size, then moves
-# gamescope's windows to the "media" workspace without focusing them. Window
+# gamescope's windows to the "games" workspace without focusing them. Window
 # rules can't do this: gamescope has no app-id and sets its title too late.
+# Named -media from when games went there; kept so Steam launch options work.
 set -u
 read -r w h < <(niri msg --json focused-output | jq -r '.modes[.current_mode] | "\(.width) \(.height)"')
 gamescope -W "$w" -H "$h" -f --adaptive-sync --expose-wayland -- "$@" &
@@ -12,7 +13,7 @@ timeout 120 niri msg --json event-stream |
   jq --unbuffered -r --argjson pid "$pid" \
     '.WindowOpenedOrChanged.window? | select(.pid == $pid) | "\(.id) \(.workspace_id)"' |
   while read -r id wsid; do
-    media=$(niri msg --json workspaces | jq -r '.[] | select(.name == "media") | .id')
-    [ "$wsid" = "$media" ] || niri msg action move-window-to-workspace --window-id "$id" --focus false media
+    games=$(niri msg --json workspaces | jq -r '.[] | select(.name == "games") | .id')
+    [ "$wsid" = "$games" ] || niri msg action move-window-to-workspace --window-id "$id" --focus false games
   done &
 wait "$pid"
