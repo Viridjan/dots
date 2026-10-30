@@ -101,8 +101,12 @@ Profile / dotfile set   │ desktop · viridjan
 ```
 
 Enter opens a submenu below the menu (Space ticks, `/` filters, `a` all,
-`n` none, `d` repo defaults, Esc closes). `r` runs everything selected by
-handing the terminal to `vjupdate --actions …`; `q` quits.
+`n` none, `d` repo defaults, Esc closes). `r` runs everything selected in an
+in-app progress view with live output, a phase completion bar and a current-task
+activity bar. Reply to prompts in the input field; password replies are masked.
+Ctrl+C interrupts the running command. For full-screen editors such as Vim,
+Ctrl+T opens terminal mode; Ctrl+] returns to the progress view. After completion,
+Esc returns to the menu. `q` quits from the menu.
 
 - **Profiles** (`profiles/<name>.toml`): hardware + package lists + feature
   switches. `desktop` and `surface` ship; add a file for another machine.
@@ -118,6 +122,10 @@ handing the terminal to `vjupdate --actions …`; `q` quits.
   list. Sort them with `p` (add to `packages.toml`), `f` (add to the profile),
   `m` (this machine only), `x` (remove) or `i` (ignore). Keys act on ticked
   rows, else the highlighted one. `p`/`f` edit tracked files: commit afterwards.
+  Unticked packages remain known to the audit. `i` persists an ignore preference
+  on this machine; it leaves the package installed and receiving updates.
+- **One-time setup**: "never run" means no successful run was recorded by vj;
+  the feature may already be configured. Select only the actions you need.
 - **Flatpak apps**: untick an app to exclude it from installation. Removal with `x`
   is supported only for pacman packages; Flatpak apps are never uninstalled by `vj`.
 - **Times**: package estimates come from `build-times.tsv` (committed): green
@@ -126,6 +134,11 @@ handing the terminal to `vjupdate --actions …`; `q` quits.
 ---
 
 ## Claude Code
+
+The Claude setup action checks user-scope plugins before installing them.
+Graphify is managed as a Claude skill: the `graphifyy` CLI comes from the uv
+package list, and setup runs `graphify install --platform claude` only when
+the Graphify skill is missing. Installation failures retain their error output.
 
 Always open Claude Code from `~/Projects`, not from `~/Projects/dots`:
 
@@ -503,6 +516,8 @@ The audit (`vjupdate --check`, or "Check system health" in vj) reports, never re
 
 - explicitly installed packages and flatpaks that are in no package list
   (`packages.toml`, profile, local config, ignored). Sort them in vj → Unlisted packages.
+  The run plan includes `known-packages.list`, so unticked packages declared in
+  the shared, profile, or local lists are not falsely reported as unlisted.
 - apps with a launcher and no recorded use in 60 days
 
 The audit also reports package config files you changed in `/etc` (only ones

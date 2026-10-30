@@ -2,7 +2,6 @@
 import os
 import shutil
 import socket
-import subprocess
 import tempfile
 from pathlib import Path
 
@@ -15,6 +14,7 @@ from textual.widgets.option_list import Option
 
 from . import config
 from .state import State, detect_installed
+from .progress import RunScreen
 
 
 class Checklist(Vertical):
@@ -314,18 +314,16 @@ class VjApp(App):
         self.state = State(repo, cfg_path, installed=installed)
         self.detect = installed is None
         self.host = host or os.environ.get("HOSTNAME") or socket.gethostname()
-        self.runner = runner or self.run_vjupdate
+        self.runner = runner
 
     def on_mount(self):
         self.push_screen(Home(self.state, self.host))
 
-    def run_vjupdate(self, ids, env):
-        """Hand the terminal to vjupdate so sudo/pacman prompts work as usual."""
-        cmd = [str(self.state.repo.root / "scripts/.local/bin/vjupdate"), "--actions", ",".join(ids)]
-        with self.suspend():
-            rc = subprocess.run(cmd, env=env).returncode
-            input(f"\nvjupdate finished (exit {rc}). Press Enter to return to vj… ")
-        return rc
+    def action_quit(self):
+        if isinstance(self.screen, RunScreen) and self.screen.fd is not None:
+            self.notify("Maintenance is running. Ctrl+C interrupts it.", severity="warning")
+            return
+        super().action_quit()
 
     def run_selected(self):
         st = self.state
@@ -340,7 +338,20 @@ class VjApp(App):
         try:
             st.write_plan(plan)
             env = {**os.environ, "VJ_PLAN_DIR": str(plan), "VJ_RESULT_FILE": str(plan / "result.tsv")}
+            if self.runner is None:
+                cmd = [str(st.repo.root / "scripts/.local/bin/vjupdate"), "--actions", ",".join(ids)]
+                self.push_screen(RunScreen(cmd, env, plan / "result.tsv"),
+                                 lambda rc: self.finish_run(plan, rc))
+                return
             rc = self.runner(ids, env)
+        except BaseException:
+            shutil.rmtree(plan, ignore_errors=True)
+            raise
+        self.finish_run(plan, rc)
+
+    def finish_run(self, plan, rc):
+        st = self.state
+        try:
             st.apply_results(plan / "result.tsv")
         finally:
             shutil.rmtree(plan, ignore_errors=True)

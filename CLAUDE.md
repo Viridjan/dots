@@ -51,7 +51,8 @@ dots/
   projects.toml   ← [[repo]] name/url cloned into ~/Projects by the sources phase
   build-times.tsv ← committed timing history: aur:<pkg>, @pacman-per-pkg, @flatpak-per-pkg (seconds)
   vj/             ← Python: config.py (repo + local config), resolve.py (lists, estimates, run plan),
-                    state.py (everything the TUI shows/changes), ui.py (Textual), __main__.py (CLI)
+                    state.py (everything the TUI shows/changes), ui.py (Textual),
+                    progress.py (PTY-backed run screen), __main__.py (CLI)
   dotsets/
     viridjan/     ← my dotfile set; every subdir is a stow package except profile-named dirs:
       alacritty/      → ~/.config/alacritty/
@@ -112,6 +113,27 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
 - **Other plan lists:** `systemd-enable.list`/`systemd-user.list` (`[systemd]
   enable/user`), `npm-install.list` (`[npm]`), `uv-install.list` (`[uv]`) —
   repo + profile, no local overrides. `ignore.list` = local `[ignored]`.
+  `known-packages.list` contains all declared shared/profile/local install
+  names before declined selections are filtered out. The audit reads it to
+  match the menu's definition of unlisted; unticked does not mean unknown.
+- **In-app runs:** `RunScreen` (`vj/progress.py`) starts vjupdate on a controlling
+  PTY and polls output without blocking Textual. The overall bar counts the five
+  phase results in `result.tsv`; the current-task bar shows activity, not an
+  estimated percentage. Prompt replies go to the PTY, with masking when terminal
+  echo is disabled. Ctrl+C sends an interrupt; Ctrl+T explicitly hands over the
+  terminal for editors, Ctrl+] returns, Escape dismisses a finished run. The plan
+  stays available until dismissal, then results are applied and it is removed.
+- **Setup checks:** MPD's data directory (`~/.local/share/mpd`) must exist before
+  its user service starts. Claude setup checks `plugin list --json` at user scope
+  before installing plugins; Graphify is a CLI-installed skill, checked via
+  `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/graphify/SKILL.md`, not a marketplace
+  plugin. Keep installation error output visible. Empty `[once]` history does
+  not prove that a system feature is unconfigured.
+- **Package failures:** conflict removal/demotion require an exact installed
+  package name, not merely a provider. Install conflicts skip mirror retries;
+  other failures retain the retry and include the last package error in the
+  recap. CachyOS package names are `dux-shell` and `dux-gop`; binaries/service
+  names such as `dms` remain unchanged.
 - **Unlisted packages** (vj menu row): explicit installs (`pacman -Qeq` +
   flatpak apps) in no list, not skipped/removed/ignored. Keys act on ticked
   rows, else the highlighted one: `p` → `packages.toml`, `f` → active profile

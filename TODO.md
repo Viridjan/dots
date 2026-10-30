@@ -1,5 +1,9 @@
 # TODO
 
+- [ ] Review desktop `/etc/fstab` bind-mount entries containing literal `\t`
+  separators (observed 2026-10-30). Back up the file and validate corrected
+  entries before applying mount changes; this session did not change fstab.
+
 - [ ] Switch `vectorcraft-bin` to Flathub once `ai.storyteller.vectorcraft` is published (pacman > flatpak > AUR; Flatpak adds a sandbox).
 - [ ] Once desktop and Surface both run the `*craft-bin` packages (`pacman -Q vectorcraft-bin`), delete the 9 source `*craft` names from `packages.toml` [paru].remove (2026-10-25 swap).
 - [ ] Install `alvr-bin` for Pico 4 Ultra VR (desktop). `alvr`/`alvr-git` are on the malware blocklist (June 2026 hijack); `alvr-bin` isn't (maintainer Ari43, last change 2026-02-13). Review the PKGBUILD before building, then add it to `profiles/desktop.toml`. Client APK must match `pacman -Q alvr-bin`.

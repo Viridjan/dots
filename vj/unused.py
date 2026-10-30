@@ -104,7 +104,7 @@ def report(plan: Path, days: int, now: float | None = None, installed=None, seen
     seen, first = last_seen() if seen is None else seen
     now = time.time() if now is None else now
     listed = set()
-    for name in ("paru-install.list", "paru-skip.list", "paru-remove.list", "paru-demote.list",
+    for name in ("known-packages.list", "paru-install.list", "paru-skip.list", "paru-remove.list", "paru-demote.list",
                  "flatpak-install.list", "ignore.list"):
         try:
             listed |= set((plan / name).read_text().split())

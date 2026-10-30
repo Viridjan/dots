@@ -49,7 +49,7 @@ true''')
 printf "%s\\n" "pacman $*" >> "$CALLS"
 case "$*" in
   "-Qqe absent"|"-Qqe already-dep") exit 1 ;;
-  -Qqe*) exit 0 ;;
+  -Qqe*) echo "$2"; exit 0 ;;
   -Qdtq) echo obs; echo unrelated-orphan ;;
   "-Qi kicad") echo "Required By     : kicad-library" ;;
 esac
@@ -422,8 +422,37 @@ exit 0''')
 
 
 class ClaudePluginTests(ExtrasCase):
+    def test_existing_plugins_and_graphify_skill_are_not_reinstalled(self):
+        skill = self.home / '.claude/skills/graphify/SKILL.md'
+        skill.parent.mkdir(parents=True)
+        skill.write_text('installed')
+        self.mock('claude', '''
+echo "$*" >> "$CALLS"
+if [[ "$*" == 'plugin list --json' ]]; then
+ printf '%s' '[{"id":"caveman@caveman","scope":"user"},{"id":"superpowers@claude-plugins-official","scope":"user"},{"id":"ponytail@ponytail","scope":"user"}]'
+else exit 1; fi
+''')
+        self.mock('graphify', 'echo BAD_REINSTALL; exit 1')
+        r = self.shell('setup_claude; print_recap')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn('plugin install', Path(self.env['CALLS']).read_text())
+        self.assertNotIn('marketplace add', Path(self.env['CALLS']).read_text())
+        self.assertNotIn('BAD_REINSTALL', r.stdout)
+        self.assertIn('already installed: graphify', r.stdout)
+
+    def test_missing_graphify_uses_cli_skill_installer(self):
+        self.mock('claude', '[[ "$*" == "plugin list --json" ]] && echo "[]"; exit 0')
+        self.mock('graphify', 'echo "graphify $*" >> "$CALLS"; exit 0')
+        r = self.shell('setup_claude; print_recap')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn('graphify install --platform claude', self.calls())
+
     def test_failed_plugin_records_failure_and_continues(self):
-        self.mock("claude", '[[ "$*" != "plugin install graphify --scope user" ]]')
+        self.mock("claude", '''
+[[ "$*" == "plugin list --json" ]] && { echo '[]'; exit 0; }
+[[ "$*" == "plugin install caveman --scope user" ]] && { echo 'specific install error' >&2; exit 1; }
+exit 0''')
+        self.mock('graphify', 'exit 0')
         r = self.shell('''
 setup_claude
 printf 'FAILED=%s\\n' "$_FAILED"
@@ -434,10 +463,11 @@ printf 'STATE=%s\\n' "${_RESULT_STATES[@]}"
         self.assertIn("FAILED=1", r.stdout)
         self.assertEqual(r.stdout.count("RESULT=claude\n"), 1)
         self.assertEqual(r.stdout.count("STATE=fail\n"), 1)
-        self.assertIn("run manually: claude plugin marketplace add safishamsi/graphify && claude plugin install graphify --scope user", r.stdout)
-        for plugin in ("caveman", "superpowers", "ponytail"):
+        self.assertIn("specific install error", r.stdout)
+        self.assertIn("run manually: claude plugin marketplace add JuliusBrussee/caveman && claude plugin install caveman --scope user", r.stdout)
+        for plugin in ("superpowers", "ponytail"):
             self.assertIn(f"installed: {plugin}", r.stdout)
-        self.assertNotIn("installed: graphify", r.stdout)
+        self.assertNotIn("installed: caveman", r.stdout)
 
 
 class PinnedInstallerTests(ExtrasCase):

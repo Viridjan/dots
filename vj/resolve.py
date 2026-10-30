@@ -80,7 +80,14 @@ def write_plan(repo: Repo, cfg: dict, outdir: Path, stow_selected=None, repos_se
     if stow_selected is not None:
         stow = [p for p in stow if p in stow_selected]
     projects = [p for p in repo.projects if repos_selected is None or p["name"] in repos_selected]
+    # Audit membership is independent of the install checkboxes. Unticking a
+    # declared package excludes it from installation, but it remains known.
+    prof = repo.profiles.get(cfg.get("profile"), {})
+    known = _uniq([p for src in ("paru", "flatpak")
+                   for p in (repo.packages.get(src, {}).get("install", [])
+                             + prof.get(src, {}).get("install", []) + cfg[src]["add"])])
     files = {
+        "known-packages.list": known,
         "paru-install.list": r["paru_install"], "paru-remove.list": r["paru_remove"],
         "paru-hold.list": r["paru_hold"], "paru-skip.list": r["paru_skip"],
         "paru-demote.list": r["paru_demote"], "ignore.list": r["ignore"],

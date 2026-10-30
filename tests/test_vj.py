@@ -366,6 +366,19 @@ class UnlistedTests(Tmp):
         self.assertEqual(self.state().unlisted(), [("flatpak", "com.x.Y"), ("paru", "base"), ("paru", "kicad"),
                                                    ("paru", "obs"), ("paru", "old"), ("paru", "zed")])
 
+    def test_audit_keeps_declined_packages_known_without_installing_them(self):
+        from vj import unused
+        st = self.state()
+        st.set_package('paru:steam', False)
+        st.set_package('flatpak:com.spotify.Client', False)
+        plan = self.root / 'plan'
+        st.write_plan(plan)
+        self.assertNotIn('steam', (plan / 'paru-install.list').read_text().split())
+        self.assertNotIn('com.spotify.Client', (plan / 'flatpak-install.list').read_text().split())
+        lines = unused.report(plan, 60, installed={}, seen=({}, None),
+                              explicit={'steam', 'com.spotify.Client', 'stray'})
+        self.assertEqual(lines[0], '1 installed but in no package list (sort them in vj → Unlisted packages): stray')
+
     def test_each_choice_moves_it_out_and_persists(self):
         st = self.state()
         st.sort_unlisted(["paru:base", "flatpak:com.x.Y"], "ignore")
@@ -440,6 +453,36 @@ class UiTests(Tmp):
         self.drive(go())
         cfg = config.load_local(self.cfg_path)
         self.assertEqual((cfg["profile"], cfg["dotset"]), ("desktop", "mine"))
+
+    def test_default_run_opens_progress_and_cleans_plan_on_return(self):
+        from vj.progress import RunScreen
+        cfg = config.load_local(self.cfg_path)
+        cfg.update(profile="desktop", dotset="mine")
+        config.save_local(cfg, self.cfg_path)
+        script = self.dots / 'scripts/.local/bin/vjupdate'
+        script.parent.mkdir(parents=True, exist_ok=True)
+        script.write_text('#!/bin/sh\nprintf "phase:install\\tok\\n" >> "$VJ_RESULT_FILE"\necho finished\n')
+        script.chmod(0o755)
+
+        async def go():
+            app = self.app()
+            async with app.run_test() as pilot:
+                await pilot.press('r')
+                await pilot.pause()
+                self.assertIsInstance(app.screen, RunScreen)
+                screen = app.screen
+                plan = screen.results.parent
+                for _ in range(100):
+                    await pilot.pause(0.02)
+                    if screen.returncode is not None:
+                        break
+                self.assertEqual(screen.returncode, 0)
+                self.assertTrue(plan.exists())
+                await pilot.press('escape')
+                await pilot.pause()
+                self.assertFalse(isinstance(app.screen, RunScreen))
+                self.assertFalse(plan.exists())
+        self.drive(go())
 
     def test_menu_rows_show_recap_and_run_calls_runner(self):
         calls = []

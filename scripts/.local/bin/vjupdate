@@ -563,7 +563,11 @@ _init_pkg_index() {
     _PKG_INDEX_READY=true
 }
 
+INSTALL_FAIL_DETAIL=""
+INSTALL_CONFLICT=false
 _install_list() {
+    INSTALL_FAIL_DETAIL=""
+    INSTALL_CONFLICT=false
     local list="$1" to_install=() contents pkg
     contents=$(_pkg_list "$list") || return 1
     _init_pkg_index || return 1
@@ -593,12 +597,19 @@ _install_list() {
         # and invalidate the index so retries query partially installed targets.
         # ponytail: one average over the whole call (repo + AUR mixed); AUR
         # builds also get exact per-package spans from _record_build_times.
-        local _t0=$SECONDS
-        if ! _paru -S --needed --noconfirm "${to_install[@]}"; then
+        local _t0=$SECONDS install_log
+        install_log=$(mktemp) || return 1
+        if ! LC_ALL=C _paru -S --needed --noconfirm "${to_install[@]}" 2>&1 | tee "$install_log"; then
+            INSTALL_FAIL_DETAIL=$(_syuu_fail_detail "$install_log")
+            if grep -Eq 'unresolvable package conflicts|conflicting dependencies' "$install_log"; then
+                INSTALL_CONFLICT=true
+            fi
+            rm -f "$install_log"
             # paru can install some targets before a later target fails.
             _PKG_INDEX_READY=false
             return 1
         fi
+        rm -f "$install_log"
         for pkg in "${to_install[@]}"; do
             _INSTALLED_PKGS["$pkg"]=1
         done
@@ -751,7 +762,9 @@ _remove_conflicts() {
     fi
     [[ -n "${_conflicts:-}" ]] || return 0
     while IFS= read -r pkg; do
-        pacman -Qq "$pkg" &>/dev/null || continue
+        # Exact name only: -Qq also answers for a package that provides it
+        # (vectorcraft → vectorcraft-bin), which -Rdd then can't find.
+        [[ "$(pacman -Qq "$pkg" 2>/dev/null)" == "$pkg" ]] || continue
         if _is_protected "$pkg"; then
             warn "protected, not removed: $pkg"
         elif out=$(sudo pacman -Rdd --noconfirm "$pkg" 2>&1); then
@@ -797,19 +810,25 @@ install_all() {
 
     local _pkg_ok=true
     if ! _do_install; then
-        warn "Install failed — forcing mirror refresh and retrying..."
-        # Only drop the stamp once the retry is actually about to happen.
-        rm -f "$STAMP_DIR/mirrors"
-        refresh_mirrors
-        if _do_install; then
-            _record "packages" ok "succeeded after mirror refresh"
-        else
+        if $INSTALL_CONFLICT; then
             _pkg_ok=false
-            _record "packages" fail "failed after mirror refresh"
-            # Do not die: flatpak installs and cache cleanup are independent of
-            # the pacman/AUR list, so they still run. The non-zero exit status
-            # comes from print_recap, so the failure is not swallowed.
-            warn "Package install failed after mirror refresh — continuing with independent steps"
+            _record "packages" fail "$INSTALL_FAIL_DETAIL"
+            warn "Package conflict — check package selections and regenerate the run plan: $INSTALL_FAIL_DETAIL"
+        else
+            warn "Install failed — forcing mirror refresh and retrying..."
+            # Only drop the stamp once the retry is actually about to happen.
+            rm -f "$STAMP_DIR/mirrors"
+            refresh_mirrors
+            if _do_install; then
+                _record "packages" ok "succeeded after mirror refresh"
+            else
+                _pkg_ok=false
+                _record "packages" fail "failed after mirror refresh${INSTALL_FAIL_DETAIL:+: $INSTALL_FAIL_DETAIL}"
+                # Do not die: flatpak installs and cache cleanup are independent of
+                # the pacman/AUR list, so they still run. The non-zero exit status
+                # comes from print_recap, so the failure is not swallowed.
+                warn "Package install failed after mirror refresh${INSTALL_FAIL_DETAIL:+: $INSTALL_FAIL_DETAIL} — continuing with independent steps"
+            fi
         fi
     else
         _record "packages" ok
@@ -858,7 +877,7 @@ _demote_packages() {
     while IFS= read -r pkg; do
         [[ -n "$pkg" ]] || continue
         if _is_protected "$pkg"; then warn "protected, not removed: $pkg"; continue; fi
-        pacman -Qqe "$pkg" &>/dev/null && pkgs+=("$pkg")
+        [[ "$(pacman -Qqe "$pkg" 2>/dev/null)" == "$pkg" ]] && pkgs+=("$pkg")
     done <<< "$contents"
     (( ${#pkgs[@]} )) || return 0
     info "Demoting to dependencies: ${pkgs[*]}"
@@ -1276,6 +1295,14 @@ enable_services() {
     while read -r kind u; do
         [[ -n "$u" ]] || continue
         local tag="$u"; [[ "$kind" == user ]] && tag="$u (user)"
+        # The MPD dotset stores its log, database and state here. MPD creates
+        # the files itself, but cannot start when their parent is missing.
+        if [[ "$kind" == user && "$u" == mpd ]]; then
+            if ! mkdir -p "$HOME/.local/share/mpd"; then
+                _failw "service:$kind:$u" "could not create MPD data directory"
+                continue
+            fi
+        fi
         if _sc "$kind" enable --now "$u"; then
             ok "enabled: $tag"
             now+="$kind $u"$'\n'
@@ -1720,22 +1747,50 @@ setup_claude() {
     info "Setting up Claude Code plugins..."
     # settings.json is already stowed and sets enabledPlugins.
     # These commands install the plugin assets (skills, hook scripts).
-    local entry market plugin hint
+    local entry market plugin hint installed installed_json full_id out
+    installed_json=$(claude plugin list --json 2>/dev/null) || installed_json='[]'
+    installed=$(python3 -c 'import json,sys
+try:
+    for p in json.load(sys.stdin):
+        if p.get("scope") == "user": print(p["id"])
+except (ValueError, TypeError, KeyError, AttributeError):
+    pass' <<< "$installed_json") || installed=""
     # "marketplace-repo plugin-id"; "-" uses the official marketplace.
     for entry in "JuliusBrussee/caveman caveman" \
                  "- superpowers@claude-plugins-official" \
-                 "safishamsi/graphify graphify" \
                  "DietrichGebert/ponytail ponytail"; do
         read -r market plugin <<< "$entry"
+        full_id="$plugin"
+        [[ "$plugin" == *@* ]] || full_id="$plugin@${market##*/}"
+        if grep -qxF "$full_id" <<< "$installed"; then
+            ok "already installed: ${plugin%@*}"
+            continue
+        fi
         hint="claude plugin install $plugin --scope user"
         [[ "$market" == - ]] || {
-            claude plugin marketplace add "$market" 2>/dev/null || true
+            claude plugin marketplace add "$market" || true
             hint="claude plugin marketplace add $market && $hint"
         }
-        claude plugin install "$plugin" --scope user 2>/dev/null \
-            && ok "installed: ${plugin%@*}" \
-            || _failw claude "${plugin%@*} plugin install failed — run manually: $hint"
+        if out=$(claude plugin install "$plugin" --scope user 2>&1); then
+            [[ -z "$out" ]] || printf '%s\n' "$out"
+            ok "installed: ${plugin%@*}"
+        else
+            [[ -z "$out" ]] || printf '%s\n' "$out"
+            _failw claude "${plugin%@*} plugin install failed — run manually: $hint"
+        fi
     done
+
+    # Graphify is distributed as a CLI plus an assistant skill, not a
+    # marketplace plugin. The CLI itself is managed by [uv].install.
+    if [[ -f "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/graphify/SKILL.md" ]]; then
+        ok "already installed: graphify (Claude skill)"
+    elif command -v graphify &>/dev/null; then
+        graphify install --platform claude \
+            && ok "installed: graphify (Claude skill)" \
+            || _failw claude "graphify skill install failed — run manually: graphify install --platform claude"
+    else
+        _failw claude "graphify CLI missing — install graphifyy, then run: graphify install --platform claude"
+    fi
 
     # No statusline wiring here on purpose. settings.json is stowed and points at
     # ~/.claude/statusline.sh, which globs the version-hashed plugin paths at

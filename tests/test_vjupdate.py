@@ -1053,7 +1053,7 @@ class RunPlanTests(FixtureCase):
 
     def test_update_removes_only_installed_conflicts_and_demotes(self):
         self.plan("paru-remove.list", "gone\nhere\n")
-        self.mock("pacman", '[[ "$1" == -Qq && "$2" != here ]] && exit 1; exit 0')
+        self.mock("pacman", '[[ "$1" == -Qq ]] && { [[ "$2" == here ]] && echo here || exit 1; }; exit 0')
         self.mock("sudo", 'echo "sudo $*" >> "$CALLS"')
         r = self.shell('refresh_mirrors() { :; }\n_demote_packages() { echo DEMOTED; }\n'
                        '_check_disk_space() { :; }\n_review_aur_updates() { :; }\n'
@@ -1219,6 +1219,86 @@ class OllamaUpdateTests(FixtureCase):
         self.mock("systemctl", 'exit 3')
         r = self.shell('VJ_FEATURES="ollama-model"; update_ollama')
         self.assertEqual((r.returncode, self.calls()), (0, []), r.stdout + r.stderr)
+
+class MpdServiceTests(FixtureCase):
+    def test_services_creates_mpd_data_directory_before_start(self):
+        self.plan('systemd-enable.list', '')
+        self.plan('systemd-user.list', 'mpd\n')
+        self.mock('systemctl', '''
+[[ "$*" == "--user enable --now mpd" ]] || exit 1
+[[ -d "$HOME/.local/share/mpd" ]] || exit 1
+''')
+        r = self.shell('enable_services; print_recap')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue((self.home / '.local/share/mpd').is_dir())
+
+
+class InstallFailureDetailTests(FixtureCase):
+    def run_install(self, error):
+        self.plan("paru-install.list", "dms-shell\n")
+        self.plan("flatpak-install.list", "")
+        self.mock("pacman", "exit 0")
+        self.mock("flatpak", "exit 0")
+        self.mock("paru", 'echo attempt >> "$CALLS"\nprintf "%s\\n" ' + shlex.quote(error) + '\nexit 1')
+        return self.shell('''
+_upgrade_system() { :; }
+refresh_mirrors() { echo REFRESHED; }
+update_ollama() { :; }
+install_user_tools() { :; }
+clean_caches() { echo CLEANED; }
+if install_all; then :; fi
+print_recap
+''')
+
+    def test_conflict_skips_mirror_retry_and_reports_cause(self):
+        r = self.run_install("error: failed to prepare transaction (conflicting dependencies)")
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("REFRESHED", r.stdout)
+        self.assertEqual(Path(self.env["CALLS"]).read_text().count("attempt"), 1)
+        self.assertIn("CLEANED", r.stdout)
+        recap = r.stdout.split("Results")[-1]
+        self.assertIn("conflicting dependencies", recap)
+
+    def test_download_failure_retries_and_reports_cause(self):
+        r = self.run_install("error: failed retrieving file 'example.pkg.tar.zst'")
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("REFRESHED", r.stdout)
+        self.assertEqual(Path(self.env["CALLS"]).read_text().count("attempt"), 2)
+        self.assertIn("failed retrieving file", r.stdout.split("Results")[-1])
+
+
+class ProvidedNameTests(FixtureCase):
+    """A listed name answered by a provider (vectorcraft → vectorcraft-bin) is not installed."""
+
+    def setUp(self):
+        super().setUp()
+        # pacman -Qq resolves provides: asking for X prints the provider's name.
+        self.mock("pacman", '''
+printf "%s\\n" "pacman $*" >> "$CALLS"
+case "$*" in
+  "-Qq vectorcraft"|"-Qqe vectorcraft") echo vectorcraft-bin ;;
+  "-Qq sddm"|"-Qqe sddm") echo sddm ;;
+  *) exit 1 ;;
+esac''')
+        self.mock("sudo", 'printf "%s\\n" "sudo $*" >> "$CALLS"; exit 0')
+
+    def calls(self):
+        return Path(self.env["CALLS"]).read_text()
+
+    def test_remove_skips_provider_and_removes_exact_name(self):
+        self.plan("paru-remove.list", "vectorcraft\nsddm\n")
+        r = self.shell('_remove_conflicts; printf "W:%s\\n" "${WARNINGS[@]}"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("sudo pacman -Rdd --noconfirm sddm", self.calls())
+        self.assertNotIn("-Rdd --noconfirm vectorcraft", self.calls())
+        self.assertNotIn("failed to remove", r.stdout)
+
+    def test_demote_skips_provider(self):
+        self.plan("paru-demote.list", "vectorcraft\n")
+        r = self.shell('_demote_packages')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("Demoting", r.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

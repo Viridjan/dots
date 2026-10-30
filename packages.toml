@@ -79,7 +79,7 @@ install = [
     "unrar",
 
     # Display manager
-    "dms-shell",
+    "dux-shell",  # DMS renamed by CachyOS 2026-10-30; still ships dms + dms.service
     "greetd-dms-greeter-git",
 
     # Btrfs snapshots
@@ -111,7 +111,7 @@ install = [
 
     # AUR
     "quickshell",
-    "dgop",
+    "dux-gop",  # dgop renamed by CachyOS 2026-10-30
     "dsearch-bin",
     "whatsie",
     "telegram-desktop",
