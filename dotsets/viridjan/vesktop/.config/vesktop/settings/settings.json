@@ -68,7 +68,7 @@
             "enabled": false
         },
         "BetterFolders": {
-            "enabled": true,
+            "enabled": false,
             "sidebar": true,
             "showFolderIcon": 1,
             "keepIcons": false,
@@ -76,7 +76,8 @@
             "closeAllFolders": false,
             "forceOpen": false,
             "sidebarAnim": true,
-            "closeOthers": false
+            "closeOthers": false,
+            "closeServerFolder": false
         },
         "BetterGifAltText": {
             "enabled": false
@@ -599,6 +600,18 @@
         },
         "GifProviderSwitcher": {
             "enabled": false
+        },
+        "AddAttachments": {
+            "enabled": false
+        },
+        "DirectFileDownload": {
+            "enabled": false
+        },
+        "JumpToTop": {
+            "enabled": false
+        },
+        "FixDiscordCss": {
+            "enabled": true
         }
     },
     "uiElements": {
@@ -615,7 +628,7 @@
         "authenticated": false,
         "url": "https://api.vencord.dev/",
         "settingsSync": false,
-        "settingsSyncVersion": 1792338864836
+        "settingsSyncVersion": 1793301253823
     },
     "nativeTitleBar": false
 }
