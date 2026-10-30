@@ -71,7 +71,7 @@ dots/
       vesktop/        → ~/.config/vesktop/  (settings.json + settings/)
       cave/           → ~/.cave/  (Cave AI agent config + ollama extension)
       caveman/        → ~/.config/caveman/  (caveman plugin defaultMode = ultra)
-      ollama/         → /etc/systemd/system/ollama.service.d/  (ROCm drop-in; stow -t /)
+      ollama/         → /etc/systemd/system/ollama.service.d/  (rocm.conf + limits.conf ~40% cap; stow -t /)
       nirinit/        → ~/.config/nirinit/  (skip list: apps the niri autostart already opens)
       xdg-desktop-portal/ → ~/.config/xdg-desktop-portal/  (niri-portals.conf: copy of /usr/share's + ScreenCast=niri-autoselect)
   scripts/        → ~/.local/bin/ + ~/.local/lib/vjupdate/ (automount.sh)  (vjupdate, vj, start-windows, start-open-notebook, start-keep, start-battlenet, gamescope-media; stowed --no-folding,
@@ -517,6 +517,12 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   push failures. Nothing commits or pushes without that confirmation. Configuration-link
   deployment starts selected; adoption requires explicit `--adopt`. Noninteractive
   `--yes` retains the legacy dotfiles phase (deploy and DMS import).
+- **Ollama (2026-10-30).** `setup_ollama` pulls `deepseek-r1:7b` (4.7 GB fits
+  the VRAM left by `limits.conf`: `CPUQuota=640%`, `MemoryHigh=40%` — user
+  rejected `MemoryMax` because it OOM-kills — `OLLAMA_GPU_OVERHEAD` reserving
+  60% of VRAM). GPU compute cannot be capped. The drop-in dir is a folded link,
+  so edits need a daemon-reload: `_reload_ollama` (in `deploy_dotfiles`) checks
+  `NeedDaemonReload` and try-restarts the service.
 - **Brave policy package (`brave/`, added 2026-10-11).** Stowed to `/` by the
   same root-target loop as `ollama` in `deploy_dotfiles`. It sets
   `LoopbackNetworkAllowedForUrls: ["https://discord.com"]` so Discord invite

@@ -417,7 +417,7 @@ disables it on the next run), and `[npm]` / `[uv]` global tools.
 | `caveman` | `~/.config/caveman/config.json` — caveman plugin `defaultMode: ultra` |
 | `cave` | `~/.cave/` — Cave AI agent config + ollama extension |
 | `brave` | `/etc/brave/policies/managed/` — Brave managed policy (stowed to `/` with sudo) |
-| `ollama` | `/etc/systemd/system/ollama.service.d/` — ROCm drop-in (stowed to `/` with sudo) |
+| `ollama` | `/etc/systemd/system/ollama.service.d/` — ROCm + 40% resource-limit drop-ins (stowed to `/` with sudo) |
 | `fonts` | `~/.local/share/fonts/` — user fonts (Luminari) |
 | `mpd` | `~/.config/mpd/mpd.conf` |
 | `spotify-player` | `~/.config/spotify-player/keymap.toml` |
@@ -567,12 +567,41 @@ output's native size (3440×1440 desktop, 2880×1920 Surface; same line on both
 machines), then moves gamescope's windows to `games` without focus (the name predates
 that workspace). It watches
 for 120 s after launch; the window may flash on the current workspace first.
-MTG Arena uses it.
+MTG Arena no longer uses it (2026-10-30): its launch options are
+`niri msg action focus-workspace media; %command%`, so it opens as
+`steam_app_2141910` and the normal rules apply.
 
 For other gamescope options (e.g. upscaling from 1080p), call gamescope directly:
 ```
 gamescope -f -W 3440 -H 1440 -w 1920 -h 1080 -r 165 -- %command%
 ```
+
+---
+
+## Local AI (ollama)
+
+Desktop only (`ollama-model` feature). vjupdate enables `ollama.service` and
+pulls `deepseek-r1:7b`.
+
+```bash
+ollama run deepseek-r1:7b                  # chat; /bye quits
+ollama run deepseek-r1:7b "question"       # one answer; --hidethinking hides reasoning
+ollama ps                                  # loaded models, GPU vs CPU share
+ollama stop deepseek-r1:7b                 # free VRAM now (idle unload is 5 min)
+```
+
+`ollama.service.d/limits.conf` caps it at about 40% of the machine:
+
+| Resource | Limit | How |
+|---|---|---|
+| CPU | 40% of 16 threads | `CPUQuota=640%` |
+| RAM | 40%, soft | `MemoryHigh=40%`: throttles and swaps above it, never kills |
+| VRAM | about 4.8 of 12 GB | `OLLAMA_GPU_OVERHEAD` reserves 60%; the rest of a model runs on CPU |
+| GPU compute | none | Linux has no GPU share control; it is only busy while answering |
+
+The drop-in directory is a link into the repo, so an edit lands immediately but
+applies only after `sudo systemctl daemon-reload && sudo systemctl restart ollama`.
+vjupdate's dotfiles step does that when systemd reports the unit changed.
 
 ---
 
