@@ -580,11 +580,18 @@ gamescope -f -W 3440 -H 1440 -w 1920 -h 1080 -r 165 -- %command%
 
 ## Local AI (ollama)
 
-Desktop only (`ollama-model` feature). vjupdate enables `ollama.service` and
-pulls `deepseek-r1:7b`.
+Desktop only (`ollama-model` feature). vjupdate enables `ollama.service`,
+pulls `deepseek-r1:7b` and builds `deepseek-cave` from
+`scripts/.local/share/ollama/deepseek-cave.Modelfile` (the base model plus a
+condensed caveman + ponytail system prompt). Install and `--update` runs re-pull
+the base and rebuild the variant, so a revised `7b` tag arrives automatically.
+A newer DeepSeek generation is a new tag, so change `model=` in `setup_ollama`
+for that. R1 distills follow system prompts loosely: the reasoning stays
+verbose, only the answer is shortened.
 
 ```bash
 ollama run deepseek-r1:7b                  # chat; /bye quits
+ollama run deepseek-cave                    # same, caveman + ponytail rules
 ollama run deepseek-r1:7b "question"       # one answer; --hidethinking hides reasoning
 ollama ps                                  # loaded models, GPU vs CPU share
 ollama stop deepseek-r1:7b                 # free VRAM now (idle unload is 5 min)

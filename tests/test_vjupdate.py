@@ -1186,5 +1186,31 @@ class BuildPriorityTests(FixtureCase):
         self.assertTrue(self.calls()[0].startswith("paru NICE=19 LC=C -Syuu"), self.calls())
 
 
+class OllamaUpdateTests(FixtureCase):
+    """Updates re-pull the model and rebuild deepseek-cave, only where wanted."""
+
+    def setUp(self):
+        super().setUp()
+        self.mock("ollama", 'printf "%s\\n" "ollama $*" >> "$CALLS"; exit 0')
+        self.mock("systemctl", 'exit 0')
+
+    def calls(self):
+        f = Path(self.env["CALLS"])
+        return [l for l in f.read_text().splitlines() if l.startswith("ollama ")] if f.exists() else []
+
+    def test_update_pulls_base_then_rebuilds_variant(self):
+        r = self.shell('VJ_FEATURES="ollama-model"; update_ollama')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.calls()[0], "ollama pull deepseek-r1:7b")
+        self.assertTrue(self.calls()[1].startswith("ollama create deepseek-cave -f "), self.calls())
+
+    def test_update_skips_without_feature_or_service(self):
+        r = self.shell('VJ_FEATURES=""; update_ollama')
+        self.assertEqual((r.returncode, self.calls()), (0, []), r.stdout + r.stderr)
+        self.mock("systemctl", 'exit 3')
+        r = self.shell('VJ_FEATURES="ollama-model"; update_ollama')
+        self.assertEqual((r.returncode, self.calls()), (0, []), r.stdout + r.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

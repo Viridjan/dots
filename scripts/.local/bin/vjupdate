@@ -839,6 +839,7 @@ install_all() {
         info "Updating flatpak apps..."
         flatpak update -y &>/dev/null && ok "flatpaks up to date" || _failw flatpak-update "flatpak update failed"
     fi
+    update_ollama
 
     install_user_tools
     clean_caches
@@ -1606,11 +1607,24 @@ setup_ollama() {
     fi
 
     # 4.7 GB: fits the ~4.8 GB VRAM that limits.conf leaves ollama.
+    # Re-pulling an unchanged tag only checks the manifest, so updates call this too.
     local model=deepseek-r1:7b
+    local modelfile="$DOTS_DIR/scripts/.local/share/ollama/deepseek-cave.Modelfile"
     info "Pulling ollama model: $model..."
-    ollama pull "$model" \
-        && ok "$model ready" \
-        || _failw ollama "ollama pull failed — run manually: ollama pull $model"
+    ollama pull "$model" &>/dev/null \
+        && ok "$model up to date" \
+        || { _failw ollama "ollama pull failed — run manually: ollama pull $model"; return 0; }
+    # Rebuild the caveman/ponytail variant on top of the (possibly new) base.
+    ollama create deepseek-cave -f "$modelfile" &>/dev/null \
+        && ok "deepseek-cave rebuilt" \
+        || _failw ollama "ollama create failed — run manually: ollama create deepseek-cave -f $modelfile"
+}
+
+# Update path: silent where the profile has no model or ollama isn't running.
+update_ollama() {
+    _has_feature ollama-model && command -v ollama &>/dev/null || return 0
+    systemctl is-active -q ollama || { warn "ollama not running — model update skipped"; return 0; }
+    setup_ollama
 }
 
 # ─── Phase 7f: VM setup ──────────────────────────────────
@@ -2546,6 +2560,7 @@ update() {
     system_update
     check_held_updates
     flatpak_update
+    update_ollama
     check_flatpak_orphans
     clean_caches
     print_recap

@@ -77,6 +77,7 @@ dots/
   scripts/        → ~/.local/bin/ + ~/.local/lib/vjupdate/ (automount.sh)  (vjupdate, vj, start-windows, start-open-notebook, start-keep, start-battlenet, gamescope-media; stowed --no-folding,
                     always from the repo root — tooling, not part of a dotfile set)
                   + ~/.local/share/applications/  (.desktop launchers)
+                  + ~/.local/share/ollama/  (deepseek-cave.Modelfile)
   windows/        ← NOT a stow package — Docker Compose for Windows 11 VM (dockur/windows, port 8006)
   .githooks/      ← NOT a stow package — git hooks (secret scan + shellcheck); registered via core.hooksPath
   .github/        ← CI: unittest suite + shellcheck on push
@@ -523,6 +524,9 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   60% of VRAM). GPU compute cannot be capped. The drop-in dir is a folded link,
   so edits need a daemon-reload: `_reload_ollama` (in `deploy_dotfiles`) checks
   `NeedDaemonReload` and try-restarts the service.
+  `setup_ollama` also builds `deepseek-cave` (Modelfile in
+  `scripts/.local/share/ollama/`); `update_ollama` (install phase + `--update`,
+  silent without the feature or a running service) re-runs both.
 - **Brave policy package (`brave/`, added 2026-10-11).** Stowed to `/` by the
   same root-target loop as `ollama` in `deploy_dotfiles`. It sets
   `LoopbackNetworkAllowedForUrls: ["https://discord.com"]` so Discord invite
