@@ -40,6 +40,11 @@ cd ~/Projects/dots && bash scripts/.local/bin/vjupdate
 
 Afterwards, use `vj` (see below) for day-to-day maintenance.
 
+LibreOffice is excluded from installation. Both `libreoffice-fresh` and
+`libreoffice-still` are in `packages.toml`'s removal list, so the install and
+update actions remove either edition when installed. The LibreOffice niri
+window rule has also been removed.
+
 ### 4. Manual steps (after the script)
 
 ```bash

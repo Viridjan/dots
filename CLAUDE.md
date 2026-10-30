@@ -363,6 +363,13 @@ Result: `~/.config/<pkg>` becomes a directory symlink into the repo. App writes 
 
 ## Package lists and project cloning
 
+**LibreOffice removal (2026-10-30).** Neither edition belongs in `[paru].install`.
+Both `libreoffice-fresh` and `libreoffice-still` are in the shared `[paru].remove`
+list, consumed by `_remove_conflicts` during install and update actions. The
+LibreOffice window rule was removed from niri's `config.kdl`. The direct
+uninstall attempt in this session required an interactive sudo password and
+did not run; do not assume the local package is already uninstalled.
+
 `projects.toml` — `[[repo]]` entries (name + SSH URL) cloned into `~/Projects/` during the `clone_projects` bootstrap phase (missing ones only; vj → Git repositories selects which).
 
 `TODO.md` — pending work tracked in the repo (manual-confirm checklists for other-machine work, pending package migrations).

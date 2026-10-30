@@ -278,10 +278,6 @@ window-rule {
     match title="Vesktop"
     default-column-width { proportion 0.4; }
 }
-window-rule {
-    match app-id="libreoffice"
-    default-column-width { proportion 0.5; }
-}
 
 // Workspace assignments
 window-rule {
