@@ -1113,6 +1113,16 @@ deploy_dotfiles() {
         fi
     }
 
+    # The drop-in dir is a folded link, so edits to it land without a restow
+    # and stay inert until systemd reloads. Restart only a running service.
+    _reload_ollama() {
+        $DRY_RUN && return 0
+        [[ "$(systemctl show -p NeedDaemonReload --value ollama 2>/dev/null)" == yes ]] || return 0
+        sudo systemctl daemon-reload && sudo systemctl try-restart ollama \
+            && ok "ollama drop-ins reloaded" \
+            || _failw ollama "ollama reload failed — run: sudo systemctl daemon-reload && sudo systemctl restart ollama"
+    }
+
     if [[ -z "${VJ_DOTSET_DIR:-}" ]]; then
         info "dotfile set: none — only scripts linked"
     else
@@ -1122,7 +1132,8 @@ deploy_dotfiles() {
             [[ -n "$pkg" && -d "$pkg" ]] || continue
             case "$pkg" in
                 niri)         _stow_niri_cfg; _stowed+=("niri") ;;
-                ollama|brave) _deploy_root_pkg "$pkg" || return 1 ;;
+                ollama)       _deploy_root_pkg "$pkg" || return 1; _reload_ollama ;;
+                brave)        _deploy_root_pkg "$pkg" || return 1 ;;
                 *)            _deploy_pkg --restow -t "$HOME" "$pkg" "$pkg" || true ;;
             esac
         done < <([[ -f "$VJ_PLAN_DIR/stow.list" ]] && cat "$VJ_PLAN_DIR/stow.list")
@@ -1594,10 +1605,12 @@ setup_ollama() {
         return
     fi
 
-    info "Pulling ollama model: qwen3:14b..."
-    ollama pull qwen3:14b \
-        && ok "qwen3:14b ready" \
-        || _failw ollama "ollama pull failed — run manually: ollama pull qwen3:14b"
+    # 4.7 GB: fits the ~4.8 GB VRAM that limits.conf leaves ollama.
+    local model=deepseek-r1:7b
+    info "Pulling ollama model: $model..."
+    ollama pull "$model" \
+        && ok "$model ready" \
+        || _failw ollama "ollama pull failed — run manually: ollama pull $model"
 }
 
 # ─── Phase 7f: VM setup ──────────────────────────────────
