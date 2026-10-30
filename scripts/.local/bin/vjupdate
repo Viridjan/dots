@@ -1606,18 +1606,23 @@ setup_ollama() {
         return
     fi
 
-    # 4.7 GB: fits the ~4.8 GB VRAM that limits.conf leaves ollama.
     # Re-pulling an unchanged tag only checks the manifest, so updates call this too.
-    local model=deepseek-r1:7b
-    local modelfile="$DOTS_DIR/scripts/.local/share/ollama/deepseek-cave.Modelfile"
-    info "Pulling ollama model: $model..."
-    ollama pull "$model" &>/dev/null \
-        && ok "$model up to date" \
-        || { _failw ollama "ollama pull failed — run manually: ollama pull $model"; return 0; }
-    # Rebuild the caveman/ponytail variant on top of the (possibly new) base.
-    ollama create deepseek-cave -f "$modelfile" &>/dev/null \
-        && ok "deepseek-cave rebuilt" \
-        || _failw ollama "ollama create failed — run manually: ollama create deepseek-cave -f $modelfile"
+    local models=(qwen3.5) model mf
+    for model in "${models[@]}"; do
+        info "Pulling ollama model: $model..."
+        ollama pull "$model" &>/dev/null \
+            && ok "$model up to date" \
+            || _failw "ollama:$model" "ollama pull failed — run manually: ollama pull $model"
+    done
+    # Each <name>.Modelfile is rebuilt as model <name> after the pulls: the
+    # qwen3.5 VRAM cap overwrites the official tag the pull just restored.
+    for mf in "$DOTS_DIR"/scripts/.local/share/ollama/*.Modelfile; do
+        [[ -f "$mf" ]] || continue
+        model=$(basename "$mf" .Modelfile)
+        ollama create "$model" -f "$mf" &>/dev/null \
+            && ok "$model rebuilt" \
+            || _failw "ollama:$model" "ollama create failed — run manually: ollama create $model -f $mf"
+    done
 }
 
 # Update path: silent where the profile has no model or ollama isn't running.

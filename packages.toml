@@ -11,9 +11,7 @@ install = [
     # Gaming
     "cachyos-gaming-meta",
     "gamemode",
-    "protonup-qt",
     "gamescope",
-    "goverlay",
     "lib32-mangohud",
     "mangohud",
     "steam",
@@ -99,21 +97,16 @@ install = [
 
     # Applications
     "thunderbird",
-    "nicotine+",
     "vlc",
     "vlc-plugins-all",
     "qbittorrent",
     "vesktop",
     "udiskie",
     "joplin-desktop",
-    "zathura",
-    "zathura-pdf-poppler",
     "poppler-glib",
-    "meld",
     "pavucontrol",
     "vscodium",
     "shelly",
-    "gwenview",
     "fprintd",
 
     # AUR
@@ -123,6 +116,7 @@ install = [
     "whatsie",
     "telegram-desktop",
     "claude-code",
+    "tmux",  # claude-auto-retry runs claude inside tmux
     "rofi-ykman-git",
 
     # Chromium (webapp launcher — used by .desktop app shortcuts)
@@ -159,7 +153,6 @@ install = [
     "python-textual",
     "jq",
     "ripgrep",
-    "btop",
     "duf",
     "glances",
     "fastfetch",
@@ -176,10 +169,8 @@ install = [
     "samba",
 
     # Editors
-    "geany",
 
     # Graphics
-    "kolourpaint",
     "freecad",
     "vectorcraft-bin",
     "gridcraft-bin",
@@ -193,10 +184,6 @@ install = [
 
     # Browsers
     "brave-origin-bin",
-    "firefox",
-
-    # ML
-    "unsloth",
 ]
 
 # Force-removed (pacman -Rdd) before installing — conflict resolution.
@@ -214,6 +201,9 @@ remove = [
     "sddm",
     "libreoffice-fresh",
     "libreoffice-still",
+    # KiCad: unused since first launch 2026-06-21 (removed 2026-10-30)
+    "kicad",
+    "kicad-library",
     "bambustudio-appimage",
     "ghostty",
     "cachyos-niri-noctalia",
@@ -259,21 +249,13 @@ install = [
     # Applications
     "com.usebottles.bottles",
     "com.spotify.Client",
-    "ch.protonmail.protonmail-bridge",
     "com.bambulab.BambuStudio",
-    "xyz.xclicker.xclicker",
     # com.ktechpit.whatsie — now installed via AUR (whatsie) instead
     "org.nomacs.ImageLounge",
 
     # Emulators
-    "app.xemu.xemu",
-    "com.supermodel3.Supermodel",
     "io.github.shiiion.primehack",
-    "net.kuribo64.melonDS",
     "org.DolphinEmu.dolphin-emu",
-    "org.libretro.RetroArch",
-    "org.ppsspp.PPSSPP",
-    "org.scummvm.ScummVM",
 ]
 
 [systemd]
@@ -293,7 +275,7 @@ user = ["psd", "mpd", "vjupdate-check.timer"]
 # Global npm tools (prefix ~/.local, see CLAUDE.md). Installed if missing.
 # caveman-code has its own action (setup_caveman_code), so it is not listed.
 install = [
-    "@deepseek-ai/dsh",  # DeepSeek Harness; `deepseek` fish function runs `dsh web`
+    "claude-auto-retry",  # fish `claude` function wraps it; needs tmux
 ]
 
 [uv]

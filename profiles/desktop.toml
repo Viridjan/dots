@@ -17,14 +17,9 @@ install = [
     "lib32-opencl-mesa",
 
     # Desktop peripherals
-    "vial-appimage",
 
     # AI / local LLM
     "ollama-rocm",
-
-    # Electronics design (KiCad EDA)
-    "kicad",
-    "kicad-library",
 ]
 
 [systemd]

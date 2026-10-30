@@ -1187,22 +1187,31 @@ class BuildPriorityTests(FixtureCase):
 
 
 class OllamaUpdateTests(FixtureCase):
-    """Updates re-pull the model and rebuild deepseek-cave, only where wanted."""
+    """Updates re-pull the models, then rebuild each Modelfile, only where wanted."""
 
     def setUp(self):
         super().setUp()
         self.mock("ollama", 'printf "%s\\n" "ollama $*" >> "$CALLS"; exit 0')
         self.mock("systemctl", 'exit 0')
+        mf = self.home / "Projects/dots/scripts/.local/share/ollama"
+        mf.mkdir(parents=True)
+        (mf / "qwen3.5.Modelfile").write_text("FROM x\n")
 
     def calls(self):
         f = Path(self.env["CALLS"])
-        return [l for l in f.read_text().splitlines() if l.startswith("ollama ")] if f.exists() else []
+        return [l.split(" -f ")[0] for l in f.read_text().splitlines()
+                if l.startswith("ollama ")] if f.exists() else []
 
-    def test_update_pulls_base_then_rebuilds_variant(self):
+    def test_update_pulls_then_rebuilds_modelfile(self):
         r = self.shell('VJ_FEATURES="ollama-model"; update_ollama')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertEqual(self.calls()[0], "ollama pull deepseek-r1:7b")
-        self.assertTrue(self.calls()[1].startswith("ollama create deepseek-cave -f "), self.calls())
+        self.assertEqual(self.calls(), ["ollama pull qwen3.5", "ollama create qwen3.5"])
+
+    def test_failed_pull_is_recorded(self):
+        self.mock("ollama", 'printf "%s\\n" "ollama $*" >> "$CALLS"; exit 1')
+        r = self.shell('VJ_FEATURES="ollama-model"; update_ollama; printf "%s\\n" "${WARNINGS[@]}"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("ollama pull qwen3.5", r.stdout)
 
     def test_update_skips_without_feature_or_service(self):
         r = self.shell('VJ_FEATURES=""; update_ollama')
@@ -1210,7 +1219,6 @@ class OllamaUpdateTests(FixtureCase):
         self.mock("systemctl", 'exit 3')
         r = self.shell('VJ_FEATURES="ollama-model"; update_ollama')
         self.assertEqual((r.returncode, self.calls()), (0, []), r.stdout + r.stderr)
-
 
 if __name__ == "__main__":
     unittest.main()

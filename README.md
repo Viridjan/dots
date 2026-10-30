@@ -139,6 +139,19 @@ and memory won't load.
 
 When working on dots inside a Claude session, just `cd ~/Projects/dots` from within it.
 
+### Auto-retry
+
+`claude` in fish is a function (`fish/.config/fish/functions/claude.fish`) that
+starts Claude Code through [claude-auto-retry](https://github.com/cheapestinference/claude-auto-retry)
+(npm, `[npm].install`): the session runs inside tmux, and a monitor waits out
+usage limits and API overloads, then types `continue`. A closed terminal
+leaves the session running: `tmux attach`. Its `StopFailure` hook in
+`claude/.claude/settings.json` reports overload errors directly. Without tmux
+or the npm package the function runs plain `claude`. `claude-auto-retry status`
+shows what the monitor did. Installed from npm 0.7.3 (2026-08): npm 12 refuses
+git and tarball sources, and that release predates Claude Code's native
+auto-continue, so after a usage-limit reset both may send `continue`.
+
 ### Statusline
 
 The statusline is assembled by `~/.claude/statusline.sh`, which runs each segment
@@ -581,20 +594,17 @@ gamescope -f -W 3440 -H 1440 -w 1920 -h 1080 -r 165 -- %command%
 ## Local AI (ollama)
 
 Desktop only (`ollama-model` feature). vjupdate enables `ollama.service`,
-pulls `deepseek-r1:7b` and builds `deepseek-cave` from
-`scripts/.local/share/ollama/deepseek-cave.Modelfile` (the base model plus a
-condensed caveman + ponytail system prompt). Install and `--update` runs re-pull
-the base and rebuild the variant, so a revised `7b` tag arrives automatically.
-A newer DeepSeek generation is a new tag, so change `model=` in `setup_ollama`
-for that. R1 distills follow system prompts loosely: the reasoning stays
-verbose, only the answer is shortened.
+pulls `qwen3.5` (6.6 GB), then rebuilds each
+`scripts/.local/share/ollama/<name>.Modelfile` as model `<name>`; install and
+`--update` runs do both, so revised tags arrive automatically. Add a model to
+`models=` in `setup_ollama`.
 
 ```bash
-ollama run deepseek-r1:7b                  # chat; /bye quits
-ollama run deepseek-cave                    # same, caveman + ponytail rules
-ollama run deepseek-r1:7b "question"       # one answer; --hidethinking hides reasoning
+ollama run qwen3.5                         # chat; /bye quits
+ollama run qwen3.5 "question"              # one answer
+cat file | ollama run qwen3.5 "summarize"  # file contents go into the prompt
 ollama ps                                  # loaded models, GPU vs CPU share
-ollama stop deepseek-r1:7b                 # free VRAM now (idle unload is 5 min)
+ollama stop qwen3.5                        # free VRAM now (idle unload is 1 min)
 ```
 
 `ollama.service.d/limits.conf` caps it at about 40% of the machine:
@@ -603,7 +613,8 @@ ollama stop deepseek-r1:7b                 # free VRAM now (idle unload is 5 min
 |---|---|---|
 | CPU | 40% of 16 threads | `CPUQuota=640%` |
 | RAM | 40%, soft | `MemoryHigh=40%`: throttles and swaps above it, never kills |
-| VRAM | about 4.8 of 12 GB | `OLLAMA_GPU_OVERHEAD` reserves 60%; the rest of a model runs on CPU |
+| VRAM | qwen3.5: 26 of 33 layers on GPU | `num_gpu 26` in `scripts/.local/share/ollama/qwen3.5.Modelfile`; the rest runs on CPU (≈19 tokens/s against 53 uncapped). ollama 0.40 ignores `OLLAMA_GPU_OVERHEAD`/`OLLAMA_MAX_LOADED_MODELS` |
+| Idle models | unloaded after 1 min | `OLLAMA_KEEP_ALIVE=1m`, so two models rarely share VRAM |
 | GPU compute | none | Linux has no GPU share control; it is only busy while answering |
 
 The drop-in directory is a link into the repo, so an edit lands immediately but

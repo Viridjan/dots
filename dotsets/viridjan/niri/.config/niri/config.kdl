@@ -302,7 +302,6 @@ window-rule {
     match app-id=r#"^steam_app_"#
     match title="Dota 2"
     match app-id=r#"(?i)\.exe$"#
-    match app-id=r#"(?i)retroarch"#
     // start-battlenet (umu): launcher and its games share this app-id; the launcher goes back to media below
     match app-id=r#"^steam_app_battlenet$"#
     open-on-workspace "games"
