@@ -1,7 +1,10 @@
 # qwen3.5 under its own name with a VRAM cap. Built over the official tag;
-# setup_ollama re-applies it after every pull.
-# 33 layers (~5.6 GB): 26 on GPU keeps it inside ~40% of the 12 GB VRAM, the
-# rest runs on CPU (slower, ~under CPUQuota). ollama 0.40 ignores
-# OLLAMA_GPU_OVERHEAD, so the cap has to be per model.
+# vjupdate re-applies it after every pull.
+# Owner's cap: ollama uses at most 5 GB of VRAM.
+# Measured 2026-10-31 at 32k context: 25 layers = 5.14 GB (over), 24 layers =
+# 4.94 GB, 14 tok/s (all 33 on GPU: 7.4 GB, 55 tok/s). The rest runs on CPU.
+# A bigger context grows VRAM: keep num_ctx at 32k.
+# ollama 0.40 ignores OLLAMA_GPU_OVERHEAD, so the cap has to be per model.
 FROM qwen3.5
-PARAMETER num_gpu 26
+PARAMETER num_gpu 24
+PARAMETER num_ctx 32768
