@@ -451,7 +451,7 @@ disables it on the next run), and `[npm]` / `[uv]` global tools.
 | `fonts` | `~/.local/share/fonts/` — user fonts (Luminari) |
 | `mpd` | `~/.config/mpd/mpd.conf` |
 | `spotify-player` | `~/.config/spotify-player/keymap.toml` |
-| `scripts` | `~/.local/bin/{vjupdate,vj,start-windows,start-open-notebook,start-keep,start-battlenet,gamescope-media}` + `.desktop` launchers — stowed `--no-folding`, so installers own the rest of `~/.local/bin` |
+| `scripts` | `~/.local/bin/{vjupdate,vj,start-windows,start-open-notebook,start-battlenet,gamescope-media}` + `.desktop` launchers — stowed `--no-folding`, so installers own the rest of `~/.local/bin` |
 
 **niri note:** `cfg/display.kdl`, `cfg/input.kdl`, and `cfg/surface-layout.kdl` are NOT in the `niri` package —
 they come from `dotsets/viridjan/desktop/`, `…/surface/` or `…/plancia/`, matching the profile name.

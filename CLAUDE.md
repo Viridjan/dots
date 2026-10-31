@@ -79,7 +79,7 @@ dots/
       ollama/         → /etc/systemd/system/ollama.service.d/  (rocm.conf + limits.conf ~40% cap; stow -t /)
       nirinit/        → ~/.config/nirinit/  (skip list: apps the niri autostart already opens)
       xdg-desktop-portal/ → ~/.config/xdg-desktop-portal/  (niri-portals.conf: copy of /usr/share's + ScreenCast=niri-autoselect)
-  scripts/        → ~/.local/bin/ + ~/.local/lib/vjupdate/ (automount.sh)  (vjupdate, vj, start-windows, start-open-notebook, start-keep, start-battlenet, gamescope-media; stowed --no-folding,
+  scripts/        → ~/.local/bin/ + ~/.local/lib/vjupdate/ (automount.sh)  (vjupdate, vj, start-windows, start-open-notebook, start-battlenet, gamescope-media; stowed --no-folding,
                     always from the repo root — tooling, not part of a dotfile set)
                   + ~/.local/share/applications/  (.desktop launchers)
                   + ~/.local/share/ollama/  (<name>.Modelfile, rebuilt by setup_ollama)
