@@ -121,7 +121,8 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
   phase results in `result.tsv`; the current-task bar shows activity, not an
   estimated percentage. Prompt replies go to the PTY, with masking when terminal
   echo is disabled. Ctrl+C sends an interrupt; Ctrl+T explicitly hands over the
-  terminal for editors, Ctrl+] returns, Escape dismisses a finished run. The plan
+  terminal for editors, Ctrl+] returns, `q` dismisses a finished run. `q` also
+  closes submenus and quits from the main menu or initial setup. The plan
   stays available until dismissal, then results are applied and it is removed.
 - **Setup checks:** MPD's data directory (`~/.local/share/mpd`) must exist before
   its user service starts. Claude setup checks `plugin list --json` at user scope

@@ -19,7 +19,7 @@ from textual.widgets import Footer, Header, Input, Label, ProgressBar, RichLog
 
 
 class RunScreen(Screen):
-    BINDINGS = [Binding('escape', 'back', 'Back'),
+    BINDINGS = [Binding('q', 'back', 'Back'),
                 Binding('ctrl+c', 'interrupt', 'Interrupt', priority=True),
                 Binding('ctrl+t', 'terminal', 'Terminal / editor', priority=True)]
     CSS = '''
@@ -117,7 +117,7 @@ class RunScreen(Screen):
             os.close(self.fd)
             self.fd = None
             self.query_one('#activity', ProgressBar).update(total=1, progress=1 if self.returncode == 0 else 0)
-            self.query_one('#status', Label).update(f'Finished (exit {self.returncode}) · Escape returns to menu')
+            self.query_one('#status', Label).update(f'Finished (exit {self.returncode}) · q returns to menu')
             self.query_one('#reply', Input).disabled = True
         elif not eof:
             # sudo disables terminal echo: mask its response and never log input.

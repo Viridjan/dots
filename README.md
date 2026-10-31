@@ -101,12 +101,12 @@ Profile / dotfile set   │ desktop · viridjan
 ```
 
 Enter opens a submenu below the menu (Space ticks, `/` filters, `a` all,
-`n` none, `d` repo defaults, Esc closes). `r` runs everything selected in an
+`n` none, `d` repo defaults, `q` closes). `r` runs everything selected in an
 in-app progress view with live output, a phase completion bar and a current-task
 activity bar. Reply to prompts in the input field; password replies are masked.
 Ctrl+C interrupts the running command. For full-screen editors such as Vim,
 Ctrl+T opens terminal mode; Ctrl+] returns to the progress view. After completion,
-Esc returns to the menu. `q` quits from the menu.
+`q` returns to the menu. `q` quits from the main menu (or initial setup).
 
 - **Profiles** (`profiles/<name>.toml`): hardware + package lists + feature
   switches. `desktop` and `surface` ship; add a file for another machine.

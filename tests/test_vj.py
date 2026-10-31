@@ -454,6 +454,35 @@ class UiTests(Tmp):
         cfg = config.load_local(self.cfg_path)
         self.assertEqual((cfg["profile"], cfg["dotset"]), ("desktop", "mine"))
 
+    def test_q_closes_panel_then_quits_from_menu(self):
+        cfg = config.load_local(self.cfg_path)
+        cfg.update(profile='desktop', dotset='mine')
+        config.save_local(cfg, self.cfg_path)
+
+        async def go():
+            app = self.app()
+            async with app.run_test() as pilot:
+                await pilot.press('enter')
+                await pilot.pause()
+                self.assertTrue(app.screen.query('Checklist'))
+                await pilot.press('q')
+                await pilot.pause()
+                self.assertFalse(app.screen.query('Checklist'))
+                self.assertTrue(app.is_running)
+                await pilot.press('q')
+                await pilot.pause()
+                self.assertFalse(app.is_running)
+        self.drive(go())
+
+    def test_q_quits_initial_setup_without_requiring_a_profile(self):
+        async def go():
+            app = self.app()
+            async with app.run_test() as pilot:
+                await pilot.press('q')
+                await pilot.pause()
+                self.assertFalse(app.is_running)
+        self.drive(go())
+
     def test_default_run_opens_progress_and_cleans_plan_on_return(self):
         from vj.progress import RunScreen
         cfg = config.load_local(self.cfg_path)
@@ -478,7 +507,7 @@ class UiTests(Tmp):
                         break
                 self.assertEqual(screen.returncode, 0)
                 self.assertTrue(plan.exists())
-                await pilot.press('escape')
+                await pilot.press('q')
                 await pilot.pause()
                 self.assertFalse(isinstance(app.screen, RunScreen))
                 self.assertFalse(plan.exists())

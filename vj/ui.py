@@ -20,7 +20,7 @@ from .progress import RunScreen
 class Checklist(Vertical):
     """Generic checklist submenu. `apply(ticked_ids)` persists the whole selection."""
 
-    BINDINGS = [Binding("escape", "close", "Close"), Binding("a", "all", "All"),
+    BINDINGS = [Binding("q", "close", "Back"), Binding("a", "all", "All"),
                 Binding("n", "none", "None"), Binding("d", "defaults", "Repo defaults"),
                 Binding("slash", "filter", "Filter")]
 
@@ -186,7 +186,7 @@ class OnceChecklist(Checklist):
 class SetupPanel(Vertical):
     """Profile + dotfile set, stacked. Auto-opens until a valid choice is saved."""
 
-    BINDINGS = [Binding("escape", "close", "Close"), Binding("tab", "switch", "Switch box"),
+    BINDINGS = [Binding("q", "close", "Back / quit"), Binding("tab", "switch", "Switch box"),
                 Binding("enter", "done", "Confirm", priority=True)]
 
     def __init__(self, state, host):
@@ -225,6 +225,8 @@ class SetupPanel(Vertical):
     def action_close(self):
         if self.state.ready():  # first run: a profile must be chosen
             self.screen.close_panel()
+        else:
+            self.app.action_quit()
 
 
 class Home(Screen):
@@ -323,7 +325,7 @@ class VjApp(App):
         if isinstance(self.screen, RunScreen) and self.screen.fd is not None:
             self.notify("Maintenance is running. Ctrl+C interrupts it.", severity="warning")
             return
-        super().action_quit()
+        self.exit()
 
     def run_selected(self):
         st = self.state
