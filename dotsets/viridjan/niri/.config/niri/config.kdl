@@ -362,9 +362,7 @@ recent-windows {
     }
 }
 
-// niri IPC helpers, both machines (packages.toml). oniri maximizes a lone
-// window and un-maximizes it when a second opens (--tiling-layout).
-spawn-sh-at-startup "oniri --tiling-layout"
+// niri IPC helpers, both machines (packages.toml).
 spawn-at-startup "niriusd"
 spawn-at-startup "nirinit"
 

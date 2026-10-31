@@ -1,0 +1,17 @@
+{
+  "lockfileVersion": 1,
+  "plugins": {
+    "amdGpuMonitor": {
+      "repo": "https://github.com/navidagz/dms-amd-gpu-monitor",
+      "commit": "430d783232fe00eb4ba046833021353e63c152ed"
+    },
+    "chineseCalendar": {
+      "repo": "https://github.com/xxyangyoulin/dms-plugin-ccal",
+      "commit": "123e4e2a8658cc61a36284a7add94f701e60a3fb"
+    },
+    "dankTranslate": {
+      "repo": "https://github.com/alcxyz/DankTranslate",
+      "commit": "10d88fc770ec54e27da1d7d112bed0b33ce806d7"
+    }
+  }
+}

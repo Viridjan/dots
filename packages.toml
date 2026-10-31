@@ -41,7 +41,6 @@ install = [
     "qt6-multimedia-ffmpeg",
 
     # niri IPC helpers (from awesome-niri; started in config.kdl)
-    "oniri",                       # maximize a workspace's only window
     "nirius",                      # niriusd + focus-or-spawn/scratchpad/follow commands
     "nirinit",                     # save/restore window layout (skip list: dotset nirinit)
     "niri-autoselect-portal-git",  # screencast without picker (dotset xdg-desktop-portal)
@@ -181,6 +180,7 @@ install = [
     "deckcraft-bin",
     "cadcraft-bin",
     "figcraft-bin",
+    "solidcraft-bin",  # parametric 3D CAD (tangency-labs)
 
     # Browsers
     "brave-origin-bin",
@@ -188,6 +188,8 @@ install = [
 
 # Force-removed (pacman -Rdd) before installing — conflict resolution.
 remove = [
+    # oniri: auto-maximized a workspace's lone window; dropped 2026-10-31
+    "oniri",
     # Source builds replaced by their -bin packages (2026-10-25)
     "vectorcraft",
     "gridcraft",
