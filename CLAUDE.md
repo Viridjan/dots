@@ -743,6 +743,9 @@ npm config set prefix ~/.local
 ```
 
 Binaries land in `~/.local/bin/` (already in PATH). Required for `caveman-code` and any other global npm tools installed by `vjupdate`.
+`_ensure_npm_prefix` sets it before any npm install (2026-10-31: the Surface was
+still on the `/usr` default, so `claude-auto-retry` failed EACCES behind hidden output).
+Failed npm/uv installs now print their output tail and put the last line in the recap.
 
 ## Current key values (as of last sync)
 

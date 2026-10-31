@@ -1008,24 +1008,48 @@ _ensure_package_command() {
     fi
 }
 
+# Global npm installs go to ~/.local/bin (already on PATH), not /usr, so they
+# need no sudo. npm's default prefix is /usr, where `npm i -g` fails EACCES.
+_ensure_npm_prefix() {
+    local want="$HOME/.local" cur
+    cur=$(npm config get prefix 2>/dev/null || true)
+    [[ "$cur" == "$want" ]] && return 0
+    if npm config set prefix "$want"; then
+        ok "npm global prefix: $want (was ${cur:-unset})"
+    else
+        _failw npm-prefix "could not set npm global prefix to $want"
+        return 1
+    fi
+}
+
+# Print the tail of a failed installer's output, indented, so the cause is
+# visible live. Callers fold the last line into their _failw message.
+_show_install_error() {
+    [[ -n "$1" ]] || return 0
+    tail -n 8 <<< "$1" | sed 's/^/      /'
+}
+
 # _user_tools TOOL LIST LIST-CALLBACK INSTALL-ARGV...
 _user_tools() {
     local tool="$1" list="$VJ_PLAN_DIR/$2" listing="$3" have pkg; shift 3
     [[ -s "$list" ]] || return 0
     if [[ "$tool" == npm ]]; then
         _ensure_package_command npm npm || return 0
+        _ensure_npm_prefix || return 0
     else
         command -v "$tool" &>/dev/null || { warn "$tool not found — $tool tools skipped"; return 0; }
     fi
     have=$("$listing" 2>/dev/null || true)
+    local out
     while IFS= read -r pkg; do
         [[ -n "$pkg" ]] || continue
         if grep -qxF -- "$pkg" <<< "$have"; then
             ok "already installed: $pkg ($tool)"
-        elif "$@" "$pkg" >/dev/null 2>&1; then
+        elif out=$("$@" "$pkg" 2>&1); then
             ok "installed: $pkg ($tool)"
         else
-            _failw "$tool:$pkg" "failed to install: $pkg ($tool)"
+            _show_install_error "$out"
+            _failw "$tool:$pkg" "failed to install: $pkg ($tool): $(grep . <<< "$out" | tail -n 1)"
         fi
     done < <(_pkg_list "$list")
 }
@@ -1855,11 +1879,17 @@ except (ValueError, TypeError, KeyError, AttributeError):
 # ─── Phase 8b: caveman-code ──────────────────────────────
 setup_caveman_code() {
     _ensure_package_command npm npm || return 0
+    _ensure_npm_prefix || return 0
 
     info "Installing caveman-code..."
-    npm install -g @juliusbrussee/caveman-code 2>/dev/null \
-        && ok "installed: caveman-code" \
-        || { _failw caveman-code "caveman-code npm install failed"; return; }
+    local out
+    if out=$(npm install -g @juliusbrussee/caveman-code 2>&1); then
+        ok "installed: caveman-code"
+    else
+        _show_install_error "$out"
+        _failw caveman-code "caveman-code npm install failed: $(grep . <<< "$out" | tail -n 1)"
+        return
+    fi
 
     local cli
     cli="$(npm root -g 2>/dev/null)/@juliusbrussee/caveman-code/dist/cli.js"

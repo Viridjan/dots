@@ -1371,10 +1371,36 @@ chmod +x "$(dirname "$0")/flatpak"''')
 
     def test_existing_npm_is_used_without_system_install(self):
         self.plan("npm-install.list", "example-tool\n")
-        self.mock("npm", '[[ "$1" == ls ]] && exit 0; echo "npm $*" >> "$CALLS"')
+        self.mock("npm", '[[ "$1" == ls ]] && exit 0; [[ "$*" == "config get prefix" ]] && { echo "$HOME/.local"; exit 0; }; echo "npm $*" >> "$CALLS"')
         r = self.shell('install_user_tools')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(Path(self.env["CALLS"]).read_text(), "npm i -g example-tool\n")
+
+    def test_npm_prefix_moved_to_local_before_installs(self):
+        # npm's default prefix /usr makes `npm i -g` fail EACCES without sudo.
+        self.plan("npm-install.list", "example-tool\n")
+        self.mock("npm", '[[ "$1" == ls ]] && exit 0; [[ "$*" == "config get prefix" ]] && { echo /usr; exit 0; }; echo "npm $*" >> "$CALLS"')
+        r = self.shell('install_user_tools')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        home = self.env["HOME"]
+        self.assertEqual(Path(self.env["CALLS"]).read_text().splitlines(),
+                         [f"npm config set prefix {home}/.local", "npm i -g example-tool"])
+
+    def test_failed_npm_prefix_skips_installs(self):
+        self.plan("npm-install.list", "example-tool\n")
+        self.mock("npm", '[[ "$1" == ls ]] && exit 0; [[ "$*" == "config get prefix" ]] && { echo /usr; exit 0; }; echo "npm $*" >> "$CALLS"; [[ "$1" == config ]] && exit 1; exit 0')
+        r = self.shell('install_user_tools; print_recap')
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("npm-prefix", r.stdout)
+        self.assertNotIn("npm i -g", Path(self.env["CALLS"]).read_text())
+
+    def test_failed_tool_install_shows_error_output(self):
+        self.plan("npm-install.list", "example-tool\n")
+        self.mock("npm", '[[ "$1" == ls ]] && exit 0; [[ "$*" == "config get prefix" ]] && { echo "$HOME/.local"; exit 0; }; echo "npm error code EACCES" >&2; exit 1')
+        r = self.shell('install_user_tools; printf "W:%s\\n" "${WARNINGS[@]}"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("      npm error code EACCES", r.stdout)
+        self.assertIn("W:failed to install: example-tool (npm): npm error code EACCES", r.stdout)
 
     def test_empty_lists_do_not_install_managers(self):
         self.plan("npm-install.list", "")

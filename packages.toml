@@ -124,6 +124,7 @@ install = [
     # Development
     "nodejs-lts-krypton",
     "npm",
+    "uv",  # runs the [uv] tools (graphifyy)
     "git-filter-repo",
     "github-cli",
     "godot",
@@ -188,6 +189,9 @@ install = [
 
 # Force-removed (pacman -Rdd) before installing — conflict resolution.
 remove = [
+    # Plain nodejs conflicts with the listed nodejs-lts-krypton (pacman
+    # --noconfirm declines the swap prompt); the LTS package provides nodejs.
+    "nodejs",
     # oniri: auto-maximized a workspace's lone window; dropped 2026-10-31
     "oniri",
     # Source builds replaced by their -bin packages (2026-10-25)
