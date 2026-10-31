@@ -33,6 +33,8 @@ cd ~/Projects/dots && bash scripts/.local/bin/vjupdate
 
 `vjupdate` does everything:
 - installs the package lists for the machine's profile via paru / flatpak
+- installs missing npm or Flatpak prerequisites when their tools/apps are selected,
+  and configures Flathub before installing Flatpak apps
 - deploys the chosen dotfile set via stow (profile auto-detected from hostname
   until you pick one in `vj`)
 - enables systemd services

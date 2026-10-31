@@ -799,7 +799,6 @@ _upgrade_system() {
 
 install_all() {
     command -v paru    &>/dev/null && ok "already installed: paru"    || die "paru not found — run sources phase first"
-    command -v flatpak &>/dev/null && ok "already installed: flatpak" || warn "flatpak not found — flatpak installs will be skipped"
 
     _upgrade_system "upgraded: system" "Upgrading existing packages..."
 
@@ -834,6 +833,16 @@ install_all() {
         _record "packages" ok
     fi
 
+    # The selected pacman list may omit Flatpak even when apps are selected.
+    # Sources runs before package installation, so configure Flathub here too.
+    if [[ -s "$VJ_PLAN_DIR/flatpak-install.list" ]]; then
+        if _ensure_package_command flatpak flatpak; then
+            flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo \
+                || _failw flathub "failed to configure Flathub"
+        else
+            _pkg_ok=false
+        fi
+    fi
     local _apps
     if command -v flatpak &>/dev/null && ! _apps=$(_pkg_list "$VJ_PLAN_DIR/flatpak-install.list"); then
         _record "flatpak" fail "cannot read flatpak-install.list"
@@ -986,11 +995,28 @@ _import_aur_keys() {
 _npm_have() { npm ls -g --depth=0 --parseable | sed -n 's|.*/node_modules/||p'; }
 _uv_have() { uv tool list | awk '$1 !~ /^-/ {print $1}'; }
 
+# Install a required package manager even when omitted from the selected plan.
+_ensure_package_command() {
+    local tool="$1" package="$2"
+    command -v "$tool" &>/dev/null && return 0
+    info "Installing missing prerequisite: $package..."
+    if sudo pacman -S --needed --noconfirm "$package" && command -v "$tool" &>/dev/null; then
+        ok "installed: $package"
+    else
+        _failw "$tool-prerequisite" "failed to install required command: $tool ($package)"
+        return 1
+    fi
+}
+
 # _user_tools TOOL LIST LIST-CALLBACK INSTALL-ARGV...
 _user_tools() {
     local tool="$1" list="$VJ_PLAN_DIR/$2" listing="$3" have pkg; shift 3
     [[ -s "$list" ]] || return 0
-    command -v "$tool" &>/dev/null || { warn "$tool not found — $tool tools skipped"; return 0; }
+    if [[ "$tool" == npm ]]; then
+        _ensure_package_command npm npm || return 0
+    else
+        command -v "$tool" &>/dev/null || { warn "$tool not found — $tool tools skipped"; return 0; }
+    fi
     have=$("$listing" 2>/dev/null || true)
     while IFS= read -r pkg; do
         [[ -n "$pkg" ]] || continue
@@ -1828,10 +1854,7 @@ except (ValueError, TypeError, KeyError, AttributeError):
 
 # ─── Phase 8b: caveman-code ──────────────────────────────
 setup_caveman_code() {
-    if ! command -v npm &>/dev/null; then
-        warn "npm not found — skipping caveman-code install"
-        return
-    fi
+    _ensure_package_command npm npm || return 0
 
     info "Installing caveman-code..."
     npm install -g @juliusbrussee/caveman-code 2>/dev/null \

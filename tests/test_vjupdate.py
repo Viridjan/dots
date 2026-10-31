@@ -1326,3 +1326,64 @@ class NvidiaNiriTests(FixtureCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MissingManagersTests(FixtureCase):
+    def test_npm_is_installed_before_global_tools(self):
+        self.plan("npm-install.list", "example-tool\n")
+        self.mock("sudo", '''[[ "$*" == "pacman -S --needed --noconfirm npm" ]] || exit 91; cat > "$(dirname "$0")/npm" <<'EOF'
+#!/bin/bash
+[[ "$1" == ls ]] && exit 0
+echo "npm $*" >> "$CALLS"
+EOF
+chmod +x "$(dirname "$0")/npm"''')
+        (self.bin / "chmod").symlink_to("/usr/bin/chmod")
+        r = self.shell('install_user_tools')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        calls = Path(self.env["CALLS"])
+        self.assertTrue(calls.exists(), r.stdout + r.stderr)
+        self.assertIn("npm i -g example-tool", calls.read_text())
+
+    def test_flatpak_is_installed_and_flathub_added_before_apps(self):
+        self.plan("flatpak-install.list", "org.example.App\n")
+        (self.bin / "flatpak").unlink()
+        (self.bin / "chmod").symlink_to("/usr/bin/chmod")
+        self.mock("sudo", '''[[ "$*" == "pacman -S --needed --noconfirm flatpak" ]] || exit 91; cat > "$(dirname "$0")/flatpak" <<'EOF'
+#!/bin/bash
+[[ "$1" == info ]] && exit 1
+echo "flatpak $*" >> "$CALLS"
+EOF
+chmod +x "$(dirname "$0")/flatpak"''')
+        r = self.shell('_upgrade_system() { :; }; _install_list() { :; }; clean_caches() { :; }; install_all')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        calls = Path(self.env["CALLS"])
+        self.assertTrue(calls.exists(), r.stdout + r.stderr)
+        lines = calls.read_text().splitlines()
+        self.assertIn("flatpak install -y flathub org.example.App", lines)
+        self.assertLess(lines.index("flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo"), lines.index("flatpak install -y flathub org.example.App"))
+
+    def test_failed_npm_install_is_recorded_without_running_tools(self):
+        self.plan("npm-install.list", "example-tool\n")
+        self.mock("sudo", "exit 42")
+        r = self.shell('install_user_tools; print_recap')
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("npm-prerequisite", r.stdout)
+
+    def test_existing_npm_is_used_without_system_install(self):
+        self.plan("npm-install.list", "example-tool\n")
+        self.mock("npm", '[[ "$1" == ls ]] && exit 0; echo "npm $*" >> "$CALLS"')
+        r = self.shell('install_user_tools')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(Path(self.env["CALLS"]).read_text(), "npm i -g example-tool\n")
+
+    def test_empty_lists_do_not_install_managers(self):
+        self.plan("npm-install.list", "")
+        r = self.shell('install_user_tools')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse(Path(self.env["CALLS"]).exists())
+
+    def test_caveman_action_attempts_to_install_missing_npm(self):
+        self.mock("sudo", 'echo "sudo $*" >> "$CALLS"; exit 42')
+        r = self.shell('setup_caveman_code; print_recap')
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(Path(self.env["CALLS"]).read_text(), "sudo pacman -S --needed --noconfirm npm\n")
