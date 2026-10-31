@@ -61,8 +61,8 @@ dots/
       DankMaterialShell/ → ~/.config/DankMaterialShell/
       desktop/        → ~/.config/niri/cfg/{display,input,autostart-machine,surface-layout}.kdl (profile desktop; ln, not stow)
       fish/           → ~/.config/fish/  (Arch logo override for fastfetch — see fish_greeting in config.fish;
-                        functions/claude.fish wraps claude in claude-auto-retry: tmux + retry monitor,
-                        npm 0.7.3 because npm 12 blocks git/tarball installs; StopFailure hook in claude/settings.json)
+                        functions/claude.fish launches the Claude binary directly; the old tmux retry wrapper
+                        used POSIX syntax that fish rejected, closing the session with [exited])
       fonts/          → ~/.local/share/fonts/  (user fonts)
       gtk-3.0/ gtk-4.0/ micro/ paru/ qt5ct/ qt6ct/ VSCodium/ → ~/.config/<same>/
       mpd/            → ~/.config/mpd/  (deployed since 2026-10-21; was never in the old stow list)

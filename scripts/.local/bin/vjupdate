@@ -870,6 +870,7 @@ install_all() {
     update_ollama
 
     install_user_tools
+    install_codex
     clean_caches
     # Propagate the package outcome so phase_install (and the exit status)
     # reflect it, rather than reporting whatever clean_caches happened to return.
@@ -1085,10 +1086,16 @@ _stow_niri_cfg() {
     if command -v niri &>/dev/null; then
         local stage out e
         stage=$(mktemp -d) || return 0
-        mkdir -p "$stage/cfg"
+        mkdir -p "$stage/cfg" "$stage/dms"
+        # DMS may not have run yet. Validate with existing generated files,
+        # filling missing includes from the curated repo defaults.
+        for e in "$dst"/dms/*.kdl "$src"/dms/*.kdl; do
+            [[ -f "$e" && ! -e "$stage/dms/${e##*/}" ]] || continue
+            cp "$e" "$stage/dms/${e##*/}"
+        done
         for e in "$dst"/* "$dst"/cfg/*; do
             [[ -e "$e" ]] || continue
-            [[ "$e" == "$dst/cfg" || "$e" == "$dst/config.kdl" ]] && continue
+            [[ "$e" == "$dst/cfg" || "$e" == "$dst/dms" || "$e" == "$dst/config.kdl" ]] && continue
             ln -s "$e" "$stage/${e#"$dst"/}"
         done
         ln -sfn "$src/config.kdl" "$stage/config.kdl"
@@ -1105,6 +1112,14 @@ _stow_niri_cfg() {
         ok "niri config valid"
     fi
 
+    # DMS must own real files, not links into the repo. Preserve generated
+    # files; dms_import applies curated overrides separately.
+    mkdir -p "$dst/dms"
+    local dms_file
+    for dms_file in "$src"/dms/*.kdl; do
+        [[ -f "$dms_file" && ! -e "$dst/dms/${dms_file##*/}" ]] || continue
+        cp "$dms_file" "$dst/dms/${dms_file##*/}"
+    done
     ln -sf "$src/config.kdl" "$dst/config.kdl"
 
     for f in "${files[@]}"; do
@@ -1666,6 +1681,23 @@ _run_pinned_sh() {
     fi
     if ! sh "$tmp"; then rm -f "$tmp"; return 1; fi
     mv -f "$tmp" "$dir/$key"
+}
+
+# Codex is a normal install prerequisite; skill installers remain optional.
+install_codex() {
+    local cli
+    cli=$(command -v codex 2>/dev/null || true)
+    [[ -n "$cli" ]] || cli="$HOME/.local/bin/codex"
+    if [[ -x "$cli" ]] && "$cli" --version >/dev/null 2>&1; then
+        ok "already installed: Codex"
+        return 0
+    fi
+    if _run_pinned_sh https://chatgpt.com/codex/install.sh \
+        && "$HOME/.local/bin/codex" --version >/dev/null 2>&1; then
+        ok "installed: Codex"
+    else
+        _failw codex-install "Codex installer failed or installed command could not run"
+    fi
 }
 
 run_install_scripts() {

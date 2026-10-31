@@ -30,6 +30,7 @@ class FixtureCase(unittest.TestCase):
         for name in ("pacman", "paru", "sudo", "systemctl", "stow", "git",
                      "flatpak", "paccache", "curl", "pacman-key", "makepkg"):
             self.mock(name, 'printf "%s\\n" "$0 $*" >> "$CALLS"; exit 97')
+        self.mock("codex", "exit 0")
         self.env = {**os.environ, "HOME": str(self.home), "PATH": str(self.bin),
                     "HOSTNAME": "desktop", "XDG_STATE_HOME": str(self.home / ".state"),
                     "CALLS": str(self.root / "calls"), "SCRIPT": str(SCRIPT)}
@@ -1413,3 +1414,41 @@ chmod +x "$(dirname "$0")/flatpak"''')
         r = self.shell('setup_caveman_code; print_recap')
         self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(Path(self.env["CALLS"]).read_text(), "sudo pacman -S --needed --noconfirm npm\n")
+
+
+class NiriFreshDeploymentTests(FixtureCase):
+    def test_fresh_surface_deployment_provides_dms_includes_before_validation(self):
+        import shutil
+        niri = shutil.which("niri")
+        if not niri:
+            self.skipTest("niri is required for real configuration validation")
+        (self.bin / "niri").symlink_to(niri)
+        dotset = SCRIPT.parents[3] / "dotsets/viridjan"
+        r = self.shell(f'VJ_DOTSET_DIR={shlex.quote(str(dotset))}; MACHINE=surface; _stow_niri_cfg')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        live = self.home / ".config/niri"
+        self.assertTrue((live / "config.kdl").exists(), r.stdout + r.stderr)
+        self.assertTrue((live / "dms/colors.kdl").is_file())
+        result = subprocess.run([niri, "validate", "-c", str(live / "config.kdl")], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+
+class CodexBootstrapTests(FixtureCase):
+    def test_package_install_runs_codex_standalone_installer(self):
+        (self.bin / "codex").unlink()
+        r = self.shell('''
+_upgrade_system() { :; }
+_install_list() { :; }
+install_user_tools() { :; }
+clean_caches() { :; }
+_run_pinned_sh() {
+    echo "INSTALLER:$1"
+    mkdir -p "$HOME/.local/bin"
+    printf '#!/bin/bash\\necho codex-cli-test\\n' > "$HOME/.local/bin/codex"
+    /usr/bin/chmod +x "$HOME/.local/bin/codex"
+}
+install_all
+''')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("INSTALLER:https://chatgpt.com/codex/install.sh", r.stdout)
+        self.assertTrue((self.home / ".local/bin/codex").is_file())

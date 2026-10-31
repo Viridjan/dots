@@ -115,7 +115,7 @@ install = [
     "whatsie",
     "telegram-desktop",
     "claude-code",
-    "tmux",  # claude-auto-retry runs claude inside tmux
+    "tmux",
     "rofi-ykman-git",
 
     # Chromium (webapp launcher — used by .desktop app shortcuts)
@@ -281,7 +281,6 @@ user = ["psd", "mpd", "vjupdate-check.timer"]
 # Global npm tools (prefix ~/.local, see CLAUDE.md). Installed if missing.
 # caveman-code has its own action (setup_caveman_code), so it is not listed.
 install = [
-    "claude-auto-retry",  # fish `claude` function wraps it; needs tmux
 ]
 
 [uv]

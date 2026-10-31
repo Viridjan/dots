@@ -37,6 +37,7 @@ cd ~/Projects/dots && bash scripts/.local/bin/vjupdate
   and configures Flathub before installing Flatpak apps
 - deploys the chosen dotfile set via stow (profile auto-detected from hostname
   until you pick one in `vj`)
+- installs Codex CLI with the official standalone installer (then run `codex login`)
 - enables systemd services
 - sets up Claude Code plugins
 
@@ -158,18 +159,18 @@ and memory won't load.
 
 When working on dots inside a Claude session, just `cd ~/Projects/dots` from within it.
 
-### Auto-retry
+### Launching Claude
 
-`claude` in fish is a function (`fish/.config/fish/functions/claude.fish`) that
-starts Claude Code through [claude-auto-retry](https://github.com/cheapestinference/claude-auto-retry)
-(npm, `[npm].install`): the session runs inside tmux, and a monitor waits out
-usage limits and API overloads, then types `continue`. A closed terminal
-leaves the session running: `tmux attach`. Its `StopFailure` hook in
-`claude/.claude/settings.json` reports overload errors directly. Without tmux
-or the npm package the function runs plain `claude`. `claude-auto-retry status`
-shows what the monitor did. Installed from npm 0.7.3 (2026-08): npm 12 refuses
-git and tarball sources, and that release predates Claude Code's native
-auto-continue, so after a usage-limit reset both may send `continue`.
+The fish `claude` function launches the Claude Code binary directly and passes
+all arguments through. The former `claude-auto-retry` wrapper built a POSIX shell
+command for tmux that fish rejected (`rc=$?`), causing an immediate `[exited]`.
+Existing fish sessions can reload the fix with:
+
+```fish
+source ~/Projects/dots/dotsets/viridjan/fish/.config/fish/functions/claude.fish
+```
+
+For a one-off direct launch, use `command claude` in fish.
 
 ### Statusline
 
