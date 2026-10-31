@@ -1,3 +1,4 @@
+@flatpak-per-pkg	2
 @pacman-per-pkg	1
 aur:cadcraft	228
 aur:cadcraft-bin	8
@@ -8,12 +9,19 @@ aur:designcraft-bin	14
 aur:dsearch-bin	5
 aur:figcraft	317
 aur:figcraft-bin	10
+aur:graphify-bin	9
 aur:gridcraft	196
 aur:gridcraft-bin	7
+aur:lib32-mpg123	18
+aur:lib32-openal	44
+aur:lib32-portaudio	31
+aur:lib32-sdl2	47
+aur:orca-bambustudio-appimage	18
 aur:pdfcraft	365
 aur:pdfcraft-bin	11
 aur:photocraft	400
 aur:photocraft-bin	14
+aur:surface-control	42
 aur:vectorcraft	454
 aur:vectorcraft-bin	15
 aur:vesktop	24
