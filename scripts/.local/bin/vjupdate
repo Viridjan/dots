@@ -98,6 +98,19 @@ _has_feature() { [[ " ${VJ_FEATURES:-} " == *" $1 "* ]]; }
 _PROTECTED_PKG_RE='^(base|base-devel|linux|linux-[a-z0-9-]+|.*-firmware.*|.*-ucode|limine.*|mkinitcpio.*|systemd|systemd-libs|glibc|pacman|paru|sudo|.*-keyring|cachyos-.*mirrorlist|networkmanager|mesa|lib32-mesa|niri|greetd)$'
 _is_protected() { [[ "$1" =~ $_PROTECTED_PKG_RE ]]; }
 
+# Print installed protected packages that any of the given targets conflicts
+# with. `pacman -Qq` resolves providers on purpose: a conflict may name one.
+_protected_conflicts() {
+    local c owner
+    while IFS= read -r c; do
+        owner=$(pacman -Qq "$c" 2>/dev/null) || continue
+        _is_protected "$owner" && printf '%s ' "$owner"
+    done < <(paru -Si "$@" 2>/dev/null | awk '
+        /^[A-Z]/ { on = /^Conflicts With/; if (on) sub(/^[^:]*:/, "") }
+        on { for (i = 1; i <= NF; i++) if ($i != "None") { sub(/[<>=].*/, "", $i); print $i } }' | sort -u)
+    return 0
+}
+
 # ─── Audit-dependent actions ─────────────────────────────
 # Single source of truth: checklist name → flag variable. Every one of these
 # only sets a flag consumed inside phase_audit, so selecting one must also
@@ -597,9 +610,17 @@ _install_list() {
         # and invalidate the index so retries query partially installed targets.
         # ponytail: one average over the whole call (repo + AUR mixed); AUR
         # builds also get exact per-package spans from _record_build_times.
-        local _t0=$SECONDS install_log
+        local _t0=$SECONDS install_log ask=(--ask=4) blocked
+        # --ask=4 accepts pacman's "X conflicts with Y, remove Y?" so a swap is
+        # one transaction: Y goes only once X has built and installs. Never for
+        # a protected package — then pacman declines and the conflict is reported.
+        blocked=$(_protected_conflicts "${to_install[@]}")
+        if [[ -n "$blocked" ]]; then
+            ask=()
+            warn "not auto-removing protected conflicts: $blocked"
+        fi
         install_log=$(mktemp) || return 1
-        if ! LC_ALL=C _paru -S --needed --noconfirm "${to_install[@]}" 2>&1 | tee "$install_log"; then
+        if ! LC_ALL=C _paru -S --needed --noconfirm "${ask[@]}" "${to_install[@]}" 2>&1 | tee "$install_log"; then
             INSTALL_FAIL_DETAIL=$(_syuu_fail_detail "$install_log")
             if grep -Eq 'unresolvable package conflicts|conflicting dependencies' "$install_log"; then
                 INSTALL_CONFLICT=true
@@ -864,6 +885,18 @@ install_all() {
                 fi
             fi
         done <<< "$_apps"
+        # [flatpak].remove: apps replaced by a package; runs after the paru
+        # install above, so the old app goes only after its replacement exists.
+        if [[ -f "$VJ_PLAN_DIR/flatpak-remove.list" ]] && _apps=$(_pkg_list "$VJ_PLAN_DIR/flatpak-remove.list"); then
+            while IFS= read -r app; do
+                [[ -n "$app" ]] && flatpak info "$app" &>/dev/null || continue
+                if flatpak uninstall -y --noninteractive "$app" &>/dev/null; then
+                    ok "removed: $app"
+                else
+                    _failw "flatpak:$app" "failed to remove: $app"
+                fi
+            done <<< "$_apps"
+        fi
         info "Updating flatpak apps..."
         flatpak update -y &>/dev/null && ok "flatpaks up to date" || _failw flatpak-update "flatpak update failed"
     fi
@@ -1180,6 +1213,9 @@ deploy_dotfiles() {
     # scripts is stowed unfolded: ~/.local/bin must stay a real directory so
     # installers (npm -g, uv, codex, AppImages) write there, not into the repo.
     # Every other package is folded on purpose: app writes should land in git.
+    # Dead links from an old layout (pre-dotsets/) make stow report "not owned"
+    # conflicts, so remove them before stowing, not after.
+    _prune_dead_links
     _deploy_pkg --restow --no-folding -t "$HOME" scripts scripts || true
 
     # Root-target packages (-t /, not ~HOME):
@@ -1224,7 +1260,6 @@ deploy_dotfiles() {
         done < <([[ -f "$VJ_PLAN_DIR/stow.list" ]] && cat "$VJ_PLAN_DIR/stow.list")
         _unstow_unticked
     fi
-    _prune_dead_links
 
     for _pkg in "${_stowed[@]}"; do ok "stowed: $_pkg"; done
     if [[ ${#_conflicts[@]} -gt 0 ]]; then
@@ -1771,6 +1806,10 @@ update_ollama() {
 
 # ─── Phase 7f: VM setup ──────────────────────────────────
 setup_vms() {
+    if ! _has_feature windows-vm; then
+        warn "VM setup skipped on ${MACHINE:-this profile} (no windows-vm feature)"
+        return 0
+    fi
     if ! command -v docker &>/dev/null; then
         warn "docker not found — skipping VM setup"
         return
@@ -2266,8 +2305,9 @@ check_pacnew() {
     fi
     pacdiff -o || true
     $AUDIT_PACNEW || return 0
-    # pacdiff prompts per file and opens $DIFFPROG (default 'vim -d'), so it
-    # needs a terminal — a --yes run would block on stdin forever.
+    # pacdiff prompts per file and opens $DIFFPROG (here micro: both files as
+    # tabs, no diff view — use 'd' to see the diff first), so it needs a
+    # terminal — a --yes run would block on stdin forever.
     if ! $INTERACTIVE; then
         warn "pacnew merge skipped — needs a terminal, run: vjupdate --pacnew"
         return
@@ -2276,7 +2316,7 @@ check_pacnew() {
     # -b: overwrites keep a .bak, since most of these configs are hand-tuned
     #     (pacman.conf's cachyos repos, rate-mirrors lists, locale.gen).
     info "Merging pacnew files (per file: v=view d=diff s=skip r=remove o=overwrite q=quit)"
-    pacdiff -s -b || true
+    DIFFPROG="${DIFFPROG:-micro}" pacdiff -s -b || true
     ok "pacnew merge done"
 }
 

@@ -16,3 +16,7 @@ install = [
     "lib32-nvidia-utils",  # Steam / 32-bit games
     "egl-wayland",         # Wayland EGL on NVIDIA (niri)
 ]
+
+[systemd]
+# limine-snapper-sync: limine machines only (the Surface boots via GRUB)
+enable = ["limine-snapper-sync.service"]

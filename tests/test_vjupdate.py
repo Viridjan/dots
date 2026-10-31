@@ -53,6 +53,9 @@ class FixtureCase(unittest.TestCase):
         f = self.bin / name
         if f.is_symlink():
             f.unlink()
+        # paru -Si (conflict lookup) answers nothing; a body starting "#si" handles it itself.
+        if name == "paru" and not body.startswith("#si"):
+            body = '[ "$1" = -Si ] && exit 0\n' + body
         f.write_text("#!/bin/bash\n" + body + "\n")
         f.chmod(0o755)
 
@@ -816,7 +819,7 @@ echo 'safe-pkg 1-1 -> 2-1'
         self.mock("paru", 'printf "%s\\n" "$*" >> "$CALLS"')
         r = self.shell('_install_list "$VJ_PLAN_DIR/packages.list"')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertEqual(self.calls(), ["-S --needed --noconfirm vectorcraft-bin"])
+        self.assertEqual(self.calls(), ["-S --needed --noconfirm --ask=4 vectorcraft-bin"])
         Path(self.env["CALLS"]).unlink()
         self.mock("hostname", 'echo desktop')
         before = sorted(str(p.relative_to(self.home)) for p in self.home.rglob("*"))
@@ -858,7 +861,7 @@ fi
         r = self.shell('if _install_list "$DOTS_DIR/packages.list"; then exit 99; fi; _install_list "$DOTS_DIR/packages.list"')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(Path(self.env["CALLS"]).read_text().splitlines(),
-                         ["-S --needed --noconfirm first second", "-S --needed --noconfirm second"])
+                         ["-S --needed --noconfirm --ask=4 first second", "-S --needed --noconfirm --ask=4 second"])
 
     def test_installer_cannot_consume_next_command(self):
         (self.repo() / ".install-scripts.list").write_text(
@@ -1048,8 +1051,31 @@ class RunPlanTests(FixtureCase):
                        'MACHINE=desktop; install_all')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         calls = Path(self.env["CALLS"]).read_text()
-        self.assertIn("paru -S --needed --noconfirm fish", calls)
+        self.assertIn("paru -S --needed --noconfirm --ask=4 fish", calls)
         self.assertNotIn("skipped", calls.replace("skipped (skip list)", ""))
+
+    def test_protected_conflict_disables_auto_removal(self):
+        self.plan("paru-install.list", "newkernel\nfish\n")
+        self.mock("pacman", '[ "$1 $2" = "-Qq linux" ] && echo linux && exit 0\nexit 0')
+        self.mock("paru", '#si\nif [ "$1" = -Si ]; then printf "Name : newkernel\\nConflicts With  : linux>=6  None\\nMaintainer : x\\n"; exit 0; fi\n'
+                          'printf "%s\\n" "paru $*" >> "$CALLS"; exit 0')
+        r = self.shell('_install_list "$VJ_PLAN_DIR/paru-install.list"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("not auto-removing protected conflicts: linux", r.stdout + r.stderr)
+        self.assertIn("paru -S --needed --noconfirm newkernel fish", Path(self.env["CALLS"]).read_text())
+
+    def test_flatpak_remove_list_uninstalls_installed_apps(self):
+        self.plan("paru-install.list", "")
+        self.plan("paru-remove.list", "")
+        self.plan("flatpak-install.list", "")
+        self.plan("flatpak-remove.list", "old.App\nabsent.App\n")
+        self.mock("pacman", 'exit 0')
+        self.mock("flatpak", 'echo "flatpak $*" >> "$CALLS"\n[ "$1 $2" = "info absent.App" ] && exit 1\nexit 0')
+        r = self.shell('_syuu() { return 0; }\n_estimate_aur_builds() { :; }\nclean_caches() { :; }\nupdate_ollama() { :; }\n'
+                       'MACHINE=desktop; install_all')
+        calls = Path(self.env["CALLS"]).read_text()
+        self.assertIn("flatpak uninstall -y --noninteractive old.App", calls, r.stdout + r.stderr)
+        self.assertNotIn("uninstall -y --noninteractive absent.App", calls)
 
 
     def test_update_removes_only_installed_conflicts_and_demotes(self):
@@ -1134,6 +1160,21 @@ class DotsetTests(FixtureCase):
         self.assertIn(f"{repo} --restow --no-folding -t {self.home} scripts", calls)
         self.assertIn(f"{dotset} --restow -t {self.home} alpha", calls)
         self.assertFalse(any("beta" in c for c in calls), calls)
+
+    def test_dead_links_are_pruned_before_stow(self):
+        # Stale links from the pre-dotsets layout made stow fail with "not owned".
+        repo, dotset = self.setup_set()
+        for name in ("find", "readlink", "realpath"):
+            (self.bin / name).symlink_to(Path("/usr/bin") / name)
+        (self.home / ".config").mkdir(exist_ok=True)
+        dead = self.home / ".config/gtk-4.0"
+        dead.symlink_to(repo / "gtk-4.0/.config/gtk-4.0")
+        self.mock("stow", f'[ -L {shlex.quote(str(dead))} ] && echo STALE >> "$CALLS"; :')
+        r = self.shell(f'git() {{ :; }}\nVJ_DOTSET_DIR={shlex.quote(str(dotset))}\ndeploy_dotfiles')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        calls = Path(self.env["CALLS"])
+        self.assertFalse(calls.exists() and "STALE" in calls.read_text(), r.stdout)
+        self.assertFalse(dead.is_symlink())
 
     def test_dotset_none_links_only_scripts(self):
         repo, _ = self.setup_set()
@@ -1322,6 +1363,20 @@ class NvidiaNiriTests(FixtureCase):
         r = self.shell('VJ_FEATURES="amd-gpu-tuning"; _act nvidia-niri setup_nvidia_niri; printf "%s\\n" "${_RESULT_STATES[@]}"')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertFalse(Path(self.env["CALLS"]).exists())
+        self.assertTrue(r.stdout.strip().endswith("skip"), r.stdout)
+
+
+class VmSetupFeatureTests(FixtureCase):
+    """setup_vms must not touch /mnt/data on profiles without windows-vm."""
+
+    def test_skips_without_feature(self):
+        self.mock("docker", 'printf "%s\\n" "docker $*" >> "$CALLS"; exit 0')
+        self.mock("mkdir", 'printf "%s\\n" "mkdir $*" >> "$CALLS"; exit 0')
+        r = self.shell('VJ_FEATURES="linux-surface"; _act vms setup_vms; printf "%s\\n" "${_RESULT_STATES[@]}"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        calls = Path(self.env["CALLS"]).read_text() if Path(self.env["CALLS"]).exists() else ""
+        self.assertNotIn("/mnt/data", calls)
+        self.assertNotIn("docker", calls)
         self.assertTrue(r.stdout.strip().endswith("skip"), r.stdout)
 
 

@@ -23,4 +23,5 @@ install = [
 ]
 
 [systemd]
-enable = ["ollama"]
+# limine-snapper-sync: limine machines only (the Surface boots via GRUB)
+enable = ["ollama", "limine-snapper-sync.service"]

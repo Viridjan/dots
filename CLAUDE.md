@@ -110,7 +110,11 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
   force-removed (`pacman -Rdd`, conflict swaps); local `x` marks go to
   `paru-demote.list`: `pacman -D --asdeps`, then removed only if nothing needs
   them (`-Rns`), else kept with a "still required by" warning. Package swaps
-  therefore belong in the repo list. `_PROTECTED_PKG_RE` (kernels, firmware,
+  therefore belong in the repo list. Direct conflicts need no list: `_install_list`
+  passes `--ask=4`, so pacman removes the conflicting package in the same
+  transaction, after the new one built (2026-11-01). Skipped, with a warning,
+  when `_protected_conflicts` (`paru -Si` "Conflicts With") hits a protected
+  package. `[flatpak].remove` → `flatpak-remove.list`, uninstalled after installs. `_PROTECTED_PKG_RE` (kernels, firmware,
   ucode, limine, base, glibc, pacman, keyrings…) is never removed by any path.
 - **Other plan lists:** `systemd-enable.list`/`systemd-user.list` (`[systemd]
   enable/user`), `npm-install.list` (`[npm]`), `uv-install.list` (`[uv]`) —

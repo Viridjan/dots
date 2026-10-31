@@ -26,6 +26,7 @@ def resolve(repo: Repo, cfg: dict) -> dict:
     # to dependencies, so anything still required stays (pacman -D --asdeps).
     out["paru_remove"] = _uniq(pk.get("paru", {}).get("remove", []))
     out["paru_demote"] = _uniq(cfg["paru"]["remove"])
+    out["flatpak_remove"] = _uniq(pk.get("flatpak", {}).get("remove", []))
     out["ignore"] = _uniq(cfg["ignored"]["paru"] + cfg["ignored"]["flatpak"])
     out["paru_hold"] = list(pk.get("paru", {}).get("hold", []))
     out["paru_skip"] = list(skip)
@@ -93,7 +94,7 @@ def write_plan(repo: Repo, cfg: dict, outdir: Path, stow_selected=None, repos_se
         "paru-demote.list": r["paru_demote"], "ignore.list": r["ignore"],
         "systemd-enable.list": r["systemd_enable"], "systemd-user.list": r["systemd_user"],
         "npm-install.list": r["npm_install"], "uv-install.list": r["uv_install"],
-        "flatpak-install.list": r["flatpak_install"],
+        "flatpak-install.list": r["flatpak_install"], "flatpak-remove.list": r["flatpak_remove"],
         "projects.list": [p["url"] for p in projects], "stow.list": stow,
     }
     for name, items in files.items():

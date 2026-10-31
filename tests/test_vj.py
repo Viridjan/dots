@@ -23,7 +23,7 @@ def fixture_repo(root: Path) -> Path:
     (d / "profiles").mkdir(parents=True)
     (d / "packages.toml").write_text(
         '[paru]\ninstall = ["fish", "git", "steam"]\nremove = ["wine"]\nhold = ["vectorcraft"]\nskip = ["git"]\n'
-        '[flatpak]\ninstall = ["com.spotify.Client"]\n'
+        '[flatpak]\ninstall = ["com.spotify.Client"]\nremove = ["org.old.App"]\n'
         '[systemd]\nenable = ["cups", "bluetooth"]\nuser = ["mpd"]\n[npm]\ninstall = ["@x/dsh"]\n[uv]\ninstall = ["graphifyy"]\n')
     (d / "profiles/desktop.toml").write_text(
         'description = "Tower"\nhostname = "desktop"\ndotset = "mine"\nfeatures = ["amd-gpu-tuning"]\n'
@@ -172,6 +172,7 @@ class ResolveTests(Tmp):
         read = lambda n: (out / n).read_text().split()
         self.assertEqual(read("paru-install.list"), ["fish", "steam", "vulkan-radeon"])
         self.assertEqual(read("paru-remove.list"), ["wine"])
+        self.assertEqual(read("flatpak-remove.list"), ["org.old.App"])
         self.assertEqual(read("projects.list"), ["git@x:dots.git"])
         self.assertEqual(read("stow.list"), ["alacritty", "fish"])
         self.assertEqual(read("systemd-enable.list"), ["cups", "bluetooth", "ollama"])
@@ -284,7 +285,7 @@ class StateTests(Tmp):
         self.assertIn("install 3 packages", pk)
         self.assertNotIn("steam", pk)
         self.assertIn("desktop · mine", st.recap("settings"))
-        self.assertIn("14 never run", st.recap("once"))
+        self.assertIn("13 never run", st.recap("once"))
 
     def test_feature_gated_once_task_shows_only_with_feature(self):
         st = self.ready()
@@ -294,7 +295,14 @@ class StateTests(Tmp):
         st = self.ready()
         self.assertIn("nvidia-niri", [i for i, _, _ in st.items("once")])
         self.assertFalse(dict((i, d) for i, _, d in st.items("once"))["nvidia-niri"])  # unticked by default
-        self.assertIn("15 never run", st.recap("once"))
+        self.assertIn("14 never run", st.recap("once"))
+
+    def test_vms_task_needs_windows_vm_feature(self):
+        st = self.ready()
+        self.assertNotIn("vms", [i for i, _, _ in st.items("once")])
+        prof = self.dots / "profiles/desktop.toml"
+        prof.write_text(prof.read_text().replace('["amd-gpu-tuning"]', '["amd-gpu-tuning", "windows-vm"]'))
+        self.assertIn("vms", [i for i, _, _ in self.ready().items("once")])
 
     def test_run_ids_follow_ticks_and_remember_last(self):
         st = self.ready()
@@ -318,7 +326,7 @@ class StateTests(Tmp):
         st.mark_once("fish", "done", today=datetime.date(2026, 1, 2))
         self.assertEqual(config.load_local(self.cfg_path)["once"],
                          {"snapper": "skip", "fish": datetime.date(2026, 1, 2)})
-        self.assertIn("12 never run", st.recap("once"))
+        self.assertIn("11 never run", st.recap("once"))
 
     def test_local_add_and_remove(self):
         st = self.ready()

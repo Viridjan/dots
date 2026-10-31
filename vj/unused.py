@@ -105,7 +105,7 @@ def report(plan: Path, days: int, now: float | None = None, installed=None, seen
     now = time.time() if now is None else now
     listed = set()
     for name in ("known-packages.list", "paru-install.list", "paru-skip.list", "paru-remove.list", "paru-demote.list",
-                 "flatpak-install.list", "ignore.list"):
+                 "flatpak-install.list", "flatpak-remove.list", "ignore.list"):
         try:
             listed |= set((plan / name).read_text().split())
         except OSError:

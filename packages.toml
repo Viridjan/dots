@@ -53,7 +53,8 @@ install = [
     "fisher",
     "cups",
     "cups-pk-helper",
-    "micro",
+    "micro",  # the editor; vim is in [paru].remove
+    "zsh",    # explicit: removing cachyos-zsh-config would orphan it (Claude Code's shell)
     "tree",
     "bitwarden",
     "stow",
@@ -79,7 +80,7 @@ install = [
 
     # Display manager
     "dux-shell",  # DMS renamed by CachyOS 2026-10-30; still ships dms + dms.service
-    "greetd-dms-greeter-git",
+    "dux-greeter-git",  # Dux rename of the greeter; still ships dms-greeter (install/sync/--command)
 
     # Btrfs snapshots
     "snapper",
@@ -187,8 +188,18 @@ install = [
     "brave-origin-bin",
 ]
 
-# Force-removed (pacman -Rdd) before installing — conflict resolution.
+# Force-removed (pacman -Rdd) before installing. Usually unneeded now: a
+# listed package that conflicts with an installed one replaces it in the same
+# transaction (paru --ask=4), and nothing is removed if the build fails. List
+# here only what must go first (e.g. tlp) or has no direct conflict.
 remove = [
+    # tlp: power-profiles-daemon.service has Conflicts=tlp.service (2026-11-01)
+    "tlp",
+    "tlp-rdw",
+    # vim → micro (2026-11-01). cachyos-zsh-config requires vim; zsh stays plain.
+    "vim",
+    "vim-runtime",
+    "cachyos-zsh-config",
     # Plain nodejs conflicts with the listed nodejs-lts-krypton (pacman
     # --noconfirm declines the swap prompt); the LTS package provides nodejs.
     "nodejs",
@@ -263,6 +274,9 @@ install = [
     "io.github.shiiion.primehack",
     "org.DolphinEmu.dolphin-emu",
 ]
+# Uninstalled after installs finish, so an app replaced by a package (or a
+# renamed app ID) goes only once its replacement is installed.
+remove = []
 
 [systemd]
 # Enabled (systemctl enable --now). Dropping a unit from these lists disables
@@ -270,7 +284,7 @@ install = [
 enable = [
     "NetworkManager", "bluetooth", "cups", "bpftune", "ananicy-cpp",
     "dmemcg-booster-system", "systemd-oomd", "power-profiles-daemon",
-    "snapper-timeline.timer", "snapper-cleanup.timer", "limine-snapper-sync.service",
+    "snapper-timeline.timer", "snapper-cleanup.timer",
     "greetd", "docker",
 ]
 # User units (systemctl --user). vjupdate-check.timer: weekly report-only

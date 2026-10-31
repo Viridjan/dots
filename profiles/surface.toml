@@ -30,9 +30,7 @@ install = [
     # Surface Pen (Wacom protocol)
     "libwacom",
 
-    # Power management
-    "tlp",
-    "tlp-rdw",
+    # Power management (power-profiles-daemon, shared list, conflicts with tlp)
     "thermald",
 
     # Backlight control (niri keybinds)
@@ -49,4 +47,5 @@ install = [
 ]
 
 [systemd]
-enable = ["iptsd", "tlp", "iio-sensor-proxy", "thermald"]
+# iptsd is a template (iptsd@<dev>) started by udev; nothing to enable.
+enable = ["iio-sensor-proxy", "thermald"]

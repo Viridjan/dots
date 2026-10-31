@@ -40,7 +40,7 @@ ONCE = [
     ("vms", "Prepare Windows virtual machine"),
 ]
 # One-time tasks shown only when the profile has this feature.
-ONCE_FEATURE = {"nvidia-niri": "nvidia"}
+ONCE_FEATURE = {"nvidia-niri": "nvidia", "vms": "windows-vm"}
 DMS = [
     ("dms-import", "Apply repository DMS settings"),
     ("dms-export", "Save live DMS settings to repository"),
