@@ -1300,5 +1300,29 @@ esac''')
         self.assertNotIn("Demoting", r.stdout)
 
 
+class NvidiaNiriTests(FixtureCase):
+    """One-time niri VRAM fix: written via sudo only on profiles with the nvidia feature."""
+
+    def setUp(self):
+        super().setUp()
+        self.mock("sudo", 'printf "%s\\n" "sudo $*" >> "$CALLS"; [[ "$1" == tee ]] && cat > "$CALLS.tee"; exit 0')
+
+    def test_writes_profile_with_feature(self):
+        r = self.shell('VJ_FEATURES="nvidia"; _act nvidia-niri setup_nvidia_niri; printf "%s\\n" "${_RESULT_STATES[@]}"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        calls = Path(self.env["CALLS"]).read_text()
+        self.assertIn("sudo tee /etc/nvidia/nvidia-application-profiles-rc.d/", calls)
+        written = Path(self.env["CALLS"] + ".tee").read_text()
+        self.assertIn('"GLVidHeapReuseRatio", "value": 0', written)
+        self.assertIn('"matches": "niri"', written)
+        self.assertTrue(r.stdout.strip().endswith("ok"), r.stdout)
+
+    def test_skips_without_feature(self):
+        r = self.shell('VJ_FEATURES="amd-gpu-tuning"; _act nvidia-niri setup_nvidia_niri; printf "%s\\n" "${_RESULT_STATES[@]}"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse(Path(self.env["CALLS"]).exists())
+        self.assertTrue(r.stdout.strip().endswith("skip"), r.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()

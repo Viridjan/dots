@@ -1,0 +1,18 @@
+description = "Tower — Ryzen 9 7900X, RTX 4070 SUPER (+ Raphael iGPU)"
+# Substring of the hostname (case-sensitive); preselected on first run and used by `vjupdate` without a config.
+hostname = "Plancia"
+# Default dotfile set (dotsets/<name>/); each machine may pick another.
+dotset = "viridjan"
+# Behaviour switches read by vjupdate (_has_feature). No amd-gpu-tuning (AMD is
+# only the iGPU) and no ollama-model (the desktop's ollama-rocm doesn't fit NVIDIA).
+# nvidia: enables the one-time "nvidia-niri" action (niri VRAM fix), unticked by default.
+features = ["desktop-services", "cpu-performance", "nvidia"]
+
+[paru]
+install = [
+    # NVIDIA userspace. The driver/kernel module comes from CachyOS chwd at
+    # install time; listing another flavour here could conflict with it.
+    "nvidia-utils",
+    "lib32-nvidia-utils",  # Steam / 32-bit games
+    "egl-wayland",         # Wayland EGL on NVIDIA (niri)
+]

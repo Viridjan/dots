@@ -1,0 +1,7 @@
+// Plancia-PC: empty xkb = niri takes the system keymap (localectl set-x11-keymap).
+input {
+	keyboard {
+		xkb {}
+		numlock
+	}
+}

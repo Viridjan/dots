@@ -286,6 +286,16 @@ class StateTests(Tmp):
         self.assertIn("desktop · mine", st.recap("settings"))
         self.assertIn("14 never run", st.recap("once"))
 
+    def test_feature_gated_once_task_shows_only_with_feature(self):
+        st = self.ready()
+        self.assertNotIn("nvidia-niri", [i for i, _, _ in st.items("once")])
+        prof = self.dots / "profiles/desktop.toml"
+        prof.write_text(prof.read_text().replace('["amd-gpu-tuning"]', '["amd-gpu-tuning", "nvidia"]'))
+        st = self.ready()
+        self.assertIn("nvidia-niri", [i for i, _, _ in st.items("once")])
+        self.assertFalse(dict((i, d) for i, _, d in st.items("once"))["nvidia-niri"])  # unticked by default
+        self.assertIn("15 never run", st.recap("once"))
+
     def test_run_ids_follow_ticks_and_remember_last(self):
         st = self.ready()
         st.set_ticks("maint", ["sources", "install"])

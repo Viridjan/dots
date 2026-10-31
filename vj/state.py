@@ -30,6 +30,7 @@ ONCE = [
     ("keyboard", "Configure keyboard layout"),
     ("greeter", "Configure login screen"),
     ("keyring-pam", "Configure login keyring"),
+    ("nvidia-niri", "Apply niri NVIDIA VRAM fix"),
     ("install-scripts", "Run custom installers"),
     ("fish", "Configure fish and tide"),
     ("claude", "Install Claude Code plugins"),
@@ -38,6 +39,8 @@ ONCE = [
     ("ollama", "Download Ollama model"),
     ("vms", "Prepare Windows virtual machine"),
 ]
+# One-time tasks shown only when the profile has this feature.
+ONCE_FEATURE = {"nvidia-niri": "nvidia"}
 DMS = [
     ("dms-import", "Apply repository DMS settings"),
     ("dms-export", "Save live DMS settings to repository"),
@@ -98,7 +101,7 @@ class State:
         if key == "maint":
             return MAINT
         if key == "once":
-            return [(i, f"{label:<34}[dim]{self.once_status(i)}[/dim]", False) for i, label in ONCE]
+            return [(i, f"{label:<34}[dim]{self.once_status(i)}[/dim]", False) for i, label in self.once_tasks()]
         if key == "dms":
             return [(i, label, False) for i, label in DMS]
         if key == "repos":
@@ -215,6 +218,10 @@ class State:
             done.append(name)
 
     # ── one-time tasks ──
+    def once_tasks(self):
+        have = set(resolve.features(self.repo, self.cfg))
+        return [(i, label) for i, label in ONCE if ONCE_FEATURE.get(i) in (None, *have)]
+
     def once_status(self, i):
         v = self.cfg["once"].get(i)
         return "never run" if v is None else "skipped" if v == "skip" else f"done {v}"
@@ -269,7 +276,7 @@ class State:
             total = len(self.items("dotfiles"))
             return f"link {len(self.ticked('dotfiles'))} of {total} from {self.cfg['dotset']}"
         if key == "once":
-            never = sum(1 for i, _ in ONCE if i not in self.cfg["once"])
+            never = sum(1 for i, _ in self.once_tasks() if i not in self.cfg["once"])
             n = len(self.ticked("once"))
             return (f"run {n} · " if n else "") + (f"[#ffd75f]{never} never run[/]" if never else "all done")
         if key == "dms":

@@ -1392,6 +1392,34 @@ setup_keyring_pam() {
         || _failw keyring-pam "keyring PAM: failed — add manually to /etc/pam.d/greetd"
 }
 
+# ─── NVIDIA: niri VRAM fix (niri wiki, "Nvidia") ─────────
+# The driver keeps a large free-buffer pool per GL process, so niri holds
+# ~1 GiB of VRAM instead of ~100 MiB. One-time action; applies when niri restarts.
+setup_nvidia_niri() {
+    local f=/etc/nvidia/nvidia-application-profiles-rc.d/50-limit-free-buffer-pool-in-wayland-compositors.json json
+    if ! _has_feature nvidia; then
+        warn "NVIDIA niri fix skipped on ${MACHINE:-this profile} (no nvidia feature)"
+        return 0
+    fi
+    json='{
+    "rules": [
+        { "pattern": { "feature": "procname", "matches": "niri" },
+          "profile": "Limit Free Buffer Pool On Wayland Compositors" }
+    ],
+    "profiles": [
+        { "name": "Limit Free Buffer Pool On Wayland Compositors",
+          "settings": [ { "key": "GLVidHeapReuseRatio", "value": 0 } ] }
+    ]
+}'
+    if [[ "$(cat "$f" 2>/dev/null)" == "$json" ]]; then
+        ok "already configured: NVIDIA niri VRAM fix"
+        return 0
+    fi
+    sudo mkdir -p "${f%/*}" && printf '%s\n' "$json" | sudo tee "$f" >/dev/null \
+        && ok "configured: NVIDIA niri VRAM fix ($f) — log out and back in to apply" \
+        || _failw nvidia-niri "NVIDIA niri fix: failed to write $f"
+}
+
 # ─── Phase 7e: System optimisations ──────────────────────
 # Idempotent CachyOS/Arch tuning — mirrors README §"System optimisations".
 # Safe to re-run; each step checks current state and skips if already applied.
@@ -2388,7 +2416,7 @@ phase_sources() {
 phase_install()  { install_all; }
 phase_dotfiles() { deploy_dotfiles; dms_import; }
 # Action IDs for --actions (vj's MAINT list uses the same IDs; fish completion reads this line).
-MENU_ORDER=(sources install services snapper automount optimize keyboard kernels greeter keyring-pam install-scripts fish dms-plugins dms-export claude caveman-code ollama vms steam-launchers app-launchers dotfiles-export stow-symlinks dms-import audit orphan-removal rebuild python-rebuild pacnew-merge manual-steps)
+MENU_ORDER=(sources install services snapper automount optimize keyboard kernels greeter keyring-pam nvidia-niri install-scripts fish dms-plugins dms-export claude caveman-code ollama vms steam-launchers app-launchers dotfiles-export stow-symlinks dms-import audit orphan-removal rebuild python-rebuild pacnew-merge manual-steps)
 
 # Accept stable IDs; keep legacy programmatic selection payloads compatible.
 _selected_action() {
@@ -2498,6 +2526,7 @@ phase_configure() {
     _sel "kernels"         && _act kernels manage_kernels
     _sel "greeter"         && _act greeter setup_greeter
     _sel "keyring-pam"     && _act keyring-pam setup_keyring_pam
+    _sel "nvidia-niri"     && _act nvidia-niri setup_nvidia_niri
     _sel "install-scripts" && _act install-scripts run_install_scripts
     _sel "fish"            && _act fish setup_fish
     _sel "dms-plugins"     && _act dms-plugins install_dms_plugins

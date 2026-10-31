@@ -1,0 +1,4 @@
+// Plancia-PC: infrastructure only; add personal apps here.
+spawn-at-startup "/usr/lib/polkit-kde-authentication-agent-1"
+spawn-sh-at-startup "wl-paste --watch cliphist store"
+spawn-at-startup "udiskie"

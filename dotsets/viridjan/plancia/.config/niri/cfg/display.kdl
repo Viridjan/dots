@@ -1,0 +1,3 @@
+// Plancia-PC: one 27" 2560x1440@60 monitor. No output block: niri uses its
+// native mode. To pin mode/position, run `niri msg outputs` and add
+// output "<name>" { mode "2560x1440@60"; } here (the only output source).

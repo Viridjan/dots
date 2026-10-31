@@ -70,6 +70,8 @@ dots/
       niri/           → ~/.config/niri/  (file-level links, see below)
       spotify-player/ → ~/.config/spotify-player/  (app.toml + keymap.toml)
       surface/        → same files as desktop/, for profile surface
+      plancia/        → same files, for profile plancia (Plancia-PC: 7900X + RTX 4070 SUPER; no output
+                        block, empty xkb = system keymap, infra-only autostart; 2026-10-31)
       systemd-user/   → ~/.config/systemd/user/  (vjupdate-check.timer: weekly report-only --check)
       vesktop/        → ~/.config/vesktop/  (settings.json + settings/)
       cave/           → ~/.cave/  (Cave AI agent config + ollama extension)
@@ -144,7 +146,10 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
   remaining count via `vj unused`.
 - **Features** replace every old `MACHINE == desktop|surface` check:
   `linux-surface`, `desktop-services`, `cpu-performance`, `amd-gpu-tuning`,
-  `ollama-model`, `windows-vm`. New machine-dependent behaviour → new feature
+  `ollama-model`, `windows-vm`, `nvidia` (plancia: shows the one-time
+  `nvidia-niri` action — niri wiki's GLVidHeapReuseRatio=0 app profile in
+  `/etc/nvidia/nvidia-application-profiles-rc.d/`; vj hides one-time tasks whose
+  `ONCE_FEATURE` the profile lacks). New machine-dependent behaviour → new feature
   name in the profile + `_has_feature <name>` in vjupdate.
 - **Stow** deploys `stow.list` (vj's Dotfiles ticks, default every package in
   the set) from `VJ_DOTSET_DIR`; `scripts` always from the repo root. Dotset
@@ -183,7 +188,7 @@ EOF
 
 `claude` may need `vjupdate --adopt` on a fresh machine (absorbs existing real files, backing them up first).
 
-`desktop/` and `surface/` inside a set are not stow packages: `_stow_niri_cfg` links the files of the dir named after the active profile.
+`desktop/`, `surface/` and `plancia/` inside a set are not stow packages: `_stow_niri_cfg` links the files of the dir named after the active profile.
 
 ## Niri config structure
 
