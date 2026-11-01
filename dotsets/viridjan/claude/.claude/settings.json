@@ -57,5 +57,10 @@
       "**Org-specific CLIs**: None configured — routine project tooling: `vjupdate`, `stow`, `paru`, `pacman`, `claude-science`, `shellcheck`, `checkrebuild`",
       "routine under ~/Projects/dots/ prefix: stow, vjupdate, and package-list edits are routine maintenance for this repo"
     ]
+  },
+  "modelSettings": {
+    "claude-opus-5-5": {
+      "autoCompactWindow": 400000
+    }
   }
 }

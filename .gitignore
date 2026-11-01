@@ -98,3 +98,8 @@ dotsets/*/fish/.config/fish/themes/
 # micro: per-file cursor positions and autosave backups
 dotsets/*/micro/.config/micro/backups/
 dotsets/*/micro/.config/micro/buffers/
+
+# /graphify scratch files (per-run chunks and intermediate state); the graph,
+# report and cache stay tracked.
+graphify-out/.graphify_*
+graphify-out/.chunks_dispatch.json
