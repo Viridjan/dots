@@ -1,1 +1,0 @@
-- [Surface catch-up](surface-post-reboot-steps.md) — only surface-sync.sh edits still open (2026-11-01)

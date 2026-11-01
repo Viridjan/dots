@@ -89,7 +89,6 @@ dots/
   tests/          ← NOT a stow package — vjupdate + vj unittest suites (mocked system commands)
   docs/superpowers/ ← specs and plans
   graphify-out/   ← NOT a stow package — tracked /graphify knowledge graph; corpus filter in .graphifyignore
-  surface-sync.sh ← TEMPORARY one-shot Surface catch-up (unfold ~/.local/bin, reset, relink from dotsets/); delete once TODO.md's checklist is ticked
 ```
 
 Paths like `niri/.config/niri/…`, `desktop/…`, `claude/…` further down are
