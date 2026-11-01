@@ -300,7 +300,7 @@ class StateTests(Tmp):
         self.assertIn("install 3 packages", pk)
         self.assertNotIn("steam", pk)
         self.assertIn("desktop · mine", st.recap("settings"))
-        self.assertIn("13 never run", st.recap("once"))
+        self.assertIn("18 never run", st.recap("once"))
 
     def test_feature_gated_once_task_shows_only_with_feature(self):
         st = self.ready()
@@ -310,7 +310,15 @@ class StateTests(Tmp):
         st = self.ready()
         self.assertIn("nvidia-niri", [i for i, _, _ in st.items("once")])
         self.assertFalse(dict((i, d) for i, _, d in st.items("once"))["nvidia-niri"])  # unticked by default
-        self.assertIn("14 never run", st.recap("once"))
+        self.assertIn("19 never run", st.recap("once"))
+
+    def test_surface_secureboot_needs_linux_surface_feature(self):
+        st = self.ready()
+        self.assertNotIn("surface-secureboot", [i for i, _, _ in st.items("once")])
+        self.assertIn("ssh-key", [i for i, _, _ in st.items("once")])
+        prof = self.dots / "profiles/desktop.toml"
+        prof.write_text(prof.read_text().replace('["amd-gpu-tuning"]', '["amd-gpu-tuning", "linux-surface"]'))
+        self.assertIn("surface-secureboot", [i for i, _, _ in self.ready().items("once")])
 
     def test_vms_task_needs_windows_vm_feature(self):
         st = self.ready()
@@ -341,7 +349,7 @@ class StateTests(Tmp):
         st.mark_once("fish", "done", today=datetime.date(2026, 1, 2))
         self.assertEqual(config.load_local(self.cfg_path)["once"],
                          {"snapper": "skip", "fish": datetime.date(2026, 1, 2)})
-        self.assertIn("11 never run", st.recap("once"))
+        self.assertIn("16 never run", st.recap("once"))
 
     def test_local_add_and_remove(self):
         st = self.ready()

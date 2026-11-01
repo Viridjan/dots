@@ -538,6 +538,17 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   one if the merge dropped a `[repo]` section or every `Server` line (an `o`
   overwrite had removed the CachyOS repos). `check_surface_kernel` (audit,
   `linux-surface` feature) warns when the booted kernel isn't linux-surface.
+- **Post-install checklist removed (2026-11-01).** `print_manual_steps` /
+  `manual-steps` are gone; its steps 1–7 are one-time actions (vj → One-time
+  setup): `git-identity` (only if unset; defaults Viridjan / noreply),
+  `ssh-key` (ssh-keygen if missing, `gh ssh-key add` if not on GitHub),
+  `fingerprint`, `bitwarden` (logged in = `global_account_activeAccountId` in
+  `~/.config/Bitwarden/data.json`; else opens the app), `yubikey-pin`,
+  `surface-secureboot` (feature `linux-surface`; only with Secure Boot on:
+  installs `linux-surface-secureboot-mok`). Each is ok when already done, and
+  warns (so it is not stamped) when it needs a terminal or a device. The DMS
+  init step is covered by stow-symlinks + dms-import; Open Notebook,
+  gamescope and maintenance hints were dropped.
 - **`vjsurface`** (2026-11-01, Surface only: profile `surface` or DMI "Surface"):
   separate script, run before or after vjupdate (waits out vjupdate's flock).
   Idempotent steps — pacman.conf/mirrorlists restored from `.bak` if they lost

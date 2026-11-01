@@ -1531,6 +1531,127 @@ setup_keyring_pam() {
 # ─── NVIDIA: niri VRAM fix (niri wiki, "Nvidia") ─────────
 # The driver keeps a large free-buffer pool per GL process, so niri holds
 # ~1 GiB of VRAM instead of ~100 MiB. One-time action; applies when niri restarts.
+# ─── One-time personal setup (was the post-install checklist) ──
+# Each checks first: done → ok (stamped); needs a person and no terminal, or
+# a precondition is missing → warn (not stamped, offered again next time).
+
+# Defaults from the old checklist; asked for interactively, kept if already set.
+GIT_DEFAULT_NAME="Viridjan"
+GIT_DEFAULT_EMAIL="viridjan@users.noreply.github.com"
+setup_git_identity() {
+    local name email
+    name=$(git config --global user.name || true)
+    email=$(git config --global user.email || true)
+    if [[ -n "$name" && -n "$email" ]]; then
+        ok "git identity: $name <$email>"
+        return 0
+    fi
+    if $INTERACTIVE; then
+        [[ -n "$name" ]] || { read -rp "    git user.name [$GIT_DEFAULT_NAME]: " name; name=${name:-$GIT_DEFAULT_NAME}; }
+        [[ -n "$email" ]] || { read -rp "    git user.email [$GIT_DEFAULT_EMAIL]: " email; email=${email:-$GIT_DEFAULT_EMAIL}; }
+    else
+        name=${name:-$GIT_DEFAULT_NAME}; email=${email:-$GIT_DEFAULT_EMAIL}
+    fi
+    git config --global user.name "$name" && git config --global user.email "$email" \
+        && ok "git identity set: $name <$email>" \
+        || _failw git-identity "could not write git identity"
+}
+
+setup_ssh_key() {
+    local key="$HOME/.ssh/id_ed25519" body
+    if [[ ! -f "$key" ]]; then
+        if ! $INTERACTIVE; then
+            warn "no SSH key — needs a terminal for the passphrase: vjupdate --actions ssh-key"
+            return 0
+        fi
+        info "Creating an SSH key (choose a passphrase, or Enter for none)..."
+        mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+        ssh-keygen -t ed25519 -C "$(git config --global user.name || whoami)@$(hostname)" -f "$key" \
+            || { _failw ssh-key "ssh-keygen failed"; return 0; }
+        ok "created $key"
+    else
+        ok "SSH key exists: $key"
+    fi
+    if ! command -v gh &>/dev/null || ! gh auth token &>/dev/null; then
+        warn "add the key on GitHub: gh auth login, then re-run (or paste $key.pub at github.com/settings/keys)"
+        return 0
+    fi
+    body=$(awk '{print $2}' "$key.pub")
+    if gh ssh-key list 2>/dev/null | grep -qF "$body"; then
+        ok "SSH key already on GitHub"
+    elif gh ssh-key add "$key.pub" --title "$(hostname)" >/dev/null 2>&1; then
+        ok "SSH key added to GitHub as $(hostname)"
+    else
+        warn "gh could not add the key (needs scope: gh auth refresh -s admin:public_key) — or paste $key.pub at github.com/settings/keys"
+    fi
+}
+
+setup_fingerprint() {
+    command -v fprintd-list &>/dev/null || { ok "fprintd not installed — nothing to enroll"; return 0; }
+    local out
+    out=$(fprintd-list "$USER" 2>&1 || true)
+    if [[ "$out" == *"No devices available"* ]]; then
+        ok "no fingerprint reader"
+    elif [[ "$out" == *" - #"* ]]; then
+        ok "fingerprint already enrolled"
+    elif $INTERACTIVE; then
+        fprintd-enroll && ok "fingerprint enrolled" || _failw fingerprint "fprintd-enroll failed"
+    else
+        warn "fingerprint not enrolled — needs a terminal: vjupdate --actions fingerprint"
+    fi
+}
+
+setup_bitwarden() {
+    command -v bitwarden-desktop &>/dev/null || { ok "Bitwarden not installed — nothing to do"; return 0; }
+    local data="$HOME/.config/Bitwarden/data.json"
+    if python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("global_account_activeAccountId") else 1)' "$data" 2>/dev/null; then
+        ok "Bitwarden: logged in"
+        return 0
+    fi
+    if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+        setsid -f bitwarden-desktop >/dev/null 2>&1 || true
+        warn "Bitwarden opened — log in there; this step is marked done once you have"
+    else
+        warn "Bitwarden: not logged in — open the app (or browser extension) and log in"
+    fi
+}
+
+setup_yubikey_pin() {
+    command -v ykman &>/dev/null || { ok "ykman not installed — nothing to do"; return 0; }
+    local out
+    out=$(ykman fido info 2>&1 || true)
+    if [[ "$out" == *"PIN:"* && "$out" != *"Not set"* && "$out" != *"not set"* ]]; then
+        ok "YubiKey FIDO PIN is set"
+    elif [[ "$out" != *"PIN:"* ]]; then
+        warn "no YubiKey found — plug it in and re-run: vjupdate --actions yubikey-pin"
+    elif $INTERACTIVE; then
+        ykman fido access change-pin && ok "YubiKey PIN set" || _failw yubikey-pin "ykman could not set the PIN"
+    else
+        warn "YubiKey has no FIDO PIN — needs a terminal: vjupdate --actions yubikey-pin"
+    fi
+}
+
+# linux-surface kernels are signed with the project's key; with Secure Boot on,
+# the firmware needs it enrolled (MOK). The package queues the enrolment and
+# the MOK manager asks for it on the next boot (password: surface).
+setup_surface_secureboot() {
+    _has_feature linux-surface || { ok "not a Surface profile — nothing to do"; return 0; }
+    local sb
+    # bootctl status exits nonzero for unrelated boot-loader findings.
+    sb=$({ bootctl status 2>/dev/null || true; } | sed -n 's/^ *Secure Boot: *//p' | head -1)
+    if [[ "$sb" != enabled* ]]; then
+        ok "Secure Boot ${sb:-state unknown} — no key to enroll"
+        return 0
+    fi
+    if pacman -Q linux-surface-secureboot-mok &>/dev/null; then
+        ok "linux-surface MOK package installed (if the kernel still won't boot: reboot and enroll it in the MOK manager, password 'surface')"
+    elif sudo pacman -S --needed --noconfirm linux-surface-secureboot-mok; then
+        warn "linux-surface key queued — reboot, choose 'Enroll MOK' in the blue screen, password: surface"
+    else
+        _failw surface-secureboot "could not install linux-surface-secureboot-mok"
+    fi
+}
+
 setup_nvidia_niri() {
     local f=/etc/nvidia/nvidia-application-profiles-rc.d/50-limit-free-buffer-pool-in-wayland-compositors.json json
     if ! _has_feature nvidia; then
@@ -2551,67 +2672,6 @@ print_recap() {
 }
 
 # ─── Phase 9: Summary ────────────────────────────────────
-print_manual_steps() {
-    _banner "$YEL" "Manual steps required after this script   "
-    echo ""
-    echo "  1. Git identity:"
-    echo "       git config --global user.name 'Viridjan'"
-    echo "       git config --global user.email 'viridjan@users.noreply.github.com'"
-    echo ""
-    echo "  2. SSH key:"
-    echo "       ssh-keygen -t ed25519 -C viridjan"
-    echo "       # Add ~/.ssh/id_ed25519.pub to GitHub"
-    echo ""
-    echo "  3. Fingerprint (if fprintd is installed):"
-    echo "       fprintd-enroll"
-    echo ""
-    echo "  4. DankMaterialShell init (required before starting niri):"
-    echo "       dms setup"
-    echo "       # This generates ~/.config/niri/dms/*.kdl"
-    echo "       # Without it niri will fail to start (missing dms includes)"
-    echo "       # Then overlay repo overrides (binds, layout, etc.):"
-    echo "       vjupdate --dms-import"
-    echo ""
-    echo "  5. Bitwarden: log in via the app or browser extension"
-    echo ""
-    echo "  6. YubiKey: set PIN if not already configured"
-    echo "       ykman fido access change-pin"
-    echo ""
-    if _has_feature linux-surface; then
-        echo "  7. Surface Secure Boot:"
-        echo "       # Enroll linux-surface MOK key to allow the kernel to boot"
-        echo "       # Follow: https://github.com/linux-surface/linux-surface/wiki/Installation-and-Setup"
-        echo ""
-    fi
-    echo "  8. Open Notebook (if needed):"
-    echo "       start-open-notebook"
-    echo "       # First launch auto-creates .env and starts containers"
-    echo ""
-    if _has_feature windows-vm; then
-    echo "  8b. Virtual machines (images pre-pulled, run on demand):"
-    echo "       start-windows   # Windows 11 — opens at http://localhost:8006"
-    echo "       # Stop VM: cd ~/Projects/dots/windows && docker compose down"
-    echo "       # Windows shared folder: ~/Shared on host → \\\\host.lan\\Data in Windows"
-    echo "       #   Map network drive in Windows: This PC → Map network drive → \\\\host.lan\\Data"
-    fi
-    echo ""
-    if _has_feature linux-surface; then
-    echo "  9. Steam games — per-game launch option for forced fullscreen (2880x1920 @ 60Hz):"
-    echo "       gamescope -f -W 2880 -H 1920 -r 60 -- %command%"
-    else
-    echo "  9. Steam games — per-game launch option for forced fullscreen (3440x1440 @ 165Hz):"
-    echo "       gamescope -f -W 3440 -H 1440 -r 165 -- %command%"
-    echo "       # Upscale from 1080p if game lacks ultrawide support:"
-    echo "       gamescope -f -W 3440 -H 1440 -w 1920 -h 1080 -r 165 -- %command%"
-    fi
-    echo ""
-    echo " 10. Maintenance (update, cache, orphans):"
-    echo "       vjupdate --update"
-    echo ""
-    ok "bootstrap complete: $MACHINE"
-    echo ""
-}
-
 # ─── Phase groups ────────────────────────────────────────
 phase_sources() {
     install_paru
@@ -2628,7 +2688,7 @@ phase_sources() {
 phase_install()  { install_all; }
 phase_dotfiles() { deploy_dotfiles; dms_import; }
 # Action IDs for --actions (vj's MAINT list uses the same IDs; fish completion reads this line).
-MENU_ORDER=(sources install services snapper automount optimize keyboard kernels greeter keyring-pam nvidia-niri install-scripts fish dms-plugins dms-export claude caveman-code ollama vms steam-launchers app-launchers dotfiles-export stow-symlinks dms-import audit orphan-removal rebuild python-rebuild pacnew-merge manual-steps)
+MENU_ORDER=(sources install services snapper automount optimize keyboard kernels greeter keyring-pam nvidia-niri install-scripts fish dms-plugins dms-export claude caveman-code ollama vms steam-launchers app-launchers dotfiles-export stow-symlinks dms-import audit orphan-removal rebuild python-rebuild pacnew-merge git-identity ssh-key fingerprint bitwarden yubikey-pin surface-secureboot)
 
 # Accept stable IDs; keep legacy programmatic selection payloads compatible.
 _selected_action() {
@@ -2747,6 +2807,12 @@ phase_configure() {
     _sel "caveman-code"    && _act caveman-code setup_caveman_code
     _sel "ollama"          && _act ollama setup_ollama
     _sel "vms"             && _act vms setup_vms
+    _sel "git-identity"    && _act git-identity setup_git_identity
+    _sel "ssh-key"         && _act ssh-key setup_ssh_key
+    _sel "fingerprint"     && _act fingerprint setup_fingerprint
+    _sel "bitwarden"       && _act bitwarden setup_bitwarden
+    _sel "yubikey-pin"     && _act yubikey-pin setup_yubikey_pin
+    _sel "surface-secureboot" && _act surface-secureboot setup_surface_secureboot
     # Audit-dependent actions are resolved in bootstrap() from the AUDIT_ACTIONS
     # table (which also enables the audit phase); nothing to set here.
     _sel "steam-launchers" && _act steam-launchers setup_steam_launchers
@@ -2801,10 +2867,7 @@ bootstrap() {
             _selected_action "$_p" "$_selected" || SKIP_PHASES+="$_p "
         done
 
-        local _show_manual=false
-        _selected_action manual-steps "$_selected" && _show_manual=true || true
-
-        CONFIGURE_ITEMS=$(echo "$_selected" | grep -vE "^(sources|install|dotfiles|audit|manual-steps)( —.*)?$" || true)
+        CONFIGURE_ITEMS=$(echo "$_selected" | grep -vE "^(sources|install|dotfiles|audit)( —.*)?$" || true)
         if [[ -n "$CONFIGURE_ITEMS" ]]; then
             CONFIGURE_PROMPTED=true
         else
@@ -2846,7 +2909,6 @@ bootstrap() {
     _run_phase "audit"     phase_audit
     local _rc=0
     print_recap || _rc=$?
-    ${_show_manual:-false} && print_manual_steps || true
     return $_rc
 }
 

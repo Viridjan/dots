@@ -1097,6 +1097,38 @@ class RunPlanTests(FixtureCase):
         r = self.shell('VJ_FEATURES=linux-surface; check_surface_kernel')
         self.assertIn("running the surface kernel", r.stdout)
 
+    def test_git_identity_kept_or_filled_with_defaults(self):
+        (self.bin / "git").unlink()
+        self.mock("git", 'f="$HOME/gitcfg"; k=$4; [ "$3" = user.name ] || [ "$3" = user.email ] || exit 1\n'
+                         'if [ $# -eq 3 ]; then grep -m1 "^$3=" "$f" 2>/dev/null | cut -d= -f2-; exit 0; fi\n'
+                         'echo "$3=$4" >> "$f"')
+        r = self.shell('INTERACTIVE=false; setup_git_identity; setup_git_identity')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        cfg = (self.home / "gitcfg").read_text()
+        self.assertEqual(cfg, "user.name=Viridjan\nuser.email=viridjan@users.noreply.github.com\n")  # written once
+        self.assertIn("git identity: Viridjan", r.stdout)
+
+    def test_personal_steps_without_terminal_warn_instead_of_prompting(self):
+        self.mock("fprintd-list", 'echo "Fingerprints for user x on Goodix:"; echo " - #0: right-index-finger"')
+        self.mock("ykman", 'echo "PIN: Not set"')
+        r = self.shell('INTERACTIVE=false; setup_fingerprint; setup_yubikey_pin')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("fingerprint already enrolled", r.stdout)
+        self.assertIn("YubiKey has no FIDO PIN — needs a terminal", r.stdout)
+        self.mock("fprintd-list", 'echo "No devices available"')
+        self.mock("ykman", 'echo "PIN: 8 attempt(s) remaining"')
+        r = self.shell('INTERACTIVE=false; setup_fingerprint; setup_yubikey_pin')
+        self.assertIn("no fingerprint reader", r.stdout)
+        self.assertIn("FIDO PIN is set", r.stdout)
+
+    def test_surface_secureboot_off_needs_nothing(self):
+        self.mock("bootctl", 'echo "   Secure Boot: disabled (setup)"; exit 1')  # real one exits 1 here
+        r = self.shell('VJ_FEATURES=linux-surface; setup_surface_secureboot; VJ_FEATURES=; setup_surface_secureboot')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("Secure Boot disabled (setup) — no key to enroll", r.stdout)
+        self.assertIn("not a Surface profile", r.stdout)
+        self.assertNotIn("pacman", Path(self.env["CALLS"]).read_text() if Path(self.env["CALLS"]).exists() else "")
+
     def test_apply_display_sets_text_scale_only_when_given(self):
         self.mock("gsettings", 'echo "gsettings $*" >> "$CALLS"')
         r = self.shell('VJ_TEXT_SCALE=1.3 _apply_display; VJ_TEXT_SCALE= _apply_display')

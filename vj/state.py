@@ -20,7 +20,6 @@ MAINT = [
     ("steam-launchers", "Refresh Steam game launchers", True),
     ("app-launchers", "Maintain application launchers", True),
     ("kernels", "Manage kernels", False),
-    ("manual-steps", "Show post-install checklist", False),
 ]
 ONCE = [
     ("services", "Enable system services"),
@@ -38,9 +37,15 @@ ONCE = [
     ("dms-plugins", "Install DMS plugins"),
     ("ollama", "Download Ollama model"),
     ("vms", "Prepare Windows virtual machine"),
+    ("git-identity", "Set Git name and email"),
+    ("ssh-key", "Create SSH key and add it to GitHub"),
+    ("fingerprint", "Enroll fingerprint"),
+    ("bitwarden", "Log in to Bitwarden"),
+    ("yubikey-pin", "Set YubiKey FIDO PIN"),
+    ("surface-secureboot", "Enroll linux-surface Secure Boot key"),
 ]
 # One-time tasks shown only when the profile has this feature.
-ONCE_FEATURE = {"nvidia-niri": "nvidia", "vms": "windows-vm"}
+ONCE_FEATURE = {"nvidia-niri": "nvidia", "vms": "windows-vm", "surface-secureboot": "linux-surface"}
 DMS = [
     ("dms-import", "Apply repository DMS settings"),
     ("dms-export", "Save live DMS settings to repository"),
