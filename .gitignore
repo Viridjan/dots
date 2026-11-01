@@ -83,10 +83,19 @@ dotsets/*/claude/.claude/sessions/
 dotsets/*/claude/.claude/shell-snapshots/
 dotsets/*/claude/.claude/projects/*/*.jsonl
 dotsets/*/claude/.claude/projects/*/*-*-*-*-*/
+dotsets/*/claude/.claude/daemon/
+dotsets/*/claude/.claude/daemon*.json
+dotsets/*/claude/.claude/daemon.log
+dotsets/*/claude/.claude/daemon.lock
+dotsets/*/claude/.claude/daemon-auth-cooldown
+dotsets/*/claude/.claude/jobs/
+dotsets/*/claude/.claude/session-env/
+dotsets/*/claude/.claude/state/
+dotsets/*/claude/.claude/tasks/
 
 # fish: files installed by fisher (tide prompt; setup_fish reinstalls them)
 # and fish_variables (universal vars incl. tide's prompt cache, churns).
-dotsets/*/fish/.config/fish/fish_variables
+dotsets/*/fish/.config/fish/fish_variables*
 dotsets/*/fish/.config/fish/conf.d/_tide_init.fish
 dotsets/*/fish/.config/fish/completions/tide.fish
 dotsets/*/fish/.config/fish/functions/_tide_*
