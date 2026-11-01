@@ -133,7 +133,9 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
   its user service starts. Claude setup checks `plugin list --json` at user scope
   before installing plugins; Graphify is a CLI-installed skill, checked via
   `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/graphify/SKILL.md`, not a marketplace
-  plugin. Keep installation error output visible. Empty `[once]` history does
+  plugin. REA (`rea-agents` in `[npm]`, `ghidra` backend in `[paru]`): `_setup_rea`
+  runs `rea setup --yes` for Claude (+ Codex if installed) when `claude mcp get rea`
+  fails; MCP entries are untracked, the skill is tracked. Keep installation error output visible. Empty `[once]` history does
   not prove that a system feature is unconfigured.
 - **Package failures:** conflict removal/demotion require an exact installed
   package name, not merely a provider. Install conflicts skip mirror retries;
