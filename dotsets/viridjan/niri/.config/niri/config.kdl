@@ -293,6 +293,8 @@ window-rule {
     match app-id=r#"^steam$"#
     match app-id=r#"^com\.usebottles\.bottles$"#
     match app-id="BambuStudio"
+    // Quiver Launcher; apps it starts go to games via quiver-games (autostart-machine)
+    match app-id=r#"^QuiverLauncher\.Desktop$"#
     open-on-workspace "media"
     open-focused false
 }

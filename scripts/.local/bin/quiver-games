@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Moves every window started by Quiver Launcher to the "games" workspace,
+# unfocused. Window rules can't: niri matches app-id/title, not the parent
+# process, and each app Quiver launches has its own app-id. Started from the
+# desktop's autostart-machine.kdl; runs for the whole session.
+set -u
+
+# Real pid of a window. XWayland windows report xwayland-satellite's pid to
+# niri, so ask X for _NET_WM_PID of the windows with that class instead.
+_pids() {
+    local pid="$1" app="$2" w
+    if [[ "$(cat "/proc/$pid/comm" 2>/dev/null)" != xwayland-satell* ]]; then
+        echo "$pid"; return
+    fi
+    for w in $(xdotool search --class "^$(printf '%s' "$app" | sed 's/[][\.*^$+?(){}|]/\\&/g')\$" 2>/dev/null); do
+        xdotool getwindowpid "$w" 2>/dev/null
+    done
+}
+
+# True when a QuiverLauncher process is the pid itself or one of its parents.
+_from_quiver() {
+    local p="$1"
+    while [[ "$p" =~ ^[0-9]+$ && "$p" -gt 1 ]]; do
+        [[ "$(cat "/proc/$p/comm" 2>/dev/null)" == QuiverLauncher* ]] && return 0
+        p=$(awk '/^PPid:/ {print $2}' "/proc/$p/status" 2>/dev/null)
+    done
+    return 1
+}
+
+declare -A seen
+niri msg --json event-stream |
+  jq --unbuffered -r '.WindowOpenedOrChanged.window? // empty | "\(.id)\t\(.pid)\t\(.app_id // "")"' |
+  while IFS=$'\t' read -r id pid app; do
+    [[ -n "${seen[$id]:-}" ]] && continue   # title changes re-send the window
+    seen[$id]=1
+    [[ "$app" == QuiverLauncher.Desktop ]] && continue   # the launcher itself: media (window rule)
+    for p in $(_pids "$pid" "$app"); do
+        if _from_quiver "$p"; then
+            niri msg action move-window-to-workspace --window-id "$id" --focus false games
+            break
+        fi
+    done
+  done

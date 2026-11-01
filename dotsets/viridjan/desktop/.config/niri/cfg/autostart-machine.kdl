@@ -12,6 +12,7 @@ spawn-sh-at-startup "flatpak run com.spotify.Client"
 spawn-at-startup "/usr/lib/polkit-kde-authentication-agent-1"
 spawn-sh-at-startup "wl-paste --watch cliphist store"
 spawn-at-startup "udiskie"
+spawn-at-startup "quiver-games"  // moves windows Quiver Launcher starts to games
 
 // Force VRR off explicitly at session start. cfg/display.kdl omits the
 // variable-refresh-rate node entirely (should default to off), but DMS's
