@@ -610,10 +610,12 @@ _install_list() {
         # and invalidate the index so retries query partially installed targets.
         # ponytail: one average over the whole call (repo + AUR mixed); AUR
         # builds also get exact per-package spans from _record_build_times.
-        local _t0=$SECONDS install_log ask=(--ask=4) blocked
+        local _t0=$SECONDS install_log ask=(--useask --ask=4) blocked
         # --ask=4 accepts pacman's "X conflicts with Y, remove Y?" so a swap is
-        # one transaction: Y goes only once X has built and installs. Never for
-        # a protected package — then pacman declines and the conflict is reported.
+        # one transaction: Y goes only once X has built and installs. --useask
+        # extends that to AUR targets: paru checks their conflicts itself and,
+        # under --noconfirm, refuses them outright without it. Never for a
+        # protected package — then pacman declines and the conflict is reported.
         blocked=$(_protected_conflicts "${to_install[@]}")
         if [[ -n "$blocked" ]]; then
             ask=()
@@ -622,7 +624,8 @@ _install_list() {
         install_log=$(mktemp) || return 1
         if ! LC_ALL=C _paru -S --needed --noconfirm "${ask[@]}" "${to_install[@]}" 2>&1 | tee "$install_log"; then
             INSTALL_FAIL_DETAIL=$(_syuu_fail_detail "$install_log")
-            if grep -Eq 'unresolvable package conflicts|conflicting dependencies' "$install_log"; then
+            # pacman's wording, then paru's own AUR conflict check.
+            if grep -Eq 'unresolvable package conflicts|conflicting dependencies|conflicting packages' "$install_log"; then
                 INSTALL_CONFLICT=true
             fi
             rm -f "$install_log"
@@ -828,10 +831,8 @@ install_all() {
         _install_list "$VJ_PLAN_DIR/paru-install.list" || return 1
     }
 
-    local _pkg_ok=true
     if ! _do_install; then
         if $INSTALL_CONFLICT; then
-            _pkg_ok=false
             _record "packages" fail "$INSTALL_FAIL_DETAIL"
             warn "Package conflict — check package selections and regenerate the run plan: $INSTALL_FAIL_DETAIL"
         else
@@ -842,7 +843,6 @@ install_all() {
             if _do_install; then
                 _record "packages" ok "succeeded after mirror refresh"
             else
-                _pkg_ok=false
                 _record "packages" fail "failed after mirror refresh${INSTALL_FAIL_DETAIL:+: $INSTALL_FAIL_DETAIL}"
                 # Do not die: flatpak installs and cache cleanup are independent of
                 # the pacman/AUR list, so they still run. The non-zero exit status
@@ -860,8 +860,6 @@ install_all() {
         if _ensure_package_command flatpak flatpak; then
             flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo \
                 || _failw flathub "failed to configure Flathub"
-        else
-            _pkg_ok=false
         fi
     fi
     local _apps
@@ -905,9 +903,9 @@ install_all() {
     install_user_tools
     install_codex
     clean_caches
-    # Propagate the package outcome so phase_install (and the exit status)
-    # reflect it, rather than reporting whatever clean_caches happened to return.
-    $_pkg_ok
+    # Failures above are recorded; print_recap turns them into the exit status.
+    # Returning non-zero here would trip errexit and abort every later phase.
+    return 0
 }
 
 # Local `x` marks (paru-demote.list): mark them dependencies instead of -Rdd,

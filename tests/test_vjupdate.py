@@ -819,7 +819,7 @@ echo 'safe-pkg 1-1 -> 2-1'
         self.mock("paru", 'printf "%s\\n" "$*" >> "$CALLS"')
         r = self.shell('_install_list "$VJ_PLAN_DIR/packages.list"')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertEqual(self.calls(), ["-S --needed --noconfirm --ask=4 vectorcraft-bin"])
+        self.assertEqual(self.calls(), ["-S --needed --noconfirm --useask --ask=4 vectorcraft-bin"])
         Path(self.env["CALLS"]).unlink()
         self.mock("hostname", 'echo desktop')
         before = sorted(str(p.relative_to(self.home)) for p in self.home.rglob("*"))
@@ -861,7 +861,7 @@ fi
         r = self.shell('if _install_list "$DOTS_DIR/packages.list"; then exit 99; fi; _install_list "$DOTS_DIR/packages.list"')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(Path(self.env["CALLS"]).read_text().splitlines(),
-                         ["-S --needed --noconfirm --ask=4 first second", "-S --needed --noconfirm --ask=4 second"])
+                         ["-S --needed --noconfirm --useask --ask=4 first second", "-S --needed --noconfirm --useask --ask=4 second"])
 
     def test_installer_cannot_consume_next_command(self):
         (self.repo() / ".install-scripts.list").write_text(
@@ -1051,7 +1051,7 @@ class RunPlanTests(FixtureCase):
                        'MACHINE=desktop; install_all')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         calls = Path(self.env["CALLS"]).read_text()
-        self.assertIn("paru -S --needed --noconfirm --ask=4 fish", calls)
+        self.assertIn("paru -S --needed --noconfirm --useask --ask=4 fish", calls)
         self.assertNotIn("skipped", calls.replace("skipped (skip list)", ""))
 
     def test_warn_unfolded_flags_real_dir_not_folded_link(self):
@@ -1382,6 +1382,33 @@ print_recap
         self.assertIn("CLEANED", r.stdout)
         recap = r.stdout.split("Results")[-1]
         self.assertIn("conflicting dependencies", recap)
+
+    def test_paru_aur_conflict_skips_mirror_retry(self):
+        # paru's own AUR conflict check, not pacman's wording (2026-11-01 log).
+        r = self.run_install("error: can not install conflicting packages with --noconfirm")
+        self.assertNotIn("REFRESHED", r.stdout)
+        self.assertEqual(Path(self.env["CALLS"]).read_text().count("attempt"), 1)
+        self.assertIn("conflicting packages", r.stdout.split("Results")[-1])
+
+    def test_recorded_package_failure_does_not_abort_the_run(self):
+        # A failure already recorded in the recap must not trip errexit/the ERR
+        # trap and skip later phases ("remaining work aborted").
+        self.plan("paru-install.list", "dms-shell\n")
+        self.plan("flatpak-install.list", "")
+        self.mock("pacman", "exit 0")
+        self.mock("flatpak", "exit 0")
+        self.mock("paru", 'echo "error: failed to prepare transaction (conflicting dependencies)"; exit 1')
+        r = self.shell('''
+_upgrade_system() { :; }
+update_ollama() { :; }
+install_user_tools() { :; }
+clean_caches() { :; }
+install_all
+echo NEXT_PHASE
+print_recap
+''')
+        self.assertIn("NEXT_PHASE", r.stdout, r.stdout + r.stderr)
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
 
     def test_download_failure_retries_and_reports_cause(self):
         r = self.run_install("error: failed retrieving file 'example.pkg.tar.zst'")

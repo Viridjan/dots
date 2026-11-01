@@ -110,8 +110,11 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
   `paru-demote.list`: `pacman -D --asdeps`, then removed only if nothing needs
   them (`-Rns`), else kept with a "still required by" warning. Package swaps
   therefore belong in the repo list. Direct conflicts need no list: `_install_list`
-  passes `--ask=4`, so pacman removes the conflicting package in the same
-  transaction, after the new one built (2026-11-01). Skipped, with a warning,
+  passes `--useask --ask=4`, so pacman removes the conflicting package in the same
+  transaction, after the new one built (2026-11-01). `--useask` is required for
+  AUR targets: paru checks their conflicts itself and, under `--noconfirm`, fails
+  with "can not install conflicting packages" without it. A recorded package
+  failure never aborts the phase (`install_all` returns 0; the recap sets the exit). Skipped, with a warning,
   when `_protected_conflicts` (`paru -Si` "Conflicts With") hits a protected
   package. `[flatpak].remove` → `flatpak-remove.list`, uninstalled after installs. `_PROTECTED_PKG_RE` (kernels, firmware,
   ucode, limine, base, glibc, pacman, keyrings…) is never removed by any path.
