@@ -229,6 +229,40 @@ class SetupPanel(Vertical):
             self.app.action_quit()
 
 
+class DisplayPanel(Vertical):
+    """Text scale and default window width for this machine; applied by the Dotfiles deploy."""
+
+    BINDINGS = [Binding("q", "close", "Back")]
+
+    def __init__(self, state):
+        super().__init__(classes="panel")
+        self.state = state
+        self.border_title = "Display — Enter saves, empty = leave the system default · applied by Dotfiles"
+
+    def compose(self) -> ComposeResult:
+        d = self.state.cfg["display"]
+        yield Input(str(d.get("text_scale", "")), placeholder="text scale, e.g. 1.3 (1 = normal)", id="text_scale")
+        yield Input(str(d.get("window_width", "")), placeholder="default window width, e.g. 0.75 or 75%",
+                    id="window_width")
+
+    def on_mount(self):
+        self.query_one("#text_scale").focus()
+
+    def on_input_submitted(self, ev):
+        err = self.state.set_display(ev.input.id, ev.value)
+        if err:
+            self.notify(err, severity="error")
+            return
+        self.screen.refresh_menu()
+        if ev.input.id == "text_scale":
+            self.query_one("#window_width").focus()
+        else:
+            self.screen.close_panel()
+
+    def action_close(self):
+        self.screen.close_panel()
+
+
 class Home(Screen):
     BINDINGS = [Binding("q", "app.quit", "Quit"), Binding("r", "run", "Run")]
     CSS = """
@@ -244,7 +278,7 @@ class Home(Screen):
     MENU = [("maint", "Maintenance actions"), ("packages", "Packages"), ("unlisted", "Unlisted packages"),
             ("repos", "Git repositories"),
             ("dotfiles", "Dotfiles"), ("once", "One-time setup"), ("dms", "DMS & Git"),
-            ("settings", "Profile / dotfile set"), ("run", "▶ Run")]
+            ("display", "Display"), ("settings", "Profile / dotfile set"), ("run", "▶ Run")]
     TITLES = {"maint": "Maintenance actions", "repos": "Git repositories to clone (missing ones only)",
               "dotfiles": "Dotfiles to link from the chosen set", "dms": "DMS & Git — off by default"}
 
@@ -299,6 +333,8 @@ class Home(Screen):
             self.open_panel(OnceChecklist(st))
         elif key == "unlisted":
             self.open_panel(UnlistedChecklist(st))
+        elif key == "display":
+            self.open_panel(DisplayPanel(st))
         else:
             self.open_panel(Checklist(self.TITLES[key], st.items(key), st.ticked(key),
                                       lambda ids, k=key: st.set_ticks(k, ids)))

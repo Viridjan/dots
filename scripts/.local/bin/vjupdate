@@ -1099,6 +1099,28 @@ install_user_tools() {
 # limited to the run plan's stow.list. `scripts` is tooling, not a dotfile set:
 # it is always linked from the repo root. niri, ollama and brave keep their
 # special handling below.
+# vj → Display (plan env). Text: GTK/GNOME text-scaling-factor (GTK, libadwaita,
+# Chromium/Electron). Windows: cfg/local.kdl, a per-machine file (not in git)
+# included last, so its default-column-width beats the profile's. Unset →
+# the file is removed and the text scale is left alone.
+_apply_display() {
+    local kdl="$1"
+    if [[ -n "${VJ_WINDOW_WIDTH:-}" ]]; then
+        printf '// Written by vjupdate from vj → Display; edit there.\nlayout {\n    default-column-width { proportion %s; }\n}\n' \
+            "$VJ_WINDOW_WIDTH" > "$kdl" && ok "default window width: $VJ_WINDOW_WIDTH"
+    else
+        rm -f "$kdl"
+    fi
+    [[ -n "${VJ_TEXT_SCALE:-}" ]] || return 0
+    if ! command -v gsettings &>/dev/null; then
+        _failw display "gsettings not found — text scale not applied"
+    elif gsettings set org.gnome.desktop.interface text-scaling-factor "$VJ_TEXT_SCALE"; then
+        ok "text scale: $VJ_TEXT_SCALE"
+    else
+        _failw display "failed to set text scale $VJ_TEXT_SCALE"
+    fi
+}
+
 _stow_niri_cfg() {
     # ~/.config/niri/ must stay a real directory — DMS writes dms/ inside it and
     # stow would fold the whole dir into a symlink, breaking DMS on regeneration.
@@ -1110,6 +1132,7 @@ _stow_niri_cfg() {
     local files=(display input autostart-machine surface-layout) f
 
     mkdir -p "$dst/cfg"
+    _apply_display "$dst/cfg/local.kdl"
 
     # niri reloads on every change and silently keeps the last good config on
     # a parse error, so validate the PROPOSED tree first: a temp dir mirroring

@@ -20,6 +20,7 @@ DEFAULTS = {
     "ignored": {"paru": [], "flatpak": []},  # unlisted installs the audit stops reporting
     "once": {},
     "last": {},
+    "display": {},  # text_scale, window_width (applied by the dotfiles deploy)
 }
 
 
@@ -85,7 +86,7 @@ def load_local(path: Path | None = None) -> dict:
 def _val(v) -> str:
     if isinstance(v, bool):
         return "true" if v else "false"
-    if isinstance(v, (int, datetime.date)):
+    if isinstance(v, (int, float, datetime.date)):
         return v.isoformat() if isinstance(v, datetime.date) else str(v)
     if isinstance(v, list):
         return "[" + ", ".join(_val(x) for x in v) + "]"
