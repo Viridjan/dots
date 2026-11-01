@@ -56,6 +56,7 @@ install = [
     "micro",  # the editor; vim is in [paru].remove
     "zsh",    # explicit: removing cachyos-zsh-config would orphan it (Claude Code's shell)
     "tree",
+    "ghidra",  # native backend for REA (rea-agents, [npm]); pulls a JDK
     "bitwarden",
     "stow",
     "i2c-tools",
@@ -295,6 +296,7 @@ user = ["psd", "mpd", "vjupdate-check.timer"]
 # Global npm tools (prefix ~/.local, see CLAUDE.md). Installed if missing.
 # caveman-code has its own action (setup_caveman_code), so it is not listed.
 install = [
+    "rea-agents",  # REA reverse-engineering MCP; setup_claude registers it
 ]
 
 [uv]

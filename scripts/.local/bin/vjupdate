@@ -2098,10 +2098,32 @@ except (ValueError, TypeError, KeyError, AttributeError):
         _failw claude "graphify CLI missing — install graphifyy, then run: graphify install --platform claude"
     fi
 
+    _setup_rea
+
     # No statusline wiring here on purpose. settings.json is stowed and points at
     # ~/.claude/statusline.sh, which globs the version-hashed plugin paths at
     # runtime — so nothing needs regenerating after a plugin update, and this
     # function can no longer clobber a hand-edited statusline.
+}
+
+# REA (rea-agents, [npm].install): MCP server + skill for Claude Code and Codex.
+# The skill lands in the stowed ~/.claude/skills; the MCP entries live in
+# ~/.claude.json and ~/.codex/config.toml (untracked), so each machine runs setup.
+_setup_rea() {
+    command -v rea &>/dev/null || { warn "rea not installed — skipping REA setup (npm i -g rea-agents)"; return 0; }
+    if claude mcp get rea &>/dev/null; then
+        ok "already registered: rea (MCP)"
+        return 0
+    fi
+    local out
+    local -a clients=(--client claude_code)
+    command -v codex &>/dev/null && clients+=(--client codex)
+    if out=$(cd ~ && rea setup --yes "${clients[@]}" 2>&1); then
+        ok "registered: rea (MCP + skill)"
+    else
+        _show_install_error "$out"
+        _failw claude "REA setup failed — run manually: rea setup"
+    fi
 }
 
 # ─── Phase 8b: caveman-code ──────────────────────────────
