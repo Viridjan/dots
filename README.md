@@ -48,39 +48,41 @@ LibreOffice is excluded from installation. Both `libreoffice-fresh` and
 update actions remove either edition when installed. The LibreOffice niri
 window rule has also been removed.
 
-### 4. Manual steps (after the script)
+### 4. Personal setup (after the script)
+
+The old printed checklist is now part of `vj` → **One-time setup**. Each
+entry checks first and does nothing when already done; one that needs you
+(a passphrase, a plugged-in device, a login) stays offered until it's done:
+
+| Entry | Does |
+|---|---|
+| Set Git name and email | only if unset (default `Viridjan` / noreply address) |
+| Create SSH key and add it to GitHub | `ssh-keygen` if missing, `gh ssh-key add` (after `gh auth login`) |
+| Enroll fingerprint | `fprintd-enroll` if there is a reader and nothing enrolled |
+| Log in to Bitwarden | opens the app until it is logged in |
+| Set YubiKey FIDO PIN | `ykman fido access change-pin` if the key has no PIN |
+| Enroll linux-surface Secure Boot key | Surface only, only with Secure Boot on (password `surface` at the next boot) |
+
+DMS needs no separate init: Dotfiles copies any missing `dms/*.kdl` from the
+repo and "Apply repository DMS settings" imports the overrides.
+
+Optional, by hand:
 
 ```bash
-# Git identity
-git config --global user.name 'Viridjan'
-git config --global user.email 'viridjan@users.noreply.github.com'
-
-# Fingerprint enrollment
-fprintd-enroll
-
-# DankMaterialShell — required before starting niri
-# generates ~/.config/niri/dms/*.kdl (niri won't start without them)
-dms setup
-
-# YubiKey FIDO2 PIN — set/change the PIN on the hardware key
-# ykman is the YubiKey Manager CLI (package: yubikey-manager)
-# The FIDO2 PIN protects resident keys and passkeys stored on the YubiKey
-ykman fido access change-pin
-
-# Bitwarden — log in to unlock vault and browser extension
-# Launch from app menu or: flatpak run com.bitwarden.desktop
-
-# Open Notebook (if needed)
+# Open Notebook
 cd ~/Projects/Open_notebook && docker compose up -d
-
 # Windows VM — desktop only (web UI: http://localhost:8006, RDP: localhost:3389)
 cd ~/Projects/dots/windows && docker compose up -d
 # Shared folder: ~/Shared on host → \\host.lan\Data inside Windows (map as network drive)
 ```
 
-**Surface only:**
-- Enroll the linux-surface Secure Boot MOK key so the kernel boots with Secure Boot on
-- Follow: https://github.com/linux-surface/linux-surface/wiki/Installation-and-Setup
+**Surface only — `vjsurface`.** Run it before or after `vjupdate`, as often as
+you like. It restores `pacman.conf`/mirrorlists that lost repos to a pacnew
+overwrite, installs `linux-surface` + headers + `iptsd`, makes GRUB boot
+linux-surface (CachyOS pins `GRUB_TOP_LEVEL` to linux-cachyos), checks the
+touchscreen daemon and relinks dotfile folders that stow split. Every step is
+a no-op when done, a failure never stops the others, and it always ends with a
+summary (log: `~/.local/state/dots/vjsurface.log`).
 
 ---
 
@@ -97,8 +99,9 @@ Maintenance actions     │ run 9 of 12 actions
 Packages                │ install 1 package < 10 s · 1 declined
 Git repositories        │ clone missing · 8 of 8 repos
 Dotfiles                │ link 21 of 21 from viridjan
-One-time setup          │ 14 never run
+One-time setup          │ 18 never run
 DMS & Git               │ nothing
+Display                 │ text ×1.3
 Profile / dotfile set   │ desktop · viridjan
 ▶ Run                   │ press r · install time < 10 s (upgrades/actions extra)
 ```
@@ -133,8 +136,14 @@ Ctrl+T opens terminal mode; Ctrl+] returns to the progress view. After completio
   on this machine; it leaves the package installed and receiving updates.
 - **One-time setup**: "never run" means no successful run was recorded by vj;
   the feature may already be configured. Select only the actions you need.
+- **Display**: text scale for this machine (e.g. `1.3`; empty = system
+  default), applied by Dotfiles as the GTK/GNOME `text-scaling-factor`.
 - **Flatpak apps**: untick an app to exclude it from installation. Removal with `x`
-  is supported only for pacman packages; Flatpak apps are never uninstalled by `vj`.
+  is supported only for pacman packages; an app replaced for good goes in
+  `packages.toml` `[flatpak].remove` (uninstalled after the installs).
+- **Conflicting packages**: a listed package that conflicts with an installed
+  one replaces it in the same pacman transaction, so a failed build removes
+  nothing. Protected packages (kernels, glibc, pacman…) are never swapped.
 - **Times**: package estimates come from `build-times.tsv` (committed): green
   < 10 s, yellow < 1 min, orange longer; `?` = no history yet.
 

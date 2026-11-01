@@ -1,0 +1,2 @@
+- [Scripts never abort](scripts-never-abort.md) — idempotent steps, warn and continue, exit 0 with summary
+- [Push after changes](push-after-changes.md) — desktop/Surface sync via GitHub; commit + push finished work

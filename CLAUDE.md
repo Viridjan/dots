@@ -280,7 +280,7 @@ Both rows were proven empirically on 2026-08-25, not assumed:
 - **Machine-specific niri overrides**: both `desktop/` and `surface/` packages provide identically-named `.kdl` files under `cfg/`. `vjupdate` symlinks the active machine's version into `~/.config/niri/cfg/`. `config.kdl` includes them unconditionally — the machine-specific content differs, or one side is empty. Current files:
   - `autostart-machine.kdl` — desktop has `spawn-at-startup` entries (thunderbird, whatsie, Telegram, steam, dgop monitor in alacritty (TMOG tried and dropped 2026-10-27), daemons) plus `flatpak run com.spotify.Client` for real Spotify, and a `niri msg output DP-1 vrr off` belt-and-suspenders line (2026-08-25); surface is empty (no autorun). Vesktop launches via XDG autostart (`~/.config/autostart/vesktop.desktop`), not here. Terminal for spawned TUIs is `alacritty`.
   - `input.kdl` — sets keyboard `layout "us" variant "intl"` (both machines); surface additionally tunes touchpad/touchscreen/stylus.
-  - `surface-layout.kdl` — surface sets `proportion 0.5` **twice**: once in a `layout { default-column-width }` (singleton — wins over `config.kdl`'s inline empty one, since later-wins) and once in a bare `window-rule { default-column-width }` (repeatable — included after the inline per-app width rules, so it overrides all of them). Desktop is a comment-only stub.
+  - `surface-layout.kdl` — surface sets `proportion 0.8` **twice** (0.5 until 2026-11-01): once in a `layout { default-column-width }` (singleton — wins over `config.kdl`'s inline empty one, since later-wins) and once in a bare `window-rule { default-column-width }` (repeatable — included after the inline per-app width rules, so it overrides all of them). Desktop is a comment-only stub.
   - To add a new machine-specific override: create the `.kdl` in both `desktop/` and `surface/` packages, add `include "cfg/<name>.kdl"` to `config.kdl`, and add `<name>` to the `for f in ...` loop in `vjupdate`'s `_stow_niri_cfg` (the machine-pkg loop — `display input autostart-machine surface-layout`).
   - Content common to both machines but that needs to differ slightly: put shared parts in `config.kdl` inline, machine-specific delta in the per-machine file.
 - **DMS overrides** — direction depends on whether DMS regenerates the file:
@@ -423,8 +423,9 @@ dep), the `*craft-bin` suite, Dolphin, PrimeHack.
 
 Package install priority: **pacman > flatpak > paru**. If a package is available in official Arch/CachyOS repos, prefer pacman. Flatpak over AUR when both exist. AUR only as last resort. Within AUR, `-bin` is fine (it updates through paru like
 any AUR package; source builds only cost build time). Swapping an installed
-package for its `-bin`/source twin: list the old name in `[paru].remove`, since
-`--noconfirm` declines paru's conflict prompt. Never install a name on the malware blocklist: install aborts if any listed package
+package for its `-bin`/source twin usually needs no entry: `--ask=4` accepts
+the conflict in the same transaction. Use `[paru].remove` only when the old
+package must go first or doesn't declare the conflict. Never install a name on the malware blocklist: install aborts if any listed package
 appears in `~/.local/share/aur-malware-check/data/campaigns/*/packages*.txt`
 (refreshed each run; e.g. `alvr`, hijacked June 2026). Check new AUR names there first.
 
