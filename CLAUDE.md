@@ -726,7 +726,7 @@ Gotchas when linting these scripts:
 
 ## Claude Code statusline
 
-`~/.claude/statusline.sh` aggregates the segment scripts (caveman, ponytail, model, topic+dir) and
+`~/.claude/statusline.sh` aggregates the segment scripts (row 1: caveman, ponytail, model; row 2: dir+topic) and
 gives each its own copy of stdin — piping them in sequence lets the first consume the
 input and starve the rest.
 

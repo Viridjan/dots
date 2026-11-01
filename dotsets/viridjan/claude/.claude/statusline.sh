@@ -26,9 +26,12 @@ _newest() {
 for _seg in \
     "$(_newest "$HOME"/.claude/plugins/cache/caveman/*/*/src/hooks/caveman-statusline.sh)" \
     "$(_newest "$HOME"/.claude/plugins/cache/ponytail/*/*/hooks/ponytail-statusline.sh)" \
-    "$HOME/.claude/model-statusline.sh" \
-    "$HOME/.claude/topic-statusline.sh"
+    "$HOME/.claude/model-statusline.sh"
 do
     [[ -n "$_seg" && -f "$_seg" ]] || continue
     printf '%s' "$INPUT" | bash "$_seg"
 done
+
+# Second row: dir + topic (drop the segment's leading space).
+printf '\n'
+printf '%s' "$INPUT" | bash "$HOME/.claude/topic-statusline.sh" | sed 's/^ //'

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Prints the session topic and working directory as statusline tags.
+# Prints the working directory and session topic as statusline tags.
 # The latest nonempty manual title wins over any automatic title.
 INPUT=$(cat)
 TRANSCRIPT=$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null)
@@ -24,7 +24,6 @@ if [[ -f "$TRANSCRIPT" ]]; then
     # Titles derive from conversation content: never pass escape sequences
     # (e.g. OSC 52 clipboard writes) through to the terminal.
     TOPIC=$(printf '%s' "$TOPIC" | tr -d '[:cntrl:]')
-    [[ -n "$TOPIC" ]] && printf ' \033[38;5;180m[TOPIC: %s]\033[0m' "$TOPIC"
 fi
 DIR=$(printf '%s' "$DIR" | tr -d '[:cntrl:]')
 case "$DIR" in
@@ -32,4 +31,5 @@ case "$DIR" in
     "$HOME"/*) DIR="~${DIR#"$HOME"}" ;;
 esac
 [[ -n "$DIR" ]] && printf ' \033[38;5;146m[DIR: %s]\033[0m' "$DIR"
+[[ -n "$TOPIC" ]] && printf ' \033[38;5;180m[TOPIC: %s]\033[0m' "$TOPIC"
 exit 0

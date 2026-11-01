@@ -63,7 +63,7 @@ class TopicStatuslineTests(unittest.TestCase):
                                     text=True, capture_output=True, timeout=5)
         # Only the script's own SGR colour sequences may remain.
         self.assertEqual(re.sub(r"\x1b\[[0-9;]*m", "", result.stdout),
-                         " [TOPIC: hi]52;c;aGk=there] [DIR: /tmp/a[2Jb]")
+                         " [DIR: /tmp/a[2Jb] [TOPIC: hi]52;c;aGk=there]")
 
 
 if __name__ == "__main__":
