@@ -1,1 +1,1 @@
-- [Surface catch-up](surface-post-reboot-steps.md) — ~/.claude move via surface-sync.sh pending, then cleanup + checks (2026-11-01)
+- [Surface catch-up](surface-post-reboot-steps.md) — touchscreen kernel + surface-sync.sh edits still open (2026-11-01)

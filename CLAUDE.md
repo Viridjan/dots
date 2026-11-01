@@ -530,6 +530,14 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   - *Preflight*: refuses to run as root; warns under 5 GiB free on `/`
     (`VJ_MIN_FREE_GB`); keeps an existing sudo ticket alive (`sudo -n -v`
     loop, terminal runs only, killed in `_cleanup`).
+- **Guards added 2026-11-01 (Surface incidents).** `_warn_unfolded` (after each
+  home package stows): warns when a target is a real dir instead of a folded
+  link (stow then links file by file and new files never reach git; skips
+  shared parents incl. `~/.config/systemd/user`). `check_pacnew` snapshots
+  `pacman.conf` + `/etc/pacman.d/*mirrorlist` before `pacdiff` and restores
+  one if the merge dropped a `[repo]` section or every `Server` line (an `o`
+  overwrite had removed the CachyOS repos). `check_surface_kernel` (audit,
+  `linux-surface` feature) warns when the booted kernel isn't linux-surface.
 - **Held packages.** `[paru].hold` (packages.toml) excludes named packages from system
   upgrades (including retries) and both rebuild paths. First installation is
   unchanged. Audit and update runs warn about pending held AUR updates with

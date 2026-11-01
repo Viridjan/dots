@@ -1054,6 +1054,49 @@ class RunPlanTests(FixtureCase):
         self.assertIn("paru -S --needed --noconfirm --ask=4 fish", calls)
         self.assertNotIn("skipped", calls.replace("skipped (skip list)", ""))
 
+    def test_warn_unfolded_flags_real_dir_not_folded_link(self):
+        for name in ("find", "realpath"):
+            (self.bin / name).symlink_to(Path("/usr/bin") / name)
+        dotset = self.root / "set"
+        (dotset / "app/.config/app/sub").mkdir(parents=True)
+        (dotset / "ok/.config/ok").mkdir(parents=True)
+        (self.home / ".config/app/sub").mkdir(parents=True)  # unfolded: real dirs
+        (self.home / ".config/ok").symlink_to(dotset / "ok/.config/ok")
+        r = self.shell(f'cd "{dotset}"; _warn_unfolded app; _warn_unfolded ok')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("'app' is unfolded at ~/.config/app ", r.stdout)
+        self.assertNotIn("~/.config/app/sub", r.stdout)  # top-most dir only
+        self.assertNotIn("'ok'", r.stdout)
+
+    def test_pacnew_overwrite_losing_repos_is_restored(self):
+        (self.bin / "comm").symlink_to("/usr/bin/comm")
+        self.mock("sudo", '"$@"')
+        conf, mirrors = self.root / "pacman.conf", self.root / "mirrorlist"
+        conf.write_text("[options]\n[cachyos]\nInclude = x\n[core]\n")
+        mirrors.write_text("Server = https://a/$repo\n")
+        snap = self.root / "snap"
+        snap.mkdir()
+        r = self.shell(f'_PACMAN_CONF_FILES=("{conf}" "{mirrors}"); _snapshot_pacman_conf "{snap}"\n'
+                       f'printf "[options]\\n[core]\\n" > "{conf}"; printf "#Server = x\\n" > "{mirrors}"\n'
+                       f'_restore_lost_repos "{snap}"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("[cachyos]", conf.read_text())
+        self.assertIn("Server = https://a", mirrors.read_text())
+        self.assertIn("dropped [cachyos]", r.stdout)
+        self.assertIn("dropped every Server line", r.stdout)
+        r = self.shell(f'_restore_lost_repos "{snap}"')  # nothing lost now → silent
+        self.assertNotIn("dropped", r.stdout)
+
+    def test_surface_kernel_check(self):
+        self.mock("uname", 'echo 7.3.1-1-cachyos')
+        self.mock("pacman", 'exit 0')
+        r = self.shell('VJ_FEATURES=linux-surface; check_surface_kernel; VJ_FEATURES=; check_surface_kernel')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(r.stdout.count("not linux-surface"), 1)
+        self.mock("uname", 'echo 7.2.11-arch1-1-surface')
+        r = self.shell('VJ_FEATURES=linux-surface; check_surface_kernel')
+        self.assertIn("running the surface kernel", r.stdout)
+
     def test_apply_display_sets_text_scale_only_when_given(self):
         self.mock("gsettings", 'echo "gsettings $*" >> "$CALLS"')
         r = self.shell('VJ_TEXT_SCALE=1.3 _apply_display; VJ_TEXT_SCALE= _apply_display')

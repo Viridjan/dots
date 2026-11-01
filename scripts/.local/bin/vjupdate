@@ -1177,6 +1177,28 @@ _stow_niri_cfg() {
 
 }
 
+# Stow folds a package dir into one link only when the target doesn't exist
+# yet. If it is already a real directory (an app or plugin wrote files there
+# first), stow links file by file instead and reports success, but new files
+# created there never reach git. Warn at the top-most such dir; refolding
+# needs a manual merge (move it aside, restow, copy untracked files back).
+_warn_unfolded() {
+    local pkg="$1" d rel t hit=""
+    while IFS= read -r d; do
+        rel=${d#"$pkg"/}
+        [[ -n "$hit" && "$rel" == "$hit"/* ]] && continue
+        # Shared parents; systemctl --user enable writes .wants links into user/.
+        case "$rel" in .config|.local|.local/share|.local/state|.local/lib|.config/systemd|.config/systemd/user) continue ;; esac
+        t="$HOME/$rel"
+        [[ -d "$t" ]] || continue
+        # Folded (directly or through a parent link): resolves into the package.
+        [[ "$(realpath "$t")" == "$(realpath "$d")" ]] && continue
+        hit=$rel
+        warn "stow: '$pkg' is unfolded at ~/$rel (a real directory, not a link) — new files there are not in git"
+    done < <(find "$pkg" -mindepth 1 -maxdepth 3 -type d | sort)
+    return 0
+}
+
 deploy_dotfiles() {
     info "Deploying dotfiles via stow..."
     cd "$DOTS_DIR" || die "cannot cd to $DOTS_DIR"
@@ -1269,7 +1291,7 @@ deploy_dotfiles() {
                 niri)         _stow_niri_cfg; _stowed+=("niri") ;;
                 ollama)       _deploy_root_pkg "$pkg" || return 1; _reload_ollama ;;
                 brave)        _deploy_root_pkg "$pkg" || return 1 ;;
-                *)            _deploy_pkg --restow -t "$HOME" "$pkg" "$pkg" || true ;;
+                *)            _deploy_pkg --restow -t "$HOME" "$pkg" "$pkg" && _warn_unfolded "$pkg" ;;
             esac
         done < <([[ -f "$VJ_PLAN_DIR/stow.list" ]] && cat "$VJ_PLAN_DIR/stow.list")
         _unstow_unticked
@@ -2122,6 +2144,19 @@ check_modified_configs() {
 
 # DMS started twice (systemd user unit AND a niri spawn-at-startup) gives two
 # bars, two notification daemons and doubled IPC handling.
+# linux-surface profiles need the surface kernel (ithc/ipts touchscreen
+# modules). GRUB_DEFAULT=0 boots whichever kernel sorts first, which on the
+# Surface was linux-cachyos: no touchscreen, no warning (2026-11-01).
+check_surface_kernel() {
+    _has_feature linux-surface || return 0
+    [[ "$(uname -r)" == *surface* ]] && { ok "running the surface kernel"; return 0; }
+    if pacman -Q linux-surface &>/dev/null; then
+        warn "running $(uname -r), not linux-surface — touchscreen/pen need it; pick it in GRUB or set GRUB_DEFAULT (then: sudo grub-mkconfig -o /boot/grub/grub.cfg)"
+    else
+        warn "linux-surface is not installed — run the Install action"
+    fi
+}
+
 check_dms_owner() {
     command -v dms &>/dev/null || return 0
     systemctl --user is-enabled --quiet dms.service 2>/dev/null || return 0
@@ -2311,6 +2346,40 @@ manage_kernels() {
 }
 
 # ─── Maintenance: pacnew files ───────────────────────────
+# pacnew's 'o' (overwrite) replaced pacman.conf with the stock Arch file
+# (CachyOS repos and multilib gone) and the mirrorlist with an all-commented
+# one, breaking pacman (2026-11-01). Snapshot both before the merge and put
+# the old file back if a merge drops a repo section or every Server line.
+_PACMAN_CONF_FILES=(/etc/pacman.conf /etc/pacman.d/*mirrorlist)
+_snapshot_pacman_conf() {
+    local f
+    for f in "${_PACMAN_CONF_FILES[@]}"; do
+        [[ -f "$f" ]] && cp -p "$f" "$1/${f//\//%}"
+    done
+    return 0
+}
+_restore_lost_repos() {
+    local snap f lost
+    for snap in "$1"/*; do
+        [[ -f "$snap" ]] || continue
+        f=${snap##*/}; f=${f//%//}
+        if [[ "$f" == */pacman.conf ]]; then
+            lost=$(comm -23 <(grep -o '^\[[^]]*\]' "$snap" | sort -u) \
+                            <(grep -o '^\[[^]]*\]' "$f" 2>/dev/null | sort -u) | tr '\n' ' ')
+        elif grep -q '^Server' "$snap" && ! grep -q '^Server' "$f" 2>/dev/null; then
+            lost="every Server line"
+        else
+            lost=""
+        fi
+        [[ -n "$lost" ]] || continue
+        if sudo cp -p "$snap" "$f"; then
+            warn "pacnew merge dropped ${lost% } from $f — restored the previous file; merge it by hand (pacdiff, 'd' then edit)"
+        else
+            _failw pacnew "pacnew merge dropped ${lost% } from $f and restoring it failed — copy it back from $f.bak"
+        fi
+    done
+}
+
 check_pacnew() {
     info "Checking for pacnew files..."
     if ! command -v pacdiff &>/dev/null; then
@@ -2330,7 +2399,11 @@ check_pacnew() {
     # -b: overwrites keep a .bak, since most of these configs are hand-tuned
     #     (pacman.conf's cachyos repos, rate-mirrors lists, locale.gen).
     info "Merging pacnew files (per file: v=view d=diff s=skip r=remove o=overwrite q=quit)"
+    local snap; snap=$(mktemp -d) || return 0
+    _snapshot_pacman_conf "$snap"
     DIFFPROG="${DIFFPROG:-micro}" pacdiff -s -b || true
+    _restore_lost_repos "$snap"
+    rm -rf "$snap"
     ok "pacnew merge done"
 }
 
@@ -2692,7 +2765,7 @@ phase_update()   { system_update; flatpak_update; clean_caches; }
 # One list for the audit phase and --check, so they can't drift. Each check
 # only reports unless its AUDIT_ACTIONS flag was set (orphans, rebuilds, pacnew).
 AUDIT_CHECKS=(check_held_updates check_foreign_orphans check_unused_apps check_rebuilds
-              check_python_rebuilds check_pacnew check_modified_configs check_dms_owner
+              check_python_rebuilds check_pacnew check_modified_configs check_dms_owner check_surface_kernel
               check_logins check_firmware check_aur_malware check_pacman_db)
 _run_audit_checks() { local c; for c in "${AUDIT_CHECKS[@]}"; do "$c"; done; }
 # The audit phase also removes unused flatpak runtimes; --check stays report-only.

@@ -15,12 +15,12 @@ Done this session:
 - vjupdate `--actions sources,install,audit,orphan-removal,rebuild,python-rebuild,pacnew-merge,stow-symlinks,steam-launchers,app-launchers,manual-steps` now passes except `stow:claude`.
 - Temporary `/etc/sudoers.d/99-claude-tmp` (NOPASSWD + `verifypw=any`; paru SudoLoop's `sudo -v` needs verifypw=any) was REMOVED. If more unattended runs are needed, it must be recreated by the user.
 
-Next, in order:
-1. With Claude Code closed, user runs `cp ~/Projects/dots/surface-sync.sh /tmp/ && bash /tmp/surface-sync.sh` (script aborts if run from the repo; copy the working-tree file, origin's lacks the relink code). ALL claude processes must be closed (a stray one from 00:18 on pts/0 blocked the 02:17 run) — moves `~/.claude` (still a link to old `dots/claude/.claude`) onto `dotsets/viridjan/claude`. Verify: `readlink ~/.claude`, then `vjupdate --actions stow-symlinks` has no `stow:claude` conflict.
-2. After that succeeds: untracked old `claude/` in repo root can go (move it to `~/.local/state/dots/old-layout-backup-20261101/`, like DankMaterialShell/ already was). Done 02:42: Discord uninstalled + data removed; dead discord/lutris niri rules removed (config.kdl, uncommitted); `gamescope-media`/`start-battlenet` restored in repo and stow-linked (were real files in ~/.local/bin).
-3. `surface-sync.sh` had uncommitted local edits before the session — ask the user, don't touch. Delete it once TODO.md checklist is ticked.
-4. Checked 02:45: docker, power-profiles-daemon, mpd, vjupdate-check.timer active; dux-greeter-git installed; zsh explicit; ~/.codex/skills OK. NOT OK: no iptsd@ units (touchscreen) — booted linux-cachyos, which lacks the `ithc` module; linux-surface is installed but not booted (GRUB default + maybe Secure Boot MOK enrol). User decides.
-5. Expected/harmless warnings: Steam not installed; spotify-player + Vesktop need login.
+Done 2026-11-01 ~03:00: `~/.claude` moved onto dotsets/viridjan/claude (stow clean); old root `claude/` → `~/.local/state/dots/old-layout-backup-20261101/`; alacritty/fish/vesktop/micro/gtk-3.0 refolded (old unfolded dirs in `.../live-config/`); vjupdate now warns on unfolded packages, guards pacnew overwrites of pacman.conf/mirrorlist, and audits the surface kernel.
 
-**Why:** the session ended because `~/.claude` can't move while Claude runs.
-**How to apply:** on return, check step 1 first, then continue. Warn: in pacdiff never `o` pacman.conf/mirrorlist. Delete this memory when all steps are done.
+Still open:
+1. Touchscreen: booted linux-cachyos (no `ithc`), GRUB_DEFAULT=0. linux-surface installed but not default; maybe Secure Boot MOK enrol. User decides; `check_surface_kernel` warns each audit until fixed.
+2. `surface-sync.sh` has uncommitted local edits — ask the user, don't touch. Delete once TODO.md checklist is ticked.
+3. Expected/harmless warnings: Steam not installed; spotify-player + Vesktop need login.
+
+**Why:** Surface catch-up spanned several sessions.
+**How to apply:** on return, start from "Still open". Warn: in pacdiff never `o` pacman.conf/mirrorlist. Delete this memory when all steps are done.
