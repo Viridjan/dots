@@ -261,10 +261,6 @@ window-rule {
     default-column-width { proportion 0.3; }
 }
 window-rule {
-    match app-id="discord"
-    default-column-width { proportion 0.4; }
-}
-window-rule {
     match app-id="spotify"
     match title="Spotify"
     default-column-width { proportion 0.4; }
@@ -281,7 +277,6 @@ window-rule {
 
 // Workspace assignments
 window-rule {
-    match app-id="discord"
     match app-id="thunderbird"
     match app-id="whatsie"
     match app-id="TelegramDesktop"
@@ -291,13 +286,12 @@ window-rule {
 window-rule {
     match title="Spotify"
     match app-id=r#"^steam$"#
-    match app-id=r#"^net\.lutris\.Lutris$"#
     match app-id=r#"^com\.usebottles\.bottles$"#
     match app-id="BambuStudio"
     open-on-workspace "media"
     open-focused false
 }
-// Games. Wine games launched from Lutris/Bottles get their exe name as app-id.
+// Games. Wine games launched from Bottles get their exe name as app-id.
 window-rule {
     match app-id=r#"^steam_app_"#
     match title="Dota 2"

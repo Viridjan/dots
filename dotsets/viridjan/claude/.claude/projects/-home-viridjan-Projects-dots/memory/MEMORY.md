@@ -1,0 +1,1 @@
+- [Surface catch-up](surface-post-reboot-steps.md) — ~/.claude move via surface-sync.sh pending, then cleanup + checks (2026-11-01)
