@@ -130,6 +130,7 @@ install = [
     "git-filter-repo",
     "github-cli",
     "godot",
+    "rust",  # cargo: builds 7000bar (.install-scripts.list)
 
     # Containers (Open Notebook)
     "docker",

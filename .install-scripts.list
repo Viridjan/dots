@@ -10,3 +10,7 @@
 [ -d ~/.codex/skills/verification-before-completion ] || python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py --repo obra/superpowers --path skills/verification-before-completion --dest ~/.codex/skills
 [ -d ~/.codex/skills/godot-best-practices ] || python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py --repo jwynia/agent-skills --path skills/tech/game-development/godot/godot-best-practices --dest ~/.codex/skills
 [ -d ~/.codex/skills/godot-state-machine ] || python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py --repo gaoyuan-taka/godot-action-adventure-skills --path godot-state-machine --dest ~/.codex/skills
+
+# 7000bar music player (cloned via projects.toml; cargo from the rust package).
+# Rebuilds every run: cargo is incremental, so an unchanged tree costs seconds.
+[ ! -d ~/Projects/7000bar ] || { cd ~/Projects/7000bar && nice -n 19 cargo build --release && install -Dm755 target/release/7000bar ~/.local/bin/7000bar; }

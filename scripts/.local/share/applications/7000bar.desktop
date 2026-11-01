@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=7000bar
+Comment=Small plugin-based music player
+TryExec=7000bar
+Exec=7000bar
+Icon=multimedia-audio-player
+Categories=AudioVideo;Audio;Player;
+Terminal=false

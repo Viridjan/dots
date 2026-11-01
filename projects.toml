@@ -31,3 +31,7 @@ url = "git@github.com:Viridjan/handbook.git"
 [[repo]]
 name = "webapp_detective"
 url = "git@github.com:Viridjan/webapp_detective.git"
+
+[[repo]]
+name = "7000bar"
+url = "git@github.com:Viridjan/7000bar.git"
