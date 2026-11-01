@@ -1,5 +1,5 @@
 @flatpak-per-pkg	2
-@pacman-per-pkg	1
+@pacman-per-pkg	2
 aur:cadcraft	228
 aur:cadcraft-bin	8
 aur:deckcraft	234

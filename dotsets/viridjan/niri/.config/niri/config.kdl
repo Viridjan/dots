@@ -274,6 +274,11 @@ window-rule {
     match title="Vesktop"
     default-column-width { proportion 0.4; }
 }
+// Summit (Godot game in ~/Projects/videogame): a landscape column, 60% of the monitor width
+window-rule {
+    match app-id="Summit"
+    default-column-width { proportion 0.6; }
+}
 
 // Workspace assignments
 window-rule {
