@@ -2145,13 +2145,13 @@ check_modified_configs() {
 # DMS started twice (systemd user unit AND a niri spawn-at-startup) gives two
 # bars, two notification daemons and doubled IPC handling.
 # linux-surface profiles need the surface kernel (ithc/ipts touchscreen
-# modules). GRUB_DEFAULT=0 boots whichever kernel sorts first, which on the
-# Surface was linux-cachyos: no touchscreen, no warning (2026-11-01).
+# modules). CachyOS sets GRUB_TOP_LEVEL to linux-cachyos, so GRUB boots that
+# first: no touchscreen, no warning (2026-11-01).
 check_surface_kernel() {
     _has_feature linux-surface || return 0
     [[ "$(uname -r)" == *surface* ]] && { ok "running the surface kernel"; return 0; }
     if pacman -Q linux-surface &>/dev/null; then
-        warn "running $(uname -r), not linux-surface — touchscreen/pen need it; pick it in GRUB or set GRUB_DEFAULT (then: sudo grub-mkconfig -o /boot/grub/grub.cfg)"
+        warn "running $(uname -r), not linux-surface — touchscreen/pen need it; set GRUB_TOP_LEVEL='/boot/vmlinuz-linux-surface' in /etc/default/grub, then: sudo grub-mkconfig -o /boot/grub/grub.cfg"
     else
         warn "linux-surface is not installed — run the Install action"
     fi
