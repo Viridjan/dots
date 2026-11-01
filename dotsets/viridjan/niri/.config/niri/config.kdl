@@ -388,8 +388,3 @@ include "dms/wpblur.kdl"
 // corrected 2026-08-25). cfg/display.kdl is the sole output source for DP-1.
 
 include "cfg/display.kdl"
-
-// Per-machine Display settings from vj (default window width). Written by
-// vjupdate, not in git; optional so a machine without it still loads. Last,
-// so its layout values win (singletons: later include wins).
-include optional=true "cfg/local.kdl"

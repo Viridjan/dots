@@ -1054,16 +1054,12 @@ class RunPlanTests(FixtureCase):
         self.assertIn("paru -S --needed --noconfirm --ask=4 fish", calls)
         self.assertNotIn("skipped", calls.replace("skipped (skip list)", ""))
 
-    def test_apply_display_writes_width_and_text_scale(self):
+    def test_apply_display_sets_text_scale_only_when_given(self):
         self.mock("gsettings", 'echo "gsettings $*" >> "$CALLS"')
-        kdl = self.root / "local.kdl"
-        r = self.shell(f'VJ_WINDOW_WIDTH=0.75 VJ_TEXT_SCALE=1.3 _apply_display "{kdl}"')
+        r = self.shell('VJ_TEXT_SCALE=1.3 _apply_display; VJ_TEXT_SCALE= _apply_display')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("default-column-width { proportion 0.75; }", kdl.read_text())
-        self.assertIn("gsettings set org.gnome.desktop.interface text-scaling-factor 1.3",
-                      Path(self.env["CALLS"]).read_text())
-        r = self.shell(f'VJ_WINDOW_WIDTH= VJ_TEXT_SCALE= _apply_display "{kdl}"')
-        self.assertFalse(kdl.exists())
+        self.assertEqual(Path(self.env["CALLS"]).read_text(),
+                         "gsettings set org.gnome.desktop.interface text-scaling-factor 1.3\n")
 
     def test_protected_conflict_disables_auto_removal(self):
         self.plan("paru-install.list", "newkernel\nfish\n")

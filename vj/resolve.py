@@ -102,6 +102,5 @@ def write_plan(repo: Repo, cfg: dict, outdir: Path, stow_selected=None, repos_se
     set_dir = "" if dotset in (None, "none") else str(repo.root / "dotsets" / dotset)
     env = {"VJ_PROFILE": cfg.get("profile") or "", "VJ_DOTSET": dotset or "none",
            "VJ_DOTSET_DIR": set_dir, "VJ_FEATURES": " ".join(features(repo, cfg)),
-           "VJ_TEXT_SCALE": str(cfg["display"].get("text_scale", "")),
-           "VJ_WINDOW_WIDTH": str(cfg["display"].get("window_width", ""))}
+           "VJ_TEXT_SCALE": str(cfg["display"].get("text_scale", ""))}
     (outdir / "env").write_text("".join(f"{k}={shlex.quote(v)}\n" for k, v in env.items()))

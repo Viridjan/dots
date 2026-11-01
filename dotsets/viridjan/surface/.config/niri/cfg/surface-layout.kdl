@@ -1,8 +1,8 @@
 layout {
-    default-column-width { proportion 0.5; }
+    default-column-width { proportion 0.8; }
 }
 
 // Override all per-app widths — included after window rules in config.kdl so this wins
 window-rule {
-    default-column-width { proportion 0.5; }
+    default-column-width { proportion 0.8; }
 }

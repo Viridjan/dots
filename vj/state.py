@@ -92,7 +92,7 @@ class State:
         return config.valid_choice(self.cfg, self.repo)
 
     # Display: (key, lowest, highest). Empty clears the value (left as is on the system).
-    DISPLAY = {"text_scale": (0.5, 3.0), "window_width": (0.1, 1.0)}
+    DISPLAY = {"text_scale": (0.5, 3.0)}
 
     def set_display(self, key, text):
         """Store a display value; returns an error message or None."""
@@ -104,8 +104,6 @@ class State:
                 v = float(text)
             except ValueError:
                 return f"not a number: {text}"
-            if key == "window_width" and v > 1:
-                v /= 100  # 75 → 0.75
             lo, hi = self.DISPLAY[key]
             if not lo <= v <= hi:
                 return f"{key} must be between {lo} and {hi}"
@@ -304,11 +302,8 @@ class State:
             n = len(self.ticked("dms"))
             return f"run {n}" if n else "[dim]nothing[/dim]"
         if key == "display":
-            d = self.cfg["display"]
-            if not d:
-                return "[dim]system defaults[/dim]"
-            return " · ".join(filter(None, [f"text ×{d['text_scale']}" if "text_scale" in d else "",
-                                            f"windows {d['window_width']:.0%}" if "window_width" in d else ""]))
+            scale = self.cfg["display"].get("text_scale")
+            return f"text ×{scale}" if scale else "[dim]system default[/dim]"
         if key == "settings":
             return f"{self.cfg.get('profile') or '[#ffd75f]not set[/]'} · {self.cfg.get('dotset') or '—'}"
         if key == "run":

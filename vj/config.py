@@ -20,7 +20,7 @@ DEFAULTS = {
     "ignored": {"paru": [], "flatpak": []},  # unlisted installs the audit stops reporting
     "once": {},
     "last": {},
-    "display": {},  # text_scale, window_width (applied by the dotfiles deploy)
+    "display": {},  # text_scale (applied by the dotfiles deploy)
 }
 
 

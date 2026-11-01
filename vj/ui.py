@@ -230,7 +230,7 @@ class SetupPanel(Vertical):
 
 
 class DisplayPanel(Vertical):
-    """Text scale and default window width for this machine; applied by the Dotfiles deploy."""
+    """Text scale for this machine; applied by the Dotfiles deploy."""
 
     BINDINGS = [Binding("q", "close", "Back")]
 
@@ -242,8 +242,6 @@ class DisplayPanel(Vertical):
     def compose(self) -> ComposeResult:
         d = self.state.cfg["display"]
         yield Input(str(d.get("text_scale", "")), placeholder="text scale, e.g. 1.3 (1 = normal)", id="text_scale")
-        yield Input(str(d.get("window_width", "")), placeholder="default window width, e.g. 0.75 or 75%",
-                    id="window_width")
 
     def on_mount(self):
         self.query_one("#text_scale").focus()
@@ -253,11 +251,7 @@ class DisplayPanel(Vertical):
         if err:
             self.notify(err, severity="error")
             return
-        self.screen.refresh_menu()
-        if ev.input.id == "text_scale":
-            self.query_one("#window_width").focus()
-        else:
-            self.screen.close_panel()
+        self.screen.close_panel()
 
     def action_close(self):
         self.screen.close_panel()

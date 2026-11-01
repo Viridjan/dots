@@ -260,21 +260,20 @@ class StateTests(Tmp):
         st.choose("desktop", "mine")
         return st
 
-    def test_display_values_validated_saved_and_planned(self):
+    def test_display_text_scale_validated_saved_and_planned(self):
         st = self.ready()
         self.assertIsNone(st.set_display("text_scale", "1.3"))
-        self.assertIsNone(st.set_display("window_width", "75%"))
         self.assertIn("between", st.set_display("text_scale", "9"))
-        self.assertIn("not a number", st.set_display("window_width", "wide"))
-        self.assertEqual(config.load_local(self.cfg_path)["display"], {"text_scale": 1.3, "window_width": 0.75})
-        self.assertEqual(st.recap("display"), "text ×1.3 · windows 75%")
+        self.assertIn("not a number", st.set_display("text_scale", "big"))
+        self.assertEqual(config.load_local(self.cfg_path)["display"], {"text_scale": 1.3})
+        self.assertEqual(st.recap("display"), "text ×1.3")
         out = self.root / "plan"
         st.write_plan(out)
-        env = subprocess.run(["bash", "-c", f'source "{out}/env"; echo "$VJ_TEXT_SCALE|$VJ_WINDOW_WIDTH"'],
+        env = subprocess.run(["bash", "-c", f'source "{out}/env"; echo "$VJ_TEXT_SCALE"'],
                              capture_output=True, text=True).stdout.strip()
-        self.assertEqual(env, "1.3|0.75")
-        st.set_display("window_width", "")
-        self.assertNotIn("window_width", config.load_local(self.cfg_path)["display"])
+        self.assertEqual(env, "1.3")
+        st.set_display("text_scale", "")
+        self.assertNotIn("text_scale", config.load_local(self.cfg_path)["display"])
 
     def test_choose_saves_profile(self):
         st = self.ready()

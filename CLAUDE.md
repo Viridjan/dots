@@ -162,12 +162,9 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
   no menu; unknown IDs die. `_record` also appends `name\tstate` to
   `VJ_RESULT_FILE`; configure actions record `action:<id> ok` via `_act`, which
   vj uses to stamp one-time tasks.
-- **Display** (vj row, 2026-11-01): local `[display]` `text_scale` / `window_width`
-  → plan env `VJ_TEXT_SCALE` / `VJ_WINDOW_WIDTH` → `_apply_display` (in
-  `_stow_niri_cfg`): `gsettings … text-scaling-factor` and a generated
-  `~/.config/niri/cfg/local.kdl` (`default-column-width`), included last with
-  `include optional=true`. Per-app window rules (and the Surface's blanket 0.5
-  rule) still win over it.
+- **Display** (vj row, 2026-11-01): local `[display]` `text_scale` → plan env
+  `VJ_TEXT_SCALE` → `_apply_display` (in `_stow_niri_cfg`) sets
+  `gsettings … text-scaling-factor`.
 - **Local config** keys: `profile`, `dotset`, `[display]`, `[paru]/[flatpak] add/remove`,
   `[declined]`, `[ignored]` (unlisted installs not to report), `[once]` (date
   or "skip"), `[last]` (maint/repos/dotfiles ticks). Saved atomically on every change. Override path with `VJ_CONFIG`.
