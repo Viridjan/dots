@@ -1,2 +1,30 @@
+# Memory Index
+
+- [User Profile](user-profile.md) — CachyOS desktop user, RX 6700 XT, dotfiles power user
+- [Project State](project-state.md) — vjupdate launcher hygiene + rebuild automation (2026-08-18); matrix/gomuks ripped out, data partitions in fstab, statusline aggregator
+- [dots shell conventions](dots-shell-conventions.md) — set -e `var=$(cmd)` trap + shellcheck directive gotcha + pre-commit guard
+- [niri gaming](niri-gaming.md) — no auto-maximize (oniri dropped); fullscreen keybinds; merge semantics (keyed=FIRST, singleton=LATER) + VRR flicker; gamescope games unmatchable → gamescope-media wrapper; MTGA dropped gamescope 2026-10-30
+- [dms export clobbers overrides](dms-export-clobbers-overrides.md) — --dms-export used to blanket-copy auto-generated files over the repo, killed the green theme for 2 months
+- [vjupdate optimize](vjupdate-optimize.md) — --optimize automates CachyOS system tuning
+- [npm prefix setup](feedback-npm-prefix.md) — npm global prefix must be ~/.local, not /usr
+- [gitignore policy](feedback-gitignore-policy.md) — ignore secrets + continuously-regenerating artifacts; churn rate, not size
+- [history purge](dots-history-purge.md) — 2026-08-15 rewrite 104MB→19MB; **surface machine needs hard-reset**
+- [verification rigor](feedback-verification-rigor.md) — "all fixed" needs evidence; audit by bug class, name what wasn't run
+- [lowest maintenance](feedback-lowest-maintenance.md) — least ongoing upkeep; delete dead files, don't annotate them
+- [no screenshots](feedback-no-screenshots.md) — don't screen-capture to debug UI visibility, ask user instead
+- [prefer reversible fixes](feedback-prefer-reversible-fixes.md) — user declines package downgrades; keep digging for config-level root cause first
+- [vjupdate log triage](vjupdate-log-triage.md) — pacman-key ≠ user gpg for AUR source sigs; standing pacnew keep/discard table; limine dual-config open item
+- [working with codex in dots](working-with-codex-in-dots.md) — Codex edits the repo between turns; git diff first, verify its claims, expect my scratchpad tests to go stale
+- [~/.local/bin unfolded](local-bin-unfolded.md) — scripts stowed --no-folding 2026-09-25; **Surface: run migration before git pull**
+- [offline runbooks](feedback-offline-runbooks.md) — deferred/other-machine work → standalone tested script + manual-confirm TODO checklist
+- [pacman no progress under tee](pacman-no-progress-under-tee.md) — tee pipe kills pacman bars/candy; script-pty fix proposed, not applied
+- [device missing after kernel upgrade](device-missing-after-kernel-upgrade.md) — "not detected" → compare uname -r vs /usr/lib/modules; reboot after kernel upgrade
+- [package preferences](dots-package-preferences.md) — -bin AUR fine (source rule was update misconception, dropped 2026-10-25); no third-party repos; swap via [paru].remove; give `! paru` cmds
+- [vj TUI rewrite](vj-tui-rewrite.md) — 2026-10-21 vj + profiles + dotsets/viridjan pushed 2026-10-21; pending /etc sudo relink, Surface runbook
+- [vjupdate 2026-10-27 cleanup](vjupdate-2026-10-27-cleanup.md) — bash menu gone (vjupdate → vj), AUDIT_CHECKS, weekly check timer, last-check in vj
+- [graphify on dots](graphify-dots-ids.md) — AST id format vs subagent ids; ignore list; incremental runs
+- [Battle.net under Wine](battlenet-wine.md) — ~/Games/battlenet via start-battlenet (umu+GE-Proton); stale prefix sessions → wineserver -k
+- [ollama limits](ollama-limits.md) — qwen3.5 only, DeepSeek removed 2026-10-30; qwen VRAM-capped num_gpu 26 (no prompt; user flip-flopped on speed, ask before changing); CPU/RAM soft caps
+- [claude-auto-retry](claude-auto-retry.md) — fish `claude` wrapper + tmux + StopFailure hook; npm 0.7.3 since npm 12 blocks git/tarball
 - [Scripts never abort](scripts-never-abort.md) — idempotent steps, warn and continue, exit 0 with summary
 - [Push after changes](push-after-changes.md) — desktop/Surface sync via GitHub; commit + push finished work
