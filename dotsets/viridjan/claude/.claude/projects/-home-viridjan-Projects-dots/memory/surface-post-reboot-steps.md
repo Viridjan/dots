@@ -18,7 +18,7 @@ Done this session:
 Done 2026-11-01 ~03:00: `~/.claude` moved onto dotsets/viridjan/claude (stow clean); old root `claude/` → `~/.local/state/dots/old-layout-backup-20261101/`; alacritty/fish/vesktop/micro/gtk-3.0 refolded (old unfolded dirs in `.../live-config/`); vjupdate now warns on unfolded packages, guards pacnew overwrites of pacman.conf/mirrorlist, and audits the surface kernel.
 
 Still open:
-1. Touchscreen: booted linux-cachyos (no `ithc`), GRUB_DEFAULT=0. linux-surface installed but not default; maybe Secure Boot MOK enrol. User decides; `check_surface_kernel` warns each audit until fixed.
+1. Touchscreen: DONE 02:57 — GRUB_TOP_LEVEL set to linux-surface, booted 7.2.11-arch1-1-surface, iptsd@dev-hidraw3 running.
 2. `surface-sync.sh` has uncommitted local edits — ask the user, don't touch. Delete once TODO.md checklist is ticked.
 3. Expected/harmless warnings: Steam not installed; spotify-player + Vesktop need login.
 
