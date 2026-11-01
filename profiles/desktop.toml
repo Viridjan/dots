@@ -20,6 +20,9 @@ install = [
 
     # AI / local LLM
     "ollama-rocm",
+
+    # Games: launcher for GitHub/GitLab release ports (AUR wraps the upstream AppImage)
+    "quiver-launcher-bin",
 ]
 
 [systemd]
