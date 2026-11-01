@@ -79,7 +79,7 @@ dots/
       ollama/         → /etc/systemd/system/ollama.service.d/  (rocm.conf + limits.conf ~40% cap; stow -t /)
       nirinit/        → ~/.config/nirinit/  (skip list: apps the niri autostart already opens)
       xdg-desktop-portal/ → ~/.config/xdg-desktop-portal/  (niri-portals.conf: copy of /usr/share's + ScreenCast=niri-autoselect)
-  scripts/        → ~/.local/bin/ + ~/.local/lib/vjupdate/ (automount.sh)  (vjupdate, vj, start-windows, start-open-notebook, start-battlenet, gamescope-media; stowed --no-folding,
+  scripts/        → ~/.local/bin/ + ~/.local/lib/vjupdate/ (automount.sh)  (vjupdate, vj, vjsurface, start-windows, start-open-notebook, start-battlenet, gamescope-media; stowed --no-folding,
                     always from the repo root — tooling, not part of a dotfile set)
                   + ~/.local/share/applications/  (.desktop launchers)
                   + ~/.local/share/ollama/  (<name>.Modelfile, rebuilt by setup_ollama)
@@ -538,6 +538,15 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   one if the merge dropped a `[repo]` section or every `Server` line (an `o`
   overwrite had removed the CachyOS repos). `check_surface_kernel` (audit,
   `linux-surface` feature) warns when the booted kernel isn't linux-surface.
+- **`vjsurface`** (2026-11-01, Surface only: profile `surface` or DMI "Surface"):
+  separate script, run before or after vjupdate (waits out vjupdate's flock).
+  Idempotent steps — pacman.conf/mirrorlists restored from `.bak` if they lost
+  repos/servers; linux-surface + headers + iptsd installed; `GRUB_TOP_LEVEL`
+  → linux-surface (CachyOS pins linux-cachyos) + `grub-mkconfig` only on
+  change; iptsd running on the surface kernel; refolds stow-split packages
+  (moves the real dir aside, restows, copies untracked files back; skips on a
+  clash or a running Claude). Never aborts, always exits 0, prints a summary.
+  Paths overridable (`VJS_*`) for `tests/test_vjsurface.py`.
 - **Held packages.** `[paru].hold` (packages.toml) excludes named packages from system
   upgrades (including retries) and both rebuild paths. First installation is
   unchanged. Audit and update runs warn about pending held AUR updates with

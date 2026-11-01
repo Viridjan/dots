@@ -2151,9 +2151,9 @@ check_surface_kernel() {
     _has_feature linux-surface || return 0
     [[ "$(uname -r)" == *surface* ]] && { ok "running the surface kernel"; return 0; }
     if pacman -Q linux-surface &>/dev/null; then
-        warn "running $(uname -r), not linux-surface — touchscreen/pen need it; set GRUB_TOP_LEVEL='/boot/vmlinuz-linux-surface' in /etc/default/grub, then: sudo grub-mkconfig -o /boot/grub/grub.cfg"
+        warn "running $(uname -r), not linux-surface — touchscreen/pen need it; run vjsurface (sets GRUB_TOP_LEVEL), then reboot"
     else
-        warn "linux-surface is not installed — run the Install action"
+        warn "linux-surface is not installed — run vjsurface or the Install action"
     fi
 }
 

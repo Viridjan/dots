@@ -1,0 +1,251 @@
+#!/usr/bin/env bash
+# vjsurface — keep a Surface (linux-surface profile) in the state that was
+# fixed by hand on 2026-11-01. Run it before or after vjupdate, as often as
+# you like: every step checks first and changes nothing when already done.
+#
+#   1. pacman repos    pacman.conf / mirrorlists lost repos or servers versus
+#                      their .bak (a pacnew 'o' overwrite) → restore the .bak
+#   2. kernel          linux-surface (+ headers, iptsd) installed
+#   3. boot            GRUB_TOP_LEVEL points at linux-surface; grub.cfg
+#                      regenerated only when that changed or lacks the kernel
+#   4. touch           on the surface kernel: an iptsd@ unit is running
+#   5. refold          dotfile dirs that stow split into real directories
+#                      (new files there never reach git) → move aside, relink,
+#                      copy the untracked files back
+#
+# It never aborts: a failing step is reported and the next one runs. The exit
+# status is always 0; read the summary at the end.
+set -uo pipefail
+
+DOTS="${VJS_DOTS:-$(cd "$(dirname "$(realpath "$0")")/../../.." && pwd)}"
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/dots"
+CFG="${VJ_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/vjupdate/config.toml}"
+TS=$(date +%Y%m%d-%H%M%S)
+# Overridable for tests.
+GRUB_FILE="${VJS_GRUB_FILE:-/etc/default/grub}"
+GRUB_CFG="${VJS_GRUB_CFG:-/boot/grub/grub.cfg}"
+BOOT="${VJS_BOOT:-/boot}"
+DMI="${VJS_DMI:-/sys/class/dmi/id/product_name}"
+read -r -a PACMAN_FILES <<< "${VJS_PACMAN_FILES:-/etc/pacman.conf $(echo /etc/pacman.d/*mirrorlist)}"
+
+mkdir -p "$STATE"
+LOG="$STATE/vjsurface.log"
+exec > >(tee "$LOG") 2>&1
+
+PROBLEMS=()
+step() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
+ok()   { printf '\033[0;32m    ok: %s\033[0m\n' "$*"; }
+note() { printf '    %s\n' "$*"; }
+warn() { printf '\033[0;33m    warn: %s\033[0m\n' "$*"; PROBLEMS+=("$*"); }
+
+# ── preflight ────────────────────────────────────────────────────────────────
+profile=$(sed -nE 's/^profile *= *"(.*)"/\1/p' "$CFG" 2>/dev/null)
+dotset=$(sed -nE 's/^dotset *= *"(.*)"/\1/p' "$CFG" 2>/dev/null)
+if [[ "$profile" != surface && "$(cat "$DMI" 2>/dev/null)" != *Surface* ]]; then
+    echo "Not a Surface (profile '${profile:-unset}', no Surface in $DMI) — nothing to do."
+    exit 0
+fi
+# vjupdate holds an flock on this file while it runs (pacman would clash).
+if command -v flock &>/dev/null && [[ -e "$STATE/vjupdate.lock" ]] \
+        && ! { flock -n 9; } 9<"$STATE/vjupdate.lock"; then
+    echo "vjupdate is running — run vjsurface after it finishes."
+    exit 0
+fi
+SUDO=true
+if ! sudo -n true 2>/dev/null; then
+    if [[ -t 0 ]]; then sudo -v || SUDO=false; else SUDO=false; fi
+fi
+$SUDO || warn "no sudo — steps that change /etc or /boot are only checked"
+as_root() { $SUDO && sudo "$@"; }
+
+# ── 1. pacman repos ──────────────────────────────────────────────────────────
+step_pacman() {
+    step "pacman repos and mirrors"
+    local f bak lost
+    for f in "${PACMAN_FILES[@]}"; do
+        bak="$f.bak"
+        [[ -f "$f" && -f "$bak" ]] || continue
+        if [[ "$f" == */pacman.conf ]]; then
+            lost=$(comm -23 <(grep -o '^\[[^]]*\]' "$bak" | sort -u) \
+                            <(grep -o '^\[[^]]*\]' "$f" | sort -u) | tr '\n' ' ')
+        elif grep -q '^Server' "$bak" && ! grep -q '^Server' "$f"; then
+            lost="every Server line"
+        else
+            lost=""
+        fi
+        if [[ -z "$lost" ]]; then
+            ok "$f"
+        elif as_root cp -p "$f" "$f.vjsurface-$TS" && as_root cp -p "$bak" "$f"; then
+            ok "$f had lost ${lost% } — restored $bak (previous file kept as $f.vjsurface-$TS)"
+            note "run 'sudo pacman -Syy' (or vjupdate) to resync the databases"
+        else
+            warn "$f lost ${lost% } compared with $bak — restore it: sudo cp $bak $f"
+        fi
+    done
+    grep -q '^\[linux-surface\]' "${PACMAN_FILES[0]}" 2>/dev/null \
+        && ok "linux-surface repo present" \
+        || warn "linux-surface repo missing from ${PACMAN_FILES[0]} — run: vjupdate --actions sources"
+}
+
+# ── 2. kernel packages ───────────────────────────────────────────────────────
+step_kernel() {
+    step "linux-surface packages"
+    local p missing=()
+    for p in linux-surface linux-surface-headers iptsd; do
+        pacman -Q "$p" &>/dev/null || missing+=("$p")
+    done
+    if ((${#missing[@]} == 0)); then
+        ok "linux-surface, headers and iptsd installed"
+    elif as_root pacman -S --needed --noconfirm "${missing[@]}"; then
+        ok "installed: ${missing[*]}"
+    else
+        warn "could not install ${missing[*]} — run: sudo pacman -S ${missing[*]}"
+    fi
+}
+
+# ── 3. boot entry ────────────────────────────────────────────────────────────
+step_boot() {
+    step "GRUB boots linux-surface"
+    local want="GRUB_TOP_LEVEL='$BOOT/vmlinuz-linux-surface'" regen=false
+    if [[ ! -f "$GRUB_FILE" ]]; then
+        warn "no $GRUB_FILE — not a GRUB system; make linux-surface the default boot entry by hand"
+        return
+    fi
+    if [[ ! -f "$BOOT/vmlinuz-linux-surface" ]]; then
+        warn "$BOOT/vmlinuz-linux-surface missing — install linux-surface first"
+        return
+    fi
+    # CachyOS pins GRUB_TOP_LEVEL to linux-cachyos, so that boots first.
+    if grep -qx "$want" "$GRUB_FILE"; then
+        ok "GRUB_TOP_LEVEL already linux-surface"
+    else
+        if grep -q '^GRUB_TOP_LEVEL=' "$GRUB_FILE"; then
+            as_root sed -i.vjsurface-"$TS" "s|^GRUB_TOP_LEVEL=.*|$want|" "$GRUB_FILE"
+        else
+            as_root cp -p "$GRUB_FILE" "$GRUB_FILE.vjsurface-$TS" &&
+                printf '%s\n' "$want" | as_root tee -a "$GRUB_FILE" >/dev/null
+        fi
+        if grep -qx "$want" "$GRUB_FILE"; then
+            ok "set $want (old file: $GRUB_FILE.vjsurface-$TS)"; regen=true
+        else
+            warn "could not set GRUB_TOP_LEVEL — add this line to $GRUB_FILE: $want"
+            return
+        fi
+    fi
+    # grub.cfg is root-only; reading it needs sudo too.
+    if ! $regen && $SUDO && ! sudo grep -q 'vmlinuz-linux-surface' "$GRUB_CFG" 2>/dev/null; then
+        regen=true
+    fi
+    if $regen; then
+        if as_root grub-mkconfig -o "$GRUB_CFG"; then
+            ok "regenerated $GRUB_CFG"
+        else
+            warn "grub-mkconfig failed — run: sudo grub-mkconfig -o $GRUB_CFG"
+        fi
+    elif $SUDO; then
+        ok "$GRUB_CFG lists linux-surface"
+    else
+        note "$GRUB_CFG not checked (root-only file, no sudo)"
+    fi
+}
+
+# ── 4. touchscreen ───────────────────────────────────────────────────────────
+step_touch() {
+    step "touchscreen (iptsd)"
+    if [[ "$(uname -r)" != *surface* ]]; then
+        warn "running $(uname -r) — reboot into linux-surface for touch and pen"
+        return
+    fi
+    ok "running $(uname -r)"
+    if systemctl list-units --state=running --plain --no-legend 'iptsd@*' 2>/dev/null | grep -q iptsd; then
+        ok "iptsd running"
+    else
+        warn "no iptsd@ unit running — check: systemctl list-units --all 'iptsd@*'; journalctl -b -u 'iptsd@*'"
+    fi
+}
+
+# ── 5. refold dotfile packages ───────────────────────────────────────────────
+# Same detection as vjupdate's _warn_unfolded: a package dir whose target is a
+# real directory instead of resolving into the package.
+_unfolded_dir() {
+    local pkg="$1" d rel t
+    while IFS= read -r d; do
+        rel=${d#"$pkg"/}
+        case "$rel" in .config|.local|.local/share|.local/state|.local/lib|.config/systemd|.config/systemd/user) continue ;; esac
+        t="$HOME/$rel"
+        [[ -d "$t" ]] || continue
+        [[ "$(realpath "$t")" == "$(realpath "$d")" ]] && continue
+        printf '%s\n' "$rel"; return
+    done < <(find "$pkg" -mindepth 1 -maxdepth 3 -type d | sort)
+}
+
+_refold() {
+    local pkg="$1" rel="$2" t="$HOME/$2" bk f clash=""
+    if [[ "$pkg" == claude ]] && pgrep -x claude >/dev/null; then
+        warn "'claude' is unfolded at ~/$rel but Claude Code is running — close it and re-run vjsurface"
+        return
+    fi
+    # A real file at a tracked path would be overwritten by the link: merge by hand.
+    while IFS= read -r -d '' f; do
+        [[ -e "$pkg/$rel/${f#"$t"/}" ]] && clash+=" ${f#"$t"/}"
+    done < <(find "$t" -type f -print0)
+    if [[ -n "$clash" ]]; then
+        warn "'$pkg' is unfolded at ~/$rel and these real files differ from tracked ones:$clash — merge by hand"
+        return
+    fi
+    bk="$STATE/vjsurface-backup-$TS/$rel"
+    mkdir -p "${bk%/*}" && mv -- "$t" "$bk" || { warn "could not move ~/$rel aside"; return; }
+    if ! stow --restow -t "$HOME" "$pkg" 2>/dev/null || [[ "$(realpath "$t")" != "$(realpath "$pkg/$rel")" ]]; then
+        stow -D -t "$HOME" "$pkg" 2>/dev/null
+        rm -f -- "$t"; mv -- "$bk" "$t"
+        warn "relinking '$pkg' failed — ~/$rel put back as it was"
+        return
+    fi
+    # Copy untracked files back into the (now linked) package; never overwrite.
+    local n=0
+    while IFS= read -r -d '' f; do
+        f=${f#"$bk"/}
+        [[ -e "$t/$f" || -L "$t/$f" ]] && continue
+        mkdir -p "$t/$(dirname "$f")" && cp -p -- "$bk/$f" "$t/$f" && n=$((n + 1))
+    done < <(find "$bk" -type f -print0)
+    ok "refolded '$pkg' at ~/$rel ($n untracked file(s) copied back; old dir: $bk)"
+}
+
+step_refold() {
+    step "dotfile links (refold split packages)"
+    local set="$DOTS/dotsets/${dotset:-viridjan}" pkg rel any=false
+    if [[ ! -d "$set" ]]; then
+        note "no dotfile set ${dotset:-viridjan} — skipped"
+        return
+    fi
+    if ! command -v stow &>/dev/null; then
+        warn "stow not installed — skipped"
+        return
+    fi
+    pushd "$set" >/dev/null || return
+    for pkg in */; do
+        pkg=${pkg%/}
+        case "$pkg" in niri|desktop|surface|plancia|brave|ollama) continue ;; esac
+        rel=$(_unfolded_dir "$pkg")
+        [[ -n "$rel" ]] || continue
+        any=true
+        _refold "$pkg" "$rel"
+    done
+    popd >/dev/null || return
+    $any || ok "every package is a folded link"
+}
+
+# Each step guards itself; this only keeps one unexpected error from ending the run.
+for s in step_pacman step_kernel step_boot step_touch step_refold; do
+    "$s" || warn "$s stopped early (exit $?) — see the output above"
+done
+
+echo
+if ((${#PROBLEMS[@]})); then
+    printf '\033[1;33mvjsurface finished with %d thing(s) to look at:\033[0m\n' "${#PROBLEMS[@]}"
+    printf '  - %s\n' "${PROBLEMS[@]}"
+else
+    printf '\033[1;32mvjsurface: all good.\033[0m\n'
+fi
+echo "Log: $LOG"
+exit 0
