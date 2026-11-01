@@ -1,4 +1,6 @@
 # Git repositories cloned into ~/Projects/ by the sources phase.
+# Optional `build`: run in the repo by install and --update after a
+# fast-forward pull, only when HEAD changed (skipped while the tree has local changes).
 
 [[repo]]
 name = "dots"
@@ -35,3 +37,4 @@ url = "git@github.com:Viridjan/webapp_detective.git"
 [[repo]]
 name = "7000bar"
 url = "git@github.com:Viridjan/7000bar.git"
+build = "cargo build --release && install -Dm755 target/release/7000bar ~/.local/bin/7000bar"

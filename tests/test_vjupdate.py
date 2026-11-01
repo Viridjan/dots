@@ -3,6 +3,7 @@ import os
 import fcntl
 from pathlib import Path
 import shlex
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -1616,3 +1617,53 @@ install_all
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("INSTALLER:https://chatgpt.com/codex/install.sh", r.stdout)
         self.assertTrue((self.home / ".local/bin/codex").is_file())
+
+
+class ProjectBuildTests(FixtureCase):
+    """projects.toml `build`: pull fast-forward, rebuild only when HEAD moved."""
+
+    def setUp(self):
+        super().setUp()
+        self.git = shutil.which("git", path="/usr/bin:/bin")
+        self.origin = self.home / "origin"
+        self.work = self.home / "Projects/app"
+        g = lambda *a, cwd=None: subprocess.run([self.git, *a], cwd=cwd, check=True,
+                                               capture_output=True, env={**self.env, "PATH": "/usr/bin:/bin"})
+        self.g = g
+        g("init", "-q", "-b", "main", str(self.origin))
+        g("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "one", cwd=self.origin)
+        g("clone", "-q", str(self.origin), str(self.work))
+        self.plan("project-builds.list", 'app\techo built >> "$CALLS"\n')
+
+    def run_update(self):
+        return self.shell(f'git() {{ {self.git} "$@"; }}\nupdate_projects\nprint_recap')
+
+    def builds(self):
+        calls = Path(self.env["CALLS"])
+        return calls.read_text().count("built") if calls.exists() else 0
+
+    def test_builds_once_then_only_after_new_commit(self):
+        r = self.run_update()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.builds(), 1)
+        self.run_update()
+        self.assertEqual(self.builds(), 1)
+        self.g("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "two", cwd=self.origin)
+        r = self.run_update()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.builds(), 2)
+
+    def test_local_changes_are_not_pulled_or_built(self):
+        (self.work / "wip.txt").write_text("mine")
+        r = self.run_update()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.builds(), 0)
+        self.assertIn("local changes", r.stdout)
+
+    def test_failed_build_is_recorded_without_aborting(self):
+        self.plan("project-builds.list", "app\tfalse\n")
+        r = self.shell(f'git() {{ {self.git} "$@"; }}\nupdate_projects\necho AFTER\nprint_recap')
+        self.assertIn("AFTER", r.stdout)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("build:app", r.stdout)
+        self.assertFalse((self.home / ".local/state/dots/builds/app").exists())

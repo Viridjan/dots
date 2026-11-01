@@ -424,6 +424,12 @@ pavucontrol, emudeck-bin (`fuse2` now explicit — it was only a vial-appimage
 dep), the `*craft-bin` suite, Dolphin, PrimeHack.
 
 `projects.toml` — `[[repo]]` entries (name + SSH URL) cloned into `~/Projects/` during the `clone_projects` bootstrap phase (missing ones only; vj → Git repositories selects which).
+Optional `build = "<cmd>"` → plan `project-builds.list` (`name\tcmd`) →
+`update_projects` (install phase + `--update`): `git pull --ff-only`, then runs
+the command in the repo at lowest priority when HEAD differs from
+`~/.local/state/dots/builds/<name>`. A dirty tree is skipped with a warning
+(neither pulled nor built); a failed pull/build records `build:<name>` and
+doesn't stamp. Own software (7000bar) goes here, not `.install-scripts.list`.
 
 `TODO.md` — pending work tracked in the repo (manual-confirm checklists for other-machine work, pending package migrations).
 

@@ -96,6 +96,7 @@ def write_plan(repo: Repo, cfg: dict, outdir: Path, stow_selected=None, repos_se
         "npm-install.list": r["npm_install"], "uv-install.list": r["uv_install"],
         "flatpak-install.list": r["flatpak_install"], "flatpak-remove.list": r["flatpak_remove"],
         "projects.list": [p["url"] for p in projects], "stow.list": stow,
+        "project-builds.list": [f'{p["name"]}\t{p["build"]}' for p in projects if p.get("build")],
     }
     for name, items in files.items():
         (outdir / name).write_text("".join(f"{i}\n" for i in items))

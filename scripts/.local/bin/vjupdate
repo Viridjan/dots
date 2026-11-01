@@ -899,6 +899,7 @@ install_all() {
         flatpak update -y &>/dev/null && ok "flatpaks up to date" || _failw flatpak-update "flatpak update failed"
     fi
     update_ollama
+    update_projects
 
     install_user_tools
     install_codex
@@ -1959,6 +1960,43 @@ update_ollama() {
     setup_ollama
 }
 
+# projects.toml `build`: pull each repo (fast-forward only) and rerun its build
+# when HEAD moved since the last successful build. A repo with local changes is
+# being worked on, so it is neither pulled nor rebuilt.
+update_projects() {
+    local list="$VJ_PLAN_DIR/project-builds.list" name cmd dir head stamp
+    [[ -s "$list" ]] || return 0
+    mkdir -p "$STAMP_DIR/builds"
+    while IFS=$'\t' read -r name cmd || [[ -n "$name" ]]; do
+        [[ -n "$name" && -n "$cmd" ]] || continue
+        dir="$HOME/Projects/$name"
+        [[ -d "$dir/.git" ]] || continue  # not cloned yet: the sources phase clones it
+        if [[ -n "$(git -C "$dir" status --porcelain 2>/dev/null)" ]]; then
+            warn "$name: local changes — not pulled or rebuilt"
+            continue
+        fi
+        if ! GIT_TERMINAL_PROMPT=0 git -C "$dir" pull --ff-only -q </dev/null; then
+            _failw "build:$name" "$name: git pull --ff-only failed"
+            continue
+        fi
+        head=$(git -C "$dir" rev-parse HEAD) || continue
+        stamp="$STAMP_DIR/builds/$name"
+        if [[ "$(cat "$stamp" 2>/dev/null)" == "$head" ]]; then
+            ok "up to date: $name"
+            continue
+        fi
+        info "Building $name..."
+        # Lowest priority like _paru; stdin closed so a build can't eat the list.
+        if (cd "$dir" && nice -n "$(( 19 - $(nice) ))" bash -o pipefail -c "$cmd") </dev/null; then
+            printf '%s\n' "$head" > "$stamp"
+            _record "build:$name" ok
+            ok "built: $name"
+        else
+            _failw "build:$name" "$name: build failed: $cmd"
+        fi
+    done < "$list"
+}
+
 # ─── Phase 7f: VM setup ──────────────────────────────────
 setup_vms() {
     if ! _has_feature windows-vm; then
@@ -2944,6 +2982,7 @@ update() {
     check_held_updates
     flatpak_update
     update_ollama
+    update_projects
     check_flatpak_orphans
     clean_caches
     print_recap

@@ -30,7 +30,8 @@ def fixture_repo(root: Path) -> Path:
         '[paru]\ninstall = ["vulkan-radeon", "fish"]\n[systemd]\nenable = ["ollama", "cups"]\n')
     (d / "profiles/surface.toml").write_text(
         'description = "Tablet"\nhostname = "surface"\ndotset = "mine"\nfeatures = ["linux-surface"]\n')
-    (d / "projects.toml").write_text('[[repo]]\nname = "dots"\nurl = "git@x:dots.git"\n')
+    (d / "projects.toml").write_text('[[repo]]\nname = "dots"\nurl = "git@x:dots.git"\n'
+                                     '[[repo]]\nname = "app"\nurl = "git@x:app.git"\nbuild = "make install"\n')
     for p in ("alacritty", "fish", "desktop", "surface"):
         (d / "dotsets/mine" / p).mkdir(parents=True)
     return d
@@ -173,7 +174,8 @@ class ResolveTests(Tmp):
         self.assertEqual(read("paru-install.list"), ["fish", "steam", "vulkan-radeon"])
         self.assertEqual(read("paru-remove.list"), ["wine"])
         self.assertEqual(read("flatpak-remove.list"), ["org.old.App"])
-        self.assertEqual(read("projects.list"), ["git@x:dots.git"])
+        self.assertEqual(read("projects.list"), ["git@x:dots.git", "git@x:app.git"])
+        self.assertEqual((out / "project-builds.list").read_text(), "app\tmake install\n")
         self.assertEqual(read("stow.list"), ["alacritty", "fish"])
         self.assertEqual(read("systemd-enable.list"), ["cups", "bluetooth", "ollama"])
         self.assertEqual(read("systemd-user.list"), ["mpd"])
@@ -189,6 +191,7 @@ class ResolveTests(Tmp):
         resolve.write_plan(self.repo, self.cfg, out, stow_selected=["fish"], repos_selected=[])
         self.assertEqual((out / "stow.list").read_text().split(), ["fish"])
         self.assertEqual((out / "projects.list").read_text().split(), [])
+        self.assertEqual((out / "project-builds.list").read_text(), "")
 
     def test_write_plan_dotset_none(self):
         self.cfg["dotset"] = "none"
