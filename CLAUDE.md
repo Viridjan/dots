@@ -417,7 +417,7 @@ did not run; do not assume the local package is already uninstalled.
 mtime of each app's config/data dirs (`vj unused` idle verdicts need 60 days of
 wellbeing, from 2026-12-22). Dropped from the lists and uninstalled: kicad +
 kicad-library (also in `[paru].remove`), goverlay, protonup-qt, meld, gwenview,
-zathura(-pdf-poppler), btop, unsloth, nicotine+, kolourpaint, firefox, geany,
+zathura(-pdf-poppler), btop, unsloth, nicotine+ (re-added 2026-11-03), kolourpaint, firefox, geany,
 vial-appimage, flatpaks xemu/Supermodel/melonDS/RetroArch/PPSSPP/ScummVM/
 protonmail-bridge/xclicker (+ unlisted OrcaSlicer). Kept on purpose: gparted,
 pavucontrol, emudeck-bin (`fuse2` now explicit — it was only a vial-appimage

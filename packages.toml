@@ -95,6 +95,7 @@ install = [
     "rmpc",
     "spotify-player",
     "playerctl",
+    "nicotine+",  # Soulseek client (re-added 2026-11-03)
 
     # Applications
     "thunderbird",
