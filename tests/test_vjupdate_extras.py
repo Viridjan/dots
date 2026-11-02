@@ -75,6 +75,39 @@ exit 0''')
         self.assertIn("protected, not removed: linux-firmware-nfp", r.stdout)
 
 
+class FirewallTests(ExtrasCase):
+    """[ufw].allow → ufw-allow.list → one `ufw allow` per rule, words split."""
+
+    def test_rules_are_allowed_word_split(self):
+        self.recorder("ufw")
+        self.recorder("sudo", '"$@"')
+        self.plan("ufw-allow.list", "2234/tcp\nfrom 192.168.1.0/24 to any port 22\n")
+        r = self.shell('ufw_allow; echo FAILED=$_FAILED')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("FAILED=0", r.stdout)
+        self.assertIn("ufw allow 2234/tcp\n", self.calls())
+        self.assertIn("ufw allow from 192.168.1.0/24 to any port 22\n", self.calls())
+
+    def test_failed_rule_is_recorded_and_others_still_run(self):
+        self.mock("ufw", '[[ "$2" == bad ]] && exit 1; printf "%s\\n" "ufw $*" >> "$CALLS"')
+        self.mock("sudo", '"$@"')  # recorder() always exits 0
+        self.plan("ufw-allow.list", "bad\n2234/tcp\n")
+        r = self.shell('ufw_allow; echo FAILED=$_FAILED')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("FAILED=1", r.stdout)
+        self.assertIn("ufw allow 2234/tcp", self.calls())
+
+    def test_no_rules_or_no_ufw_does_nothing(self):
+        self.recorder("sudo", '"$@"')
+        self.plan("ufw-allow.list", "")
+        r = self.shell('ufw_allow')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.plan("ufw-allow.list", "2234/tcp\n")
+        r = self.shell('ufw_allow')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertNotIn("ufw", self.calls() if Path(self.env["CALLS"]).exists() else "")
+
+
 class ServiceTests(ExtrasCase):
     def test_failed_enable_is_not_recorded_as_managed(self):
         self.plan("systemd-enable.list", "cups\n")

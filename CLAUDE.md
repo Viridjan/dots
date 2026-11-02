@@ -119,7 +119,9 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
   package. `[flatpak].remove` → `flatpak-remove.list`, uninstalled after installs. `_PROTECTED_PKG_RE` (kernels, firmware,
   ucode, limine, base, glibc, pacman, keyrings…) is never removed by any path.
 - **Other plan lists:** `systemd-enable.list`/`systemd-user.list` (`[systemd]
-  enable/user`), `npm-install.list` (`[npm]`), `uv-install.list` (`[uv]`) —
+  enable/user`), `npm-install.list` (`[npm]`), `uv-install.list` (`[uv]`),
+  `ufw-allow.list` (`[ufw] allow`, applied by `ufw_allow` at the end of the
+  services action; add-only) —
   repo + profile, no local overrides. `ignore.list` = local `[ignored]`.
   `known-packages.list` contains all declared shared/profile/local install
   names before declined selections are filtered out. The audit reads it to
@@ -452,6 +454,7 @@ Package lists are TOML (`#` comments inside the arrays are fine):
 | `packages.toml` `[paru].hold` | Installed normally but excluded from automatic upgrades and rebuilds |
 | `packages.toml` `[flatpak].install` | Flatpak apps |
 | `packages.toml` / profile `[systemd].enable` / `.user` | Units enabled by "Enable system services"; dropping one disables it next time (state: `~/.local/state/dots/managed-units`; first run disables nothing) |
+| `packages.toml` / profile `[ufw].allow` | `sudo ufw allow <rule>` per entry (words split) in "Enable system services"; add-only, `ufw delete allow <rule>` to drop one |
 | `packages.toml` `[npm].install` / `[uv].install` | Global npm / uv tools, installed if missing (install phase) |
 | `~/.config/vjupdate/config.toml` | This machine's add/remove/declined (vj writes it) |
 | `.dms-plugins.list` | DankMaterialShell plugins |

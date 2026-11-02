@@ -32,7 +32,8 @@ def resolve(repo: Repo, cfg: dict) -> dict:
     out["paru_skip"] = list(skip)
     # Lists with no local overrides: repo + profile, deduped.
     for key, (src, field) in {"systemd_enable": ("systemd", "enable"), "systemd_user": ("systemd", "user"),
-                              "npm_install": ("npm", "install"), "uv_install": ("uv", "install")}.items():
+                              "npm_install": ("npm", "install"), "uv_install": ("uv", "install"),
+                              "ufw_allow": ("ufw", "allow")}.items():
         out[key] = _uniq(pk.get(src, {}).get(field, []) + prof.get(src, {}).get(field, []))
     return out
 
@@ -94,6 +95,7 @@ def write_plan(repo: Repo, cfg: dict, outdir: Path, stow_selected=None, repos_se
         "paru-demote.list": r["paru_demote"], "ignore.list": r["ignore"],
         "systemd-enable.list": r["systemd_enable"], "systemd-user.list": r["systemd_user"],
         "npm-install.list": r["npm_install"], "uv-install.list": r["uv_install"],
+        "ufw-allow.list": r["ufw_allow"],
         "flatpak-install.list": r["flatpak_install"], "flatpak-remove.list": r["flatpak_remove"],
         "projects.list": [p["url"] for p in projects], "stow.list": stow,
         "project-builds.list": [f'{p["name"]}\t{p["build"]}' for p in projects if p.get("build")],

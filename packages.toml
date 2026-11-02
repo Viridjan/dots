@@ -306,3 +306,10 @@ install = [
 install = [
     "graphifyy",  # /graphify knowledge-graph skill
 ]
+
+[ufw]
+# Firewall openings, applied by "Enable system services" (`ufw allow <rule>`,
+# one rule per entry, any ufw syntax). Add-only: delete a dropped rule by hand.
+allow = [
+    "2234/tcp",  # nicotine+ (Soulseek) listen port: lets peers browse/download your shares
+]

@@ -24,10 +24,10 @@ def fixture_repo(root: Path) -> Path:
     (d / "packages.toml").write_text(
         '[paru]\ninstall = ["fish", "git", "steam"]\nremove = ["wine"]\nhold = ["vectorcraft"]\nskip = ["git"]\n'
         '[flatpak]\ninstall = ["com.spotify.Client"]\nremove = ["org.old.App"]\n'
-        '[systemd]\nenable = ["cups", "bluetooth"]\nuser = ["mpd"]\n[npm]\ninstall = ["@x/dsh"]\n[uv]\ninstall = ["graphifyy"]\n')
+        '[systemd]\nenable = ["cups", "bluetooth"]\nuser = ["mpd"]\n[npm]\ninstall = ["@x/dsh"]\n[uv]\ninstall = ["graphifyy"]\n[ufw]\nallow = ["2234/tcp"]\n')
     (d / "profiles/desktop.toml").write_text(
         'description = "Tower"\nhostname = "desktop"\ndotset = "mine"\nfeatures = ["amd-gpu-tuning"]\n'
-        '[paru]\ninstall = ["vulkan-radeon", "fish"]\n[systemd]\nenable = ["ollama", "cups"]\n')
+        '[paru]\ninstall = ["vulkan-radeon", "fish"]\n[systemd]\nenable = ["ollama", "cups"]\n[ufw]\nallow = ["from 192.168.1.0/24 to any port 22", "2234/tcp"]\n')
     (d / "profiles/surface.toml").write_text(
         'description = "Tablet"\nhostname = "surface"\ndotset = "mine"\nfeatures = ["linux-surface"]\n')
     (d / "projects.toml").write_text('[[repo]]\nname = "dots"\nurl = "git@x:dots.git"\n'
@@ -181,6 +181,8 @@ class ResolveTests(Tmp):
         self.assertEqual(read("systemd-user.list"), ["mpd"])
         self.assertEqual(read("npm-install.list"), ["@x/dsh"])
         self.assertEqual(read("uv-install.list"), ["graphifyy"])
+        self.assertEqual((out / "ufw-allow.list").read_text(),
+                         "2234/tcp\nfrom 192.168.1.0/24 to any port 22\n")
         self.assertEqual(read("paru-demote.list"), [])
         env = subprocess.run(["bash", "-c", f'source "{out}/env"; echo "$VJ_PROFILE|$VJ_DOTSET|$VJ_DOTSET_DIR|$VJ_FEATURES"'],
                              capture_output=True, text=True, check=True).stdout.strip()

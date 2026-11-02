@@ -1472,6 +1472,25 @@ enable_services() {
     fi
     printf '%s' "$now" > "$managed.tmp"
     mv "$managed.tmp" "$managed"
+    ufw_allow
+}
+
+# [ufw].allow (packages.toml/profiles → ufw-allow.list): one `ufw allow` per
+# line, split into words so "from 192.168.1.0/24 to any port 22" works.
+# `ufw allow` skips existing rules itself, so this is safe to rerun.
+# ponytail: add-only; a rule dropped from the list stays until `ufw delete allow <rule>`.
+ufw_allow() {
+    local list="$VJ_PLAN_DIR/ufw-allow.list" line rule=()
+    [[ -s "$list" ]] && command -v ufw &>/dev/null || return 0
+    while IFS= read -r line; do
+        read -ra rule <<< "$line"
+        (( ${#rule[@]} )) || continue
+        if sudo ufw allow "${rule[@]}" >/dev/null; then
+            ok "firewall allows: $line"
+        else
+            _failw "ufw:$line" "ufw allow failed: $line"
+        fi
+    done < <(_pkg_list "$list")
 }
 
 # ─── Phase 7: Snapper ────────────────────────────────────
