@@ -29,3 +29,4 @@
 - [Scripts never abort](scripts-never-abort.md) — idempotent steps, warn and continue, exit 0 with summary
 - [Push after changes](push-after-changes.md) — desktop/Surface sync via GitHub; commit + push finished work
 - [fix scripts systematically](feedback-fix-script-systematically.md) — script fix = root cause + whole bug class + regression test, not a data patch
+- [vjupdate own builds + ufw](vjupdate-2026-11-own-builds-ufw.md) — projects.toml `build` (7000bar), [ufw].allow, --useask AUR swaps; 7000bar edited live by other agents

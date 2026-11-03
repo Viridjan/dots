@@ -436,7 +436,19 @@ bash scripts/.local/bin/vjupdate
 Stow packages of the `viridjan` dotfile set (`dotsets/viridjan/<pkg>/`); `scripts` lives at the repo root.
 Package *lists* (what gets installed) are in `packages.toml` and `profiles/<name>.toml`:
 `[paru]` / `[flatpak]` packages, `[systemd]` units to enable (dropping one
-disables it on the next run), and `[npm]` / `[uv]` global tools.
+disables it on the next run), `[npm]` / `[uv]` global tools, and `[ufw] allow`
+firewall rules (one `ufw allow <rule>` each, applied with the services; add-only).
+
+Your own software: give its `projects.toml` entry a `build` command. Install and
+`vjupdate --update` pull it (fast-forward only) and rerun the build when the
+commit changed; a repo with uncommitted changes is skipped. Example (7000bar):
+
+```toml
+[[repo]]
+name = "7000bar"
+url = "git@github.com:Viridjan/7000bar.git"
+build = "cargo build --release && install -Dm755 target/release/7000bar ~/.local/bin/7000bar"
+```
 
 | Package | What it stows |
 |---|---|
