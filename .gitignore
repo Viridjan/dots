@@ -112,3 +112,6 @@ dotsets/*/micro/.config/micro/buffers/
 # report and cache stay tracked.
 graphify-out/.graphify_*
 graphify-out/.chunks_dispatch.json
+
+# nicotine+ — config.old is a full backup copy incl. the password
+dotsets/*/nicotine/.config/nicotine/config.old

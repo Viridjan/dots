@@ -597,3 +597,17 @@ class SecretHookTests(unittest.TestCase):
     def test_allows_normal_files(self):
         r = self.run_hook("config.kdl", 'layout { gaps 4; }\n"password": "short"\n')
         self.assertEqual(r.returncode, 0, r.stderr)
+
+
+class NicotineFilterTests(unittest.TestCase):
+    FILTER = Path(__file__).resolve().parents[1] / ".githooks/nicotine-clean"
+
+    def test_strips_password_and_statistics(self):
+        cfg = "[server]\nlogin = me\npassw = hunter2\n\n[plugins]\nenable = True\n\n[statistics]\nstarted_downloads = 5\n"
+        out = subprocess.run([str(self.FILTER)], input=cfg, text=True, capture_output=True, check=True).stdout
+        self.assertEqual(out, "[server]\nlogin = me\npassw = \n\n[plugins]\nenable = True\n\n")
+
+    def test_hook_blocks_unfiltered_password(self):
+        hook = SecretHookTests()
+        self.assertEqual(hook.run_hook("config", "[server]\npassw = hunter2\n").returncode, 1)
+        self.assertEqual(hook.run_hook("config", "[server]\npassw = \n").returncode, 0)

@@ -1206,6 +1206,9 @@ deploy_dotfiles() {
     # lint pre-commit guard without a manual setup step. (Do not start this
     # comment line with the linter's name — it parses as a directive.)
     git config core.hooksPath .githooks 2>/dev/null || true
+    # Clean filter named in .gitattributes: strips nicotine+'s password before
+    # it reaches a commit. Unregistered, git would commit the file as-is.
+    git config filter.nicotine.clean .githooks/nicotine-clean 2>/dev/null || true
 
     # -t "$HOME" is required: stow's default target is the PARENT of the stow dir,
     # which here is $HOME/Projects (DOTS_DIR=$HOME/Projects/dots), not $HOME.

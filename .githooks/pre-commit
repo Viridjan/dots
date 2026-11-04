@@ -12,6 +12,7 @@ SECRET_RE='-----BEGIN [A-Z ]*PRIVATE KEY-----'
 SECRET_RE+='|gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{40,}'
 SECRET_RE+='|sk-(ant-|proj-)?[A-Za-z0-9_-]{32,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}'
 SECRET_RE+='|eyJ[A-Za-z0-9_-]{15,}\.eyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}'
+SECRET_RE+='|^passw = [^[:space:]]'  # nicotine+ password (clean filter missing)
 SECRET_RE+='|"(access_?token|refresh_?token|api_?key|client_secret|password)"[[:space:]]*:[[:space:]]*"[^"]{16,}"'
 
 while IFS= read -r -d '' f; do

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# git clean filter for nicotine+'s config (see .gitattributes): blank the
+# Soulseek password and drop [statistics] (last section, rewritten every run).
+# Only the committed blob changes; the live file keeps both.
+exec sed -E -e 's/^passw = .*/passw = /' -e '/^\[statistics\]/,$d'
