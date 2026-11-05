@@ -196,6 +196,7 @@ install = [
 # transaction (paru --ask=4), and nothing is removed if the build fails. List
 # here only what must go first (e.g. tlp) or has no direct conflict.
 remove = [
+    "deadbeef",  # removed: use the existing media players
     # tlp: power-profiles-daemon.service has Conflicts=tlp.service (2026-11-01)
     "tlp",
     "tlp-rdw",
