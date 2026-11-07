@@ -1073,13 +1073,15 @@ _user_tools() {
         command -v "$tool" &>/dev/null || { warn "$tool not found — $tool tools skipped"; return 0; }
     fi
     have=$("$listing" 2>/dev/null || true)
-    local out
+    local out args
     while IFS= read -r pkg; do
-        [[ -n "$pkg" ]] || continue
+        # An entry is the package plus optional installer args ("x[api] --with y").
+        read -ra args <<< "$pkg"
+        (( ${#args[@]} )) || continue
         # Listings print bare names: compare without extras (lightrag-hku[api]).
-        if grep -qxF -- "${pkg%%\[*}" <<< "$have"; then
+        if grep -qxF -- "${args[0]%%\[*}" <<< "$have"; then
             ok "already installed: $pkg ($tool)"
-        elif out=$("$@" "$pkg" 2>&1); then
+        elif out=$("$@" "${args[@]}" 2>&1); then
             ok "installed: $pkg ($tool)"
         else
             _show_install_error "$out"

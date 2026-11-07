@@ -162,7 +162,7 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
   `linux-surface`, `desktop-services`, `cpu-performance`, `amd-gpu-tuning`,
   `ollama-model`, `windows-vm`, `rag-stack` (desktop: `_setup_rag` in the claude action starts
   Milvus from `rag/` and registers the claude-context + godot MCPs for Claude/Codex; npm/uv/
-  `lightrag` user unit in the desktop profile; `nomic-embed-text` pulled; see `docs/rag-tools.md`),
+  `lightrag` user unit in the desktop profile (`lightrag-hku[api] --with ollama`: [npm]/[uv] entries may carry installer args); `nomic-embed-text` pulled; see `docs/rag-tools.md`),
   `nvidia` (plancia: shows the one-time
   `nvidia-niri` action — niri wiki's GLVidHeapReuseRatio=0 app profile in
   `/etc/nvidia/nvidia-application-profiles-rc.d/`; vj hides one-time tasks whose

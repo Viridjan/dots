@@ -454,6 +454,26 @@ exit 0''')
         self.assertNotIn("install graphifyy", calls)
         self.assertNotIn("install lightrag", calls)  # extras don't hide an installed tool
 
+    def test_entry_options_are_separate_arguments(self):
+        # "lightrag-hku[api] --with ollama": lightrag.service crashes without ollama.
+        self.plan("uv-install.list", "lightrag-hku[api] --with ollama\n")
+        self.mock("uv", '''
+[[ "$*" == "tool list" ]] && exit 0
+printf "%s|" "$@" >> "$CALLS"; echo >> "$CALLS"
+exit 0''')
+        r = self.shell("install_user_tools")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("tool|install|lightrag-hku[api]|--with|ollama|", self.calls())
+
+    def test_entry_with_options_is_skipped_when_installed(self):
+        self.plan("uv-install.list", "lightrag-hku[api] --with ollama\n")
+        self.mock("uv", '''
+[[ "$*" == "tool list" ]] && { echo "lightrag-hku v1.5.7"; exit 0; }
+echo "uv $*" >> "$CALLS"''')
+        r = self.shell("install_user_tools")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("install", self.calls())
+
 
 class ClaudePluginTests(ExtrasCase):
     def test_existing_plugins_and_graphify_skill_are_not_reinstalled(self):

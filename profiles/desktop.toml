@@ -44,5 +44,5 @@ install = [
 
 [uv]
 install = [
-    "lightrag-hku[api]",  # graph + vector RAG over docs, lightrag.service
+    "lightrag-hku[api] --with ollama",  # graph + vector RAG over docs, lightrag.service (server crashes without ollama)
 ]
