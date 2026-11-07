@@ -1,5 +1,6 @@
 # TODO
 
+- [ ] Integrate the RAG tools (Claude Context + Milvus, Godot MCP, LightRAG, `nomic-embed-text`) as a `rag-stack` feature: see [docs/rag-tools.md](docs/rag-tools.md).
 - [ ] Switch `vectorcraft-bin` to Flathub once `ai.storyteller.vectorcraft` is published (pacman > flatpak > AUR; Flatpak adds a sandbox).
 - [ ] Once desktop and Surface both run the `*craft-bin` packages (`pacman -Q vectorcraft-bin`), delete the 9 source `*craft` names from `packages.toml` [paru].remove (2026-10-25 swap).
 - [ ] Greeter swap on the desktop (Surface done 2026-11-01): `vjupdate --actions install` now replaces `greetd-dms-greeter-git` with `dux-greeter-git` in one transaction (`--ask=4`; a failed build keeps the old greeter). Confirm with `pacman -Q dux-greeter-git`, then `vjupdate --actions greeter`. If the conflict isn't auto-accepted, fall back to `paru -S dux-greeter-git` by hand.
