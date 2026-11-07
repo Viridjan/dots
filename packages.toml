@@ -274,6 +274,7 @@ install = [
     # Applications
     "com.usebottles.bottles",
     "com.spotify.Client",
+    "ai.storyteller.craft-anything",
     "com.bambulab.BambuStudio",
     # com.ktechpit.whatsie — now installed via AUR (whatsie) instead
     "org.nomacs.ImageLounge",
