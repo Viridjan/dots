@@ -66,6 +66,7 @@ exists and `~/.config/sysup/config.toml` doesn't, `mv` it and say so.
 | `--pkg {shared,profile,local,remove,ignore} NAME…` | sort packages: `packages.toml`, active profile file, local `[paru|flatpak] add`, local `remove` (demote; paru only), local `[ignored]`. Flatpak when the name is an installed flatpak app ID, else paru. Repo files keep their comments (`add_to_list`); remind to commit. | vj Unlisted keys p/f/m/x/i |
 | `--status` | profile, dotset, features; each one-time action the profile offers with `done <date>` / `skipped` / `never run`; last `--check` summary | vj main screen rows |
 | `--skip-once ID` | mark a one-time action `skip` | vj "skip" on a one-time task |
+| `--restore 1\|2` | restore the active dotset from backup 1 or 2 (see Dotset backups) | new |
 
 `--pkg` and the post-run "unlisted" fix share the same `sysup.py add`
 code. The fix's choices become `[p]ackages.toml / pro[f]ile / [m] local /
@@ -99,6 +100,46 @@ Local config keys after the change: `profile`, `dotset`, `[display]`,
 `[select] dotfiles/repos` (missing = all).
 `[declined]` and `[select]` have no flag: hand-edit.
 
+### Dotset backups (2 per set, git tags)
+
+Two local tags per dotfile set: `backup/<set>/1` (newest) and
+`backup/<set>/2`. Each points at a snapshot commit of the repo.
+
+`_backup_dotset [live-dms]` runs before the git export commits (inside
+`export_dotfiles`, before staging), before `deploy_dotfiles`, and before
+`dms_import`:
+
+1. Temp index (`GIT_INDEX_FILE`) seeded from `HEAD` (`git read-tree HEAD`),
+   then `git add -A -- dotsets/<set>`. This captures uncommitted edits;
+   `.gitignore` keeps ignored files (secrets) out. With `live-dms`
+   (dms-import only) each live `~/.config/niri/dms/*.kdl` that the import
+   would overwrite replaces its repo path in the index
+   (`git hash-object -w` + `git update-index --cacheinfo`).
+2. `tree=$(git write-tree)`. If it equals `backup/<set>/1^{tree}`, stop:
+   nothing changed, so repeated runs don't push the real backup out.
+3. `commit=$(git commit-tree "$tree" -p HEAD -m "sysup backup <set> <date> before <action>")`.
+   `main`, the working tree and the real index are untouched.
+4. `git tag -f backup/<set>/2 backup/<set>/1` (if 1 exists), then
+   `git tag -f backup/<set>/1 "$commit"`. The old 2 becomes unreferenced;
+   git gc drops it.
+
+Skipped with dotset `none`, in `--dry-run`, and when the repo has no
+`HEAD`. A failure warns and continues: the backup must never block the
+save it protects.
+
+Tags are **never pushed**: `commit-tree` bypasses the pre-commit secret
+scan, and two machines sharing a set would overwrite each other's
+rotation. So "2 backups per set" is per machine.
+
+`sysup --restore 1|2`: shows `git diff --stat` between the backup and the
+working tree for `dotsets/<set>`, asks to confirm, runs `_backup_dotset`
+(so the replaced state becomes backup 1 and the restore can be undone),
+then `git checkout backup/<set>/N -- dotsets/<set>`. Live links already
+point into the repo, so restored files are live at once. DMS overrides need
+`sysup --dms-import` afterwards (printed as a hint). Nothing is committed.
+
+`--status` lists each backup's date (`git log -1 --format=%cs`) and action.
+
 ### Other files
 
 - `scripts/.local/bin/vjsurface`: config path and lock name → sysup.
@@ -120,6 +161,7 @@ sysup --update
   _check_repo_current → (pull + exec relaunch)
   _ensure_plan → sysup.py plan TMPDIR   (config + hostname fallback)
   phases / actions → _queue_fix …
+    (export_dotfiles / deploy_dotfiles / dms_import → _backup_dotset first)
   print_recap → _offer_fixes → stamp [once] (--actions only)
 ```
 
@@ -138,6 +180,10 @@ sysup --update
 - `tests/test_vj.py`: keep the resolve/plan/config/unused/add_to_list tests,
   retarget at `sysup.py` (import by path) → `tests/test_sysup_py.py`; delete
   TUI-state tests. `tests/test_vj_progress.py`: delete.
+- Backups (real temp git repo, not mocked git): rotation order 1→2, oldest
+  dropped; no rotation when unchanged; uncommitted edit captured; ignored
+  file excluded; live DMS file captured with `live-dms`; `main` and the
+  index untouched; `--restore` round trip and undo via backup 1.
 - New: `--profile` writes config; `--pkg` each target; `--status` output;
   once stamping after `--actions`; config migration; bare `sysup` = usage.
 
