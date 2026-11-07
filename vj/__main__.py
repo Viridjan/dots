@@ -29,7 +29,28 @@ def plan(outdir: str) -> int:
     return 0
 
 
+def add(where: str, src: str, name: str, profile: str = "") -> int:
+    """Sort an unlisted package: shared list, a profile's list, or local [ignored]."""
+    if src not in ("paru", "flatpak") or where not in ("shared", "profile", "ignore"):
+        return 2
+    if where == "ignore":
+        cfg = config.load_local()
+        if name not in cfg["ignored"][src]:
+            cfg["ignored"][src].append(name)
+            config.save_local(cfg)
+        return 0
+    root = repo_root()
+    path = root / "packages.toml" if where == "shared" else root / "profiles" / f"{profile}.toml"
+    if where == "profile" and not path.exists():
+        print(f"no profile file {path}", file=sys.stderr)
+        return 2
+    config.add_to_list(path, src, name)
+    return 0
+
+
 def main(argv) -> int:
+    if argv[:1] == ["add"] and len(argv) in (4, 5):
+        return add(*argv[1:])
     if argv[:1] == ["plan"] and len(argv) == 2:
         return plan(argv[1])
     if argv[:1] == ["unused"] and len(argv) in (2, 3) and (len(argv) == 2 or argv[2].isdigit()):
@@ -39,7 +60,8 @@ def main(argv) -> int:
     if argv:
         print("usage: vj                         open the TUI\n"
               "       vj plan DIR                write a run plan for vjupdate\n"
-              "       vj unused PLANDIR [DAYS]   unlisted / unused apps (default 60 days)", file=sys.stderr)
+              "       vj unused PLANDIR [DAYS]   unlisted / unused apps (default 60 days)\n"
+              "       vj add shared|profile|ignore paru|flatpak NAME [PROFILE]   sort an unlisted package", file=sys.stderr)
         return 2
     from .ui import run  # Textual is only needed for the TUI
     return run(repo_root())

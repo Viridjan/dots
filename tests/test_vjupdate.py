@@ -1667,3 +1667,110 @@ class ProjectBuildTests(FixtureCase):
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("build:app", r.stdout)
         self.assertFalse((self.home / ".local/state/dots/builds/app").exists())
+
+
+class PostRunFixTests(FixtureCase):
+    """Fixes offered after the recap: answers come from stdin, _fix_tty is forced."""
+
+    def answer(self, body, answers):
+        return subprocess.run(["/usr/bin/bash", "-c", 'source "$SCRIPT"\n_fix_tty() { return 0; }\n' + body],
+                              env=self.env, text=True, capture_output=True, timeout=10, input=answers)
+
+    def stow_fixture(self, live, repo_text="same"):
+        repo = self.home / "Projects/dots"
+        (repo / "sample").mkdir(parents=True)
+        (repo / "sample/config file").write_text(repo_text)
+        (self.home / "config file").write_text(live)
+        # -n reports the conflict while the live file exists; a real stow logs its args.
+        self.mock("stow", '''
+case " $* " in
+  *" -n "*) [[ -f "$HOME/config file" ]] && { echo '  * cannot stow sample/config file over existing target config file since neither a link nor a directory and --adopt not specified' >&2; exit 1; }; exit 0 ;;
+  *) printf 'stow %s\\n' "$*" >> "$CALLS" ;;
+esac''')
+        for name in ("cmp", "diff", "realpath"):
+            (self.bin / name).symlink_to(Path("/usr/bin") / name)
+        return repo
+
+    def queue_stow(self):
+        return 'cd "$HOME/Projects/dots"; _queue_fix stow "$PWD"$\'\\x1f--restow\\x1f-t\\x1f\'"$HOME"$\'\\x1fsample\'\nprint_recap\n'
+
+    def test_identical_conflict_becomes_link(self):
+        self.stow_fixture("same")
+        r = self.answer("_init_runtime\n" + self.queue_stow(), "\n")
+        self.assertFalse((self.home / "config file").exists(), r.stdout + r.stderr)
+        self.assertIn("stow --restow -t", Path(self.env["CALLS"]).read_text())
+        self.assertIn("1 applied", r.stdout)
+
+    def test_live_wins_copies_into_repo_with_backup(self):
+        repo = self.stow_fixture("live edit", "repo text")
+        r = self.answer("_init_runtime\n" + self.queue_stow(), "l\n")
+        self.assertEqual((repo / "sample/config file").read_text(), "live edit", r.stdout + r.stderr)
+        backups = list((self.home / ".state/dots").glob("fix-backup-*/repo/config file"))
+        self.assertEqual([b.read_text() for b in backups], ["repo text"])
+
+    def test_skip_leaves_conflict_alone(self):
+        self.stow_fixture("live edit", "repo text")
+        r = self.answer("_init_runtime\n" + self.queue_stow(), "\n")
+        self.assertEqual((self.home / "config file").read_text(), "live edit")
+        self.assertIn("0 applied, 1 left", r.stdout)
+
+    def test_no_terminal_offers_nothing(self):
+        self.stow_fixture("same")
+        r = self.shell("_init_runtime\n" + self.queue_stow())
+        self.assertTrue((self.home / "config file").exists())
+        self.assertNotIn("Fixes (", r.stdout)
+
+    def test_unlisted_goes_to_packages_toml(self):
+        repo = self.home / "Projects/dots"
+        repo.mkdir(parents=True)
+        (repo / "vj").symlink_to(Path(__file__).resolve().parents[1] / "vj")
+        (repo / "packages.toml").write_text('[paru]\ninstall = [\n    "a",  # keep\n]\n')
+        self.mock("pacman", '[[ "$1" == -Qq ]] && echo "$3"')
+        r = self.answer('_queue_fix unlisted newpkg\n_offer_fixes\n', "p\n")
+        text = (repo / "packages.toml").read_text()
+        self.assertIn('"newpkg"', text, r.stdout + r.stderr)
+        self.assertIn("# keep", text)
+
+    def test_conflict_names_only_installed_exact(self):
+        log = self.root / "log"
+        log.write_text(":: foo-bin-1.2-1 and foo-1.0-1 are in conflict\n"
+                       ":: Conflicts found:\n    bar-bin: bar\nerror: unresolvable package conflicts detected\n")
+        self.mock("pacman", 'case "$3" in foo|bar) echo "$3" ;; *) exit 1 ;; esac')
+        r = self.shell(f'_conflict_names "{log}"')
+        self.assertEqual(r.stdout.split(), ["bar", "foo"], r.stderr)
+
+    def test_failed_build_is_queued(self):
+        log = self.root / "log"
+        log.write_text("error: packages failed to build: broken-pkg-1.0-1\n")
+        r = self.shell(f'_init_runtime\n_queue_aur_fails "{log}"\nprintf "%s\\n" "${{_FIXES[@]}}"')
+        self.assertIn("aur\tbroken-pkg", r.stdout, r.stderr)
+
+
+class RepoCurrentTests(FixtureCase):
+    def run_check(self, behind, answer):
+        self.mock("git", f'''
+case "$*" in
+  *"rev-parse"*) echo origin/main ;;
+  *"rev-list"*) echo {behind} ;;
+  *" pull "*) echo pull >> "$CALLS" ;;
+esac''')
+        self.mock("timeout", 'shift; "$@"')
+        return subprocess.run(["/usr/bin/bash", "-c", 'source "$SCRIPT"\n_fix_tty() { return 0; }\n'
+                               'exec() { echo "EXEC $*"; }\n_check_repo_current --update\necho DONE'],
+                              env=self.env, text=True, capture_output=True, timeout=10, input=answer)
+
+    def test_behind_pull_relaunches(self):
+        r = self.run_check(3, "p\n")
+        self.assertIn("pull", Path(self.env["CALLS"]).read_text())
+        self.assertIn("EXEC " + str(self.home / "Projects/dots/scripts/.local/bin/vjupdate") + " --update", r.stdout)
+
+    def test_behind_continue_does_not_pull(self):
+        r = self.run_check(3, "c\n")
+        self.assertFalse(Path(self.env["CALLS"]).exists())
+        self.assertNotIn("EXEC", r.stdout)
+        self.assertIn("DONE", r.stdout)
+
+    def test_current_repo_asks_nothing(self):
+        r = self.run_check(0, "p\n")
+        self.assertFalse(Path(self.env["CALLS"]).exists())
+        self.assertNotIn("behind", r.stdout + r.stderr)

@@ -580,6 +580,18 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   (moves the real dir aside, restows, copies untracked files back; skips on a
   clash or a running Claude). Never aborts, always exits 0, prints a summary.
   Paths overridable (`VJS_*`) for `tests/test_vjsurface.py`.
+- **Post-run fixes + update check (2026-11-07).** Problems with a known fix are
+  queued (`_queue_fix kind payload`) and offered one by one after the recap by
+  `_offer_fixes` (terminal stdin only; never `--yes`, `--dry-run`, timer, or an
+  aborted run): stow conflict (identical → link; differs → diff, repo/live wins,
+  backups in `$STAMP_DIR/fix-backup-*`), unlisted package (`vj add
+  shared|profile|ignore`, or uninstall), install conflict (`_conflict_names`
+  → `-Rdd` + retry), failed AUR build (log in `$STAMP_DIR/paru-fail.log`,
+  retry), pending pacnew, orphans. Exit status is unchanged by fixes. New kind =
+  `_fix_<kind>` + a `_queue_fix` call; prompts inside a `while read` loop must
+  read the loop from another fd. Before any non-dry run with a terminal,
+  `_check_repo_current` fetches; if behind upstream it offers pull (`--ff-only`)
+  + `exec` relaunch (before the lock; `VJ_SELF_UPDATED` stops loops).
 - **Held packages.** `[paru].hold` (packages.toml) excludes named packages from system
   upgrades (including retries) and both rebuild paths. First installation is
   unchanged. Audit and update runs warn about pending held AUR updates with

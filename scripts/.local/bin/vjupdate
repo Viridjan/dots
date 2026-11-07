@@ -150,6 +150,188 @@ _record() {
 # A command the user asked for failed: record it (nonzero recap) and warn.
 # Plain warn is for intentional skips (tool missing, profile, declined).
 _failw() { _record "$1" fail "$2"; warn "$2"; }
+
+# ─── Post-run fixes ──────────────────────────────────────
+# Problems with a known fix are queued while the run goes; after the recap,
+# _offer_fixes asks about each one (terminal runs only). Kinds = _fix_<kind>:
+# stow, unlisted, conflict, aur, pacnew, orphans. Payload is one string.
+_FIXES=()
+_queue_fix() { _FIXES+=("$1"$'\t'"$2"); }
+_fix_tty() { [[ -t 0 ]]; }
+# Lowercased answer in FIX_REPLY; EOF counts as an empty answer (skip).
+_ask() { local r=""; read -rp "    $1 " r || true; FIX_REPLY=${r,,}; }
+# python -m vj from the repo (plan, unused report, list edits).
+_vj() { VJ_DOTS="$DOTS_DIR" PYTHONPATH="$DOTS_DIR" python3 -B -m vj "$@"; }
+# pacman/paru print "name-ver-rel" in some messages; keep the name.
+_strip_ver() {
+    local p="$1"
+    [[ "$p" =~ ^(.+)-([0-9]+:)?[0-9r][^-]*-[0-9.]+$ ]] && p=${BASH_REMATCH[1]}
+    printf '%s\n' "$p"
+}
+
+_offer_fixes() {
+    (( ${#_FIXES[@]} )) || return 0
+    { $INTERACTIVE && ! $DRY_RUN && _fix_tty; } || return 0
+    _banner "$CYN" "Fixes (${#_FIXES[@]}) — Enter skips"
+    local f fixed=0 left=0
+    local -A seen=()
+    for f in "${_FIXES[@]}"; do
+        [[ -v seen["$f"] ]] && continue
+        seen["$f"]=1
+        # Each fix handles and reports its own errors; 1 = skipped or failed.
+        if "_fix_${f%%$'\t'*}" "${f#*$'\t'}"; then fixed=$((fixed + 1)); else left=$((left + 1)); fi
+    done
+    echo ""
+    info "fixes: $fixed applied, $left left"
+}
+
+# Payload: stow dir, then the stow args (last = package), \x1f-separated.
+_fix_stow() {
+    local -a args; local dir pkg target="$HOME" i t live repo bak="" changed=0 targets
+    IFS=$'\x1f' read -ra args <<< "$1"
+    dir=${args[0]}; args=("${args[@]:1}"); pkg=${args[-1]}
+    for i in "${!args[@]}"; do [[ "${args[i]}" == -t ]] && target=${args[i+1]}; done
+    targets=$(cd "$dir" && LC_ALL=C stow -n "${args[@]}" 2>&1 | _conflict_paths) || true
+    [[ -n "$targets" ]] || { info "stow '$pkg': no conflicts left"; return 1; }
+    # fd 4: the prompts below read stdin.
+    while IFS= read -r t <&4; do
+        [[ -n "$t" && "$t" != /* && "/$t/" != *"/../"* ]] || continue
+        live="$target/$t"; repo="$dir/$pkg/$t"
+        if [[ -L "$live" || ! -f "$live" || ! -f "$repo" ]]; then
+            echo "    $t: not a plain file on both sides — skipped"; continue
+        fi
+        if cmp -s -- "$live" "$repo"; then
+            _ask "$pkg: ${live/#"$HOME"/\~} is identical to the repo copy. Replace with a link? [Y/n]"
+            [[ "$FIX_REPLY" == n ]] && continue
+        else
+            diff -u --label "repo/$t" --label "live/$t" -- "$repo" "$live" | head -n 40
+            _ask "$pkg: ${live/#"$HOME"/\~} differs. [r]epo wins / [l]ive wins (copied into the repo) / [s]kip"
+            [[ "$FIX_REPLY" == r || "$FIX_REPLY" == l ]] || continue
+            [[ -n "$bak" ]] || bak=$(mktemp -d "$STAMP_DIR/fix-backup-$(date '+%Y%m%d-%H%M%S')-XXXXXX") \
+                || { warn "cannot create backup dir — $pkg not fixed"; return 1; }
+            mkdir -p "$bak/live/$(dirname -- "$t")" "$bak/repo/$(dirname -- "$t")" \
+                && cp -a -- "$live" "$bak/live/$t" && cp -a -- "$repo" "$bak/repo/$t" \
+                || { warn "backup failed — $t left alone"; continue; }
+            if [[ "$FIX_REPLY" == l ]]; then
+                cp -- "$live" "$repo" || { warn "could not copy $t into the repo"; continue; }
+            fi
+        fi
+        rm -f -- "$live" && changed=1
+    done 4<<< "$targets"
+    [[ -n "$bak" ]] && ok "backups in $bak"
+    (( changed )) || return 1
+    if (cd "$dir" && stow "${args[@]}"); then
+        ok "stowed: $pkg"
+    else
+        warn "stow '$pkg' still conflicts — rerun or use: vjupdate --adopt"; return 1
+    fi
+}
+
+_fix_unlisted() {
+    local p="$1" src=flatpak
+    [[ "$(pacman -Qq -- "$p" 2>/dev/null)" == "$p" ]] && src=paru
+    _ask "unlisted $src package $p: [p]ackages.toml / pro[f]ile ${MACHINE:-?} / [i]gnore / [u]ninstall / [s]kip"
+    case "$FIX_REPLY" in
+        p) _vj add shared "$src" "$p" && ok "$p → packages.toml (commit it)" ;;
+        f) [[ -n "${MACHINE:-}" ]] || { warn "no active profile"; return 1; }
+           _vj add profile "$src" "$p" "$MACHINE" && ok "$p → profiles/$MACHINE.toml (commit it)" ;;
+        i) _vj add ignore "$src" "$p" && ok "$p ignored on this machine" ;;
+        u) if [[ "$src" == flatpak ]]; then
+               flatpak uninstall -y -- "$p" && ok "uninstalled: $p"
+           elif _is_protected "$p"; then
+               warn "protected, not removed: $p"; return 1
+           else
+               sudo pacman -Rns -- "$p" && ok "uninstalled: $p"
+           fi ;;
+        *) return 1 ;;
+    esac
+}
+
+# Payload: the installed package the install transaction conflicted with.
+_fix_conflict() {
+    local p="$1"
+    _is_protected "$p" && return 1
+    _ask "install conflict: remove installed $p (pacman -Rdd) and retry the package install? [y/N]"
+    [[ "$FIX_REPLY" == y ]] || return 1
+    sudo pacman -Rdd --noconfirm -- "$p" || { warn "could not remove $p"; return 1; }
+    _PKG_INDEX_READY=false
+    if _install_list "$VJ_PLAN_DIR/paru-install.list"; then
+        ok "packages installed"
+    else
+        warn "install still failing: ${INSTALL_FAIL_DETAIL:-see output}"; return 1
+    fi
+}
+
+_fix_aur() {
+    local p="$1" log="$STAMP_DIR/paru-fail.log"
+    _ask "AUR build failed: $p. [l]og tail / [r]etry / [s]kip"
+    if [[ "$FIX_REPLY" == l ]]; then
+        tail -n 40 -- "$log" 2>/dev/null || echo "    (no log)"
+        echo "    full log: $log"
+        _ask "retry $p? [y/N]"
+        [[ "$FIX_REPLY" == y ]] && FIX_REPLY=r
+    fi
+    [[ "$FIX_REPLY" == r ]] || return 1
+    if _paru -S --noconfirm -- "$p"; then ok "built: $p"; else warn "$p still fails to build"; return 1; fi
+}
+
+_fix_pacnew() {
+    _ask "$1 .pacnew file(s) pending. Merge now with pacdiff? [y/N]"
+    [[ "$FIX_REPLY" == y ]] || return 1
+    AUDIT_PACNEW=true
+    check_pacnew
+}
+
+_fix_orphans() {
+    local o keep=()
+    for o in $1; do _is_protected "$o" || keep+=("$o"); done
+    (( ${#keep[@]} )) || return 1
+    _ask "orphans: ${keep[*]}. Remove? [y/N]"
+    [[ "$FIX_REPLY" == y ]] || return 1
+    sudo pacman -Rns -- "${keep[@]}" && ok "removed: orphans"
+}
+
+# Installed packages named by a failed install log: pacman's ":: A and B are in
+# conflict" and paru's indented "pkg: conflicts..." lines under "Conflicts found".
+# Only exact installed names come out, so the parse can't name a wrong package.
+_conflict_names() {
+    local w n
+    for w in $(sed -nE 's/^:: (\S+) and (\S+) are in conflict.*/\1 \2/p' "$1"
+               awk '/[Cc]onflicts found:/ { on = 1; next } on && /^ +[^ ]+:/ { sub(/^ +[^ ]+: */, ""); print; next } { on = 0 }' "$1"); do
+        n=$(_strip_ver "${w%.}")
+        [[ "$(pacman -Qq -- "$n" 2>/dev/null)" == "$n" ]] && printf '%s\n' "$n"
+    done | sort -u
+}
+
+# Stow conflict lines → target paths (stow 2.4+, then 2.3 as on Ubuntu CI).
+_conflict_paths() {
+    sed -n -e 's/^ *\* cannot stow .* over existing target \(.*\) since neither a link nor a directory and --adopt not specified$/\1/p' \
+        -e 's/^ *\* existing target is neither a link nor a directory: \(.*\)$/\1/p'
+}
+
+# ─── Self-update check ───────────────────────────────────
+# Before a terminal run: if the repo is behind its upstream, offer to pull and
+# relaunch. Runs before the lock is taken, so the relaunched copy can lock.
+_check_repo_current() {
+    [[ -z "${VJ_SELF_UPDATED:-}" ]] && _fix_tty || return 0
+    command -v git >/dev/null || return 0
+    git -C "$DOTS_DIR" rev-parse --abbrev-ref '@{u}' &>/dev/null || return 0
+    if ! timeout 15 git -C "$DOTS_DIR" fetch --quiet 2>/dev/null; then
+        warn "could not reach the dots remote — update check skipped"; return 0
+    fi
+    local behind
+    behind=$(git -C "$DOTS_DIR" rev-list --count 'HEAD..@{u}' 2>/dev/null) || return 0
+    (( behind > 0 )) || return 0
+    git -C "$DOTS_DIR" log --oneline 'HEAD..@{u}' | head -n 10 | sed 's/^/    /'
+    _ask "dots is $behind commit(s) behind. [p]ull and relaunch / [c]ontinue with this version"
+    [[ "$FIX_REPLY" == p ]] || return 0
+    if git -C "$DOTS_DIR" pull --ff-only; then
+        ok "pulled — relaunching"
+        export VJ_SELF_UPDATED=1
+        exec "$DOTS_DIR/scripts/.local/bin/vjupdate" "$@"
+    fi
+    warn "pull failed (local changes or diverged) — continuing with this version"
+}
 # ─── Dry-run helper ──────────────────────────────────────
 # Mutating commands go through this. In --dry-run it prints and does nothing.
 _mutate() {
@@ -188,6 +370,7 @@ _runtime_error() {
     # A final recap deliberately returns failure for already-recorded errors.
     # Preserve that status without reporting the same failure a second time.
     $_RECAP_FAILURE_REPORTED && exit "$rc"
+    _FIXES=()
     _record "${_ACTIVE_PHASE:-action:${ACTION:-bootstrap}}" fail "exit $rc; remaining work aborted"
     print_recap || true
     exit "$rc"
@@ -356,6 +539,14 @@ _fix_untrusted_keys() {
 # recap names what actually broke instead of only "had warnings". A single AUR
 # package failing to build is the common case and is easy to miss in 2000 lines
 # of upgrade output.
+# Keep the failed log for the fix prompt and queue each package that failed to build.
+_queue_aur_fails() {
+    local p
+    cp -f -- "$1" "$STAMP_DIR/paru-fail.log" 2>/dev/null || true
+    for p in $(sed -n 's/^error: packages failed to build: //p' "$1"); do
+        _queue_fix aur "$(_strip_ver "$p")"
+    done
+}
 _syuu_fail_detail() {
     local log="$1" pkgs
     pkgs=$(sed -n 's/^error: packages failed to build: //p' "$log" | tr '\n' ' ')
@@ -483,6 +674,7 @@ _syuu() {
         return 0
     fi
     SYUU_FAIL_DETAIL=$(_syuu_fail_detail "$logfile")
+    _queue_aur_fails "$logfile"
     rm -f "$logfile"
     return 1
 }
@@ -624,9 +816,12 @@ _install_list() {
         install_log=$(mktemp) || return 1
         if ! LC_ALL=C _paru -S --needed --noconfirm "${ask[@]}" "${to_install[@]}" 2>&1 | tee "$install_log"; then
             INSTALL_FAIL_DETAIL=$(_syuu_fail_detail "$install_log")
+            _queue_aur_fails "$install_log"
             # pacman's wording, then paru's own AUR conflict check.
             if grep -Eq 'unresolvable package conflicts|conflicting dependencies|conflicting packages' "$install_log"; then
                 INSTALL_CONFLICT=true
+                local _c
+                for _c in $(_conflict_names "$install_log"); do _queue_fix conflict "$_c"; done
             fi
             rm -f "$install_log"
             # paru can install some targets before a later target fails.
@@ -1246,7 +1441,9 @@ deploy_dotfiles() {
         local _err; _err=$(stow -n "$@" 2>&1 || true)
         _conflicts+=("$label: $(echo "$_err" | grep -c 'existing target') conflict(s)")
         _record "stow:$label" fail "conflicts"
-        warn "stow conflict in '$label' — not adopting; run 'vjupdate --adopt' to take them over"
+        local _payload; printf -v _payload '%s\x1f' "$PWD" "$@"
+        _queue_fix stow "${_payload%$'\x1f'}"
+        warn "stow conflict in '$label' — fix offered at the end, or run 'vjupdate --adopt'"
         echo "$_err" | sed 's/^/        /'
         return 1
     }
@@ -1374,8 +1571,7 @@ _adopt_backup() {
     # <target> is relative to -t, which is / for the root-target packages (ollama, brave).
     # Refuse unknown conflict formats and probe errors, never silently adopt.
     local _targets
-    _targets=$(printf '%s\n' "$_err" | sed -n -e 's/^ *\* cannot stow .* over existing target \(.*\) since neither a link nor a directory and --adopt not specified$/\1/p' \
-        -e 's/^ *\* existing target is neither a link nor a directory: \(.*\)$/\1/p')
+    _targets=$(printf '%s\n' "$_err" | _conflict_paths)
     if [[ $rc != 1 || -z "$_targets" ]] || printf '%s\n' "$_err" | grep '^ *\* ' | grep -qv -e ' since neither a link nor a directory and --adopt not specified$' \
         -e '^ *\* existing target is neither a link nor a directory: '; then
         warn "Cannot safely parse stow conflicts; adoption cancelled: $_err"
@@ -2358,7 +2554,7 @@ clean_caches() {
 check_unused_apps() {
     info "Checking for unlisted and unused apps..."
     local out
-    if ! out=$(VJ_DOTS="$DOTS_DIR" PYTHONPATH="$DOTS_DIR" python3 -B -m vj unused "$VJ_PLAN_DIR" 60 2>&1); then
+    if ! out=$(_vj unused "$VJ_PLAN_DIR" 60 2>&1); then
         warn "unused-app check failed: ${out##*$'\n'}"
         return 0
     fi
@@ -2366,6 +2562,10 @@ check_unused_apps() {
     while IFS= read -r line; do
         case "$line" in
             "Unused-app check starts"*) ok "$line" ;;
+            *"installed but in no package list"*)
+                local p
+                for p in ${line##*: }; do _queue_fix unlisted "$p"; done
+                warn "$line" ;;
             *) warn "$line" ;;
         esac
     done <<< "$out"
@@ -2473,7 +2673,10 @@ check_foreign_orphans() {
         return
     fi
     echo "$orphans"
-    if ! $AUDIT_ORPHAN_REMOVAL; then warn "Orphan removal skipped — enable via configure checklist"; return; fi
+    if ! $AUDIT_ORPHAN_REMOVAL; then
+        _queue_fix orphans "$(echo $orphans)"
+        warn "Orphan removal skipped — fix offered at the end, or enable orphan-removal"; return
+    fi
     local o keep=()
     while IFS= read -r o; do
         if _is_protected "$o"; then warn "protected, not removed: $o"; else keep+=("$o"); fi
@@ -2638,8 +2841,13 @@ check_pacnew() {
         warn "pacdiff not found — install pacman-contrib"
         return
     fi
-    pacdiff -o || true
-    $AUDIT_PACNEW || return 0
+    local pending
+    pending=$(pacdiff -o 2>/dev/null || true)
+    [[ -z "$pending" ]] || printf '%s\n' "$pending"
+    if ! $AUDIT_PACNEW; then
+        [[ -z "$pending" ]] || _queue_fix pacnew "$(grep -c . <<< "$pending")"
+        return 0
+    fi
     # pacdiff prompts per file and opens $DIFFPROG (here micro: both files as
     # tabs, no diff view — use 'd' to see the diff first), so it needs a
     # terminal — a --yes run would block on stdin forever.
@@ -2796,6 +3004,7 @@ print_recap() {
         done
         echo ""
     fi
+    _offer_fixes
     # Exit status reflects whether the requested work actually succeeded, so a
     # failed run is visible to a caller/cron after recoverable failures too.
     (( _FAILED != 0 )) && _RECAP_FAILURE_REPORTED=true
@@ -3369,6 +3578,7 @@ fi
 
 _ARGS="$*"
 ACTION=""
+_ORIG_ARGS=("$@")
 # Modifiers are order-independent and may be combined with any action; the
 # action itself is whatever non-modifier argument appears.
 while [[ $# -gt 0 ]]; do
@@ -3405,6 +3615,7 @@ if ! $DRY_RUN && [[ -z "$ACTION" || "$ACTION" == --interactive || "$ACTION" == -
 fi
 # Root would write stamps, logs and links into /root; sudo is called per command.
 (( EUID != 0 )) || die "run vjupdate as your user, not root — it calls sudo itself"
+$DRY_RUN || _check_repo_current "${_ORIG_ARGS[@]}"
 _ensure_plan
 if $DRY_RUN; then
     case "$ACTION" in
