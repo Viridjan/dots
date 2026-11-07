@@ -154,7 +154,7 @@ overview {
 
 workspace "social"
 workspace "media"
-// games: nothing autostarts here, so it is empty at login; games open here
+// games: Spotify autostarts here; games open here too
 // (rules below + gamescope-media), their launchers stay on media.
 workspace "games"
 workspace "main"
@@ -290,6 +290,10 @@ window-rule {
 }
 window-rule {
     match title="Spotify"
+    open-on-workspace "games"
+    open-focused false
+}
+window-rule {
     match app-id=r#"^steam$"#
     match app-id=r#"^com\.usebottles\.bottles$"#
     match app-id="BambuStudio"
