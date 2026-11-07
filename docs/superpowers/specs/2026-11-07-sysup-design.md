@@ -47,9 +47,10 @@ Python calls go through one wrapper, `_py() { python3 -B "$SYSUP_LIB/sysup.py" "
 with `SYSUP_LIB` resolved like `_AUTOMOUNT_LIB` today (`${BASH_SOURCE%/*}/../lib/sysup`).
 It replaces `_vj` and the `python3 -m vj` calls (`plan`, `unused`, `add`).
 
-The remaining inline `python3 -c` JSON one-liners (Bitwarden, Claude plugin
-list, one more) switch to `jq`, which is already installed and used by the
-statusline. Python is then used only through `sysup.py`.
+The three inline `python3 -c` JSON one-liners (Bitwarden login, installed
+Claude plugins, and the Claude plugin JSON parse) switch to `jq`, which is
+already installed and used by the statusline. The `python3 -c` version probe
+in `check_python_rebuilds` stays: it asks Python itself.
 
 Config migration, once, at runtime init: if `~/.config/vjupdate/config.toml`
 exists and `~/.config/sysup/config.toml` doesn't, `mv` it and say so.
