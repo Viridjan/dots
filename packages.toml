@@ -91,6 +91,9 @@ install = [
     "inotify-tools",
 
     # Music
+    "beets",  # music library organizer and tagger (beet)
+    "kid3",  # audio tag editor
+    "mpv",  # dux-player playback backend
     "mpd",
     "rmpc",
     "spotify-player",
@@ -125,6 +128,7 @@ install = [
     "chromium",
 
     # Development
+    "go",  # builds dux-player (projects.toml)
     "nodejs-lts-krypton",
     "npm",
     "uv",  # runs the [uv] tools (graphifyy)

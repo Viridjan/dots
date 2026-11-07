@@ -9,9 +9,23 @@
       "repo": "https://github.com/xxyangyoulin/dms-plugin-ccal",
       "commit": "123e4e2a8658cc61a36284a7add94f701e60a3fb"
     },
+    "claudeCodeUsage": {
+      "repo": "https://github.com/titeya/dms-claudecode",
+      "commit": "d83dd137ee68480b85c733f5920fa24e6f9904b5"
+    },
     "dankTranslate": {
       "repo": "https://github.com/alcxyz/DankTranslate",
       "commit": "10d88fc770ec54e27da1d7d112bed0b33ce806d7"
+    },
+    "niriDS": {
+      "repo": "https://github.com/hthienloc/dms-plugins",
+      "path": "niriDS",
+      "commit": "b8ec2719ad2fc4d09075882e957d16ca9387f398"
+    },
+    "systemMonitorPlus": {
+      "repo": "https://github.com/Dadangdut33/dms-plugins",
+      "path": "SystemMonitorPlus",
+      "commit": "63fe6b87c497f1f7c2ea61432716817db1c5c3a4"
     }
   }
 }

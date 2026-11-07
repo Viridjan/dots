@@ -1,0 +1,17 @@
+{
+  "niriDS": {
+    "enabled": false
+  },
+  "claudeCodeUsage": {
+    "enabled": true
+  },
+  "systemMonitorPlus": {
+    "enabled": true
+  },
+  "amdGpuMonitor": {
+    "enabled": false
+  },
+  "dankTranslate": {
+    "enabled": true
+  }
+}

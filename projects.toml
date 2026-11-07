@@ -3,6 +3,11 @@
 # fast-forward pull, only when HEAD changed (skipped while the tree has local changes).
 
 [[repo]]
+name = "dux-player"
+url = "https://github.com/Conava/dux-player.git"
+build = "git submodule update --init --recursive && make build && make install PREFIX=\"$HOME/.local\""
+
+[[repo]]
 name = "dots"
 url = "git@github.com:Viridjan/dots.git"
 
