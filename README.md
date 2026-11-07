@@ -156,6 +156,15 @@ Graphify is managed as a Claude skill: the `graphifyy` CLI comes from the uv
 package list, and setup runs `graphify install --platform claude` only when
 the Graphify skill is missing. Installation failures retain their error output.
 
+**RAG tools** (desktop, `rag-stack` feature; details in `docs/rag-tools.md`):
+the same action starts Milvus (`rag/docker-compose.yml`, 127.0.0.1:19530, data in
+`/mnt/data/milvus`) and registers the `claude-context` and `godot` MCP servers for
+Claude Code and Codex. The ollama action pulls `nomic-embed-text`; LightRAG runs as
+`lightrag.service` (127.0.0.1:9621, settings in `~/.local/share/lightrag/summit/.env`).
+First index per repo, by hand: ask the agent to `index_codebase` the repo (Claude
+Context); for LightRAG upload docs at http://127.0.0.1:9621 or drop them in
+`~/.local/share/lightrag/summit/inputs/` and scan.
+
 Always open Claude Code from `~/Projects`, not from `~/Projects/dots`:
 
 ```bash

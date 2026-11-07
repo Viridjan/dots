@@ -1076,7 +1076,8 @@ _user_tools() {
     local out
     while IFS= read -r pkg; do
         [[ -n "$pkg" ]] || continue
-        if grep -qxF -- "$pkg" <<< "$have"; then
+        # Listings print bare names: compare without extras (lightrag-hku[api]).
+        if grep -qxF -- "${pkg%%\[*}" <<< "$have"; then
             ok "already installed: $pkg ($tool)"
         elif out=$("$@" "$pkg" 2>&1); then
             ok "installed: $pkg ($tool)"
@@ -1958,6 +1959,7 @@ setup_ollama() {
 
     # Re-pulling an unchanged tag only checks the manifest, so updates call this too.
     local models=(qwen3.5) model mf
+    _has_feature rag-stack && models+=(nomic-embed-text)  # embeddings for claude-context + LightRAG
     for model in "${models[@]}"; do
         info "Pulling ollama model: $model..."
         ollama pull "$model" &>/dev/null \
@@ -2157,6 +2159,7 @@ except (ValueError, TypeError, KeyError, AttributeError):
     fi
 
     _setup_rea
+    _setup_rag
 
     # No statusline wiring here on purpose. settings.json is stowed and points at
     # ~/.claude/statusline.sh, which globs the version-hashed plugin paths at
@@ -2182,6 +2185,52 @@ _setup_rea() {
         _show_install_error "$out"
         _failw claude "REA setup failed — run manually: rea setup"
     fi
+}
+
+# rag-stack feature (docs/rag-tools.md): Milvus container for claude-context,
+# then the claude-context + godot MCP servers for Claude Code and Codex. The npm
+# binaries come from the profile's [npm]; MCP entries are untracked, like REA's.
+_setup_rag() {
+    _has_feature rag-stack || return 0
+    if command -v docker &>/dev/null; then
+        docker compose -f "$DOTS_DIR/rag/docker-compose.yml" up -d &>/dev/null \
+            && ok "running: milvus (rag/)" \
+            || _failw rag "milvus start failed — run manually: docker compose -f $DOTS_DIR/rag/docker-compose.yml up -d"
+    else
+        warn "docker not found — milvus not started"
+    fi
+    local name bin out
+    local -a env
+    for name in claude-context godot; do
+        case $name in
+            claude-context) bin=claude-context-mcp
+                env=(EMBEDDING_PROVIDER=Ollama EMBEDDING_MODEL=nomic-embed-text
+                     MILVUS_ADDRESS=127.0.0.1:19530 "CUSTOM_EXTENSIONS=.gd,.tscn") ;;
+            godot) bin=godot-mcp; env=(GODOT_PATH=/usr/bin/godot) ;;
+        esac
+        command -v "$bin" &>/dev/null || { warn "$bin not installed — $name MCP skipped (install phase)"; continue; }
+        bin=$(command -v "$bin")
+        if claude mcp get "$name" &>/dev/null; then
+            ok "already registered: $name (MCP)"
+        elif out=$(claude mcp add -s user "$name" "${env[@]/#/--env=}" -- "$bin" 2>&1); then
+            ok "registered: $name (MCP)"
+        else
+            _show_install_error "$out"
+            _failw claude "$name MCP registration failed"
+        fi
+        command -v codex &>/dev/null || continue
+        if codex mcp get "$name" &>/dev/null; then
+            ok "already registered: $name (Codex MCP)"
+        elif out=$(codex mcp add "$name" "${env[@]/#/--env=}" -- "$bin" 2>&1); then
+            ok "registered: $name (Codex MCP)"
+            # Milvus + Ollama make the first start slow; codex mcp add has no timeout flag.
+            [[ $name != claude-context ]] \
+                || sed -i '/^\[mcp_servers\.claude-context\]$/a startup_timeout_ms = 20000' "$HOME/.codex/config.toml"
+        else
+            _show_install_error "$out"
+            _failw claude "$name Codex MCP registration failed"
+        fi
+    done
 }
 
 # ─── Phase 8b: caveman-code ──────────────────────────────

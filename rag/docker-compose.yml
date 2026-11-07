@@ -1,0 +1,40 @@
+# Milvus standalone (embedded etcd, local storage) for the claude-context MCP.
+# Settings from upstream scripts/standalone_embed.sh. Started by vjupdate's
+# _setup_rag (rag-stack feature). Loopback only: Milvus has no auth here.
+name: rag
+services:
+  # The image runs as user milvus; a fresh bind mount is root-owned.
+  milvus-init:
+    image: milvusdb/milvus:v3.0.5
+    user: "0:0"
+    network_mode: none
+    entrypoint: ["/bin/sh", "-c", "[ -e /var/lib/milvus/.owned ] || { chown -R milvus:milvus /var/lib/milvus && touch /var/lib/milvus/.owned; }"]
+    volumes:
+      - ${MILVUS_DATA:-/mnt/data/milvus}:/var/lib/milvus
+  milvus:
+    image: milvusdb/milvus:v3.0.5
+    container_name: milvus
+    command: ["milvus", "run", "standalone"]
+    security_opt: ["seccomp:unconfined"]
+    environment:
+      ETCD_USE_EMBED: "true"
+      ETCD_DATA_DIR: /var/lib/milvus/etcd
+      ETCD_CONFIG_PATH: /milvus/configs/embedEtcd.yaml
+      COMMON_STORAGETYPE: local
+      DEPLOY_MODE: STANDALONE
+    volumes:
+      - ${MILVUS_DATA:-/mnt/data/milvus}:/var/lib/milvus
+      - ./embedEtcd.yaml:/milvus/configs/embedEtcd.yaml:ro
+    ports:
+      - "127.0.0.1:19530:19530"
+      - "127.0.0.1:9091:9091"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      start_period: 90s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+    depends_on:
+      milvus-init:
+        condition: service_completed_successfully

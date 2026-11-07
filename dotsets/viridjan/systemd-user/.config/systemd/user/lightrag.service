@@ -1,0 +1,13 @@
+[Unit]
+Description=LightRAG server (graph + vector RAG over docs, 127.0.0.1:9621)
+After=network-online.target
+
+[Service]
+# HOST/PORT and the Ollama models are in .env (HOST=127.0.0.1: no auth by default).
+WorkingDirectory=%h/.local/share/lightrag/summit
+ExecStart=%h/.local/bin/lightrag-server
+Restart=on-failure
+Nice=10
+
+[Install]
+WantedBy=default.target

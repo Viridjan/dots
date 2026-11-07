@@ -87,6 +87,7 @@ dots/
                   + ~/.local/share/applications/  (.desktop launchers)
                   + ~/.local/share/ollama/  (<name>.Modelfile, rebuilt by setup_ollama)
   windows/        ← NOT a stow package — Docker Compose for Windows 11 VM (dockur/windows, port 8006)
+  rag/            ← NOT a stow package — Docker Compose for Milvus (rag-stack, 127.0.0.1:19530)
   .githooks/      ← NOT a stow package — git hooks (secret scan + shellcheck); registered via core.hooksPath
   .github/        ← CI: unittest suite + shellcheck on push
   tests/          ← NOT a stow package — vjupdate + vj unittest suites (mocked system commands)
@@ -159,7 +160,10 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
   remaining count via `vj unused`.
 - **Features** replace every old `MACHINE == desktop|surface` check:
   `linux-surface`, `desktop-services`, `cpu-performance`, `amd-gpu-tuning`,
-  `ollama-model`, `windows-vm`, `nvidia` (plancia: shows the one-time
+  `ollama-model`, `windows-vm`, `rag-stack` (desktop: `_setup_rag` in the claude action starts
+  Milvus from `rag/` and registers the claude-context + godot MCPs for Claude/Codex; npm/uv/
+  `lightrag` user unit in the desktop profile; `nomic-embed-text` pulled; see `docs/rag-tools.md`),
+  `nvidia` (plancia: shows the one-time
   `nvidia-niri` action — niri wiki's GLVidHeapReuseRatio=0 app profile in
   `/etc/nvidia/nvidia-application-profiles-rc.d/`; vj hides one-time tasks whose
   `ONCE_FEATURE` the profile lacks). New machine-dependent behaviour → new feature

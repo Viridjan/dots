@@ -1,6 +1,6 @@
 # RAG tools for agent coding (Claude Code + Codex)
 
-Status: planned 2026-11-07, not integrated. Chosen for the Summit game project (`~/Projects/videogame`) but
+Status: integrated 2026-11-07 (`rag-stack` feature, desktop profile; steps below as implemented). Chosen for the Summit game project (`~/Projects/videogame`) but
 useful for any repo. Everything runs locally through Ollama: no cloud API keys.
 
 | Tool | What it does | Package | Runs as |

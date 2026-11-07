@@ -436,14 +436,14 @@ _syuu''')
 class UserToolTests(ExtrasCase):
     def test_installs_only_missing_npm_and_uv_tools(self):
         self.plan("npm-install.list", "@a/have\n@b/new\n")
-        self.plan("uv-install.list", "graphifyy\nnewtool\n")
+        self.plan("uv-install.list", "graphifyy\nnewtool\nlightrag-hku[api]\n")
         self.mock("npm", '''
 printf "%s\\n" "npm $*" >> "$CALLS"
 [[ "$1" == ls ]] && printf '%s\\n' /x/lib /x/lib/node_modules/@a/have
 exit 0''')
         self.mock("uv", '''
 printf "%s\\n" "uv $*" >> "$CALLS"
-[[ "$*" == "tool list" ]] && printf 'graphifyy v0.9\\n- graphify\\n'
+[[ "$*" == "tool list" ]] && printf 'graphifyy v0.9\\n- graphify\\nlightrag-hku v1.5.7\\n'
 exit 0''')
         r = self.shell("install_user_tools")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
@@ -452,6 +452,7 @@ exit 0''')
         self.assertNotIn("i -g @a/have", calls)
         self.assertIn("uv tool install newtool", calls)
         self.assertNotIn("install graphifyy", calls)
+        self.assertNotIn("install lightrag", calls)  # extras don't hide an installed tool
 
 
 class ClaudePluginTests(ExtrasCase):
