@@ -7,7 +7,8 @@
   "enabledPlugins": {
     "caveman@caveman": true,
     "superpowers@claude-plugins-official": true,
-    "ponytail@ponytail": true
+    "ponytail@ponytail": true,
+    "understand-anything@understand-anything": true
   },
   "extraKnownMarketplaces": {
     "caveman": {
@@ -21,6 +22,17 @@
         "source": "github",
         "repo": "DietrichGebert/ponytail"
       }
+    },
+    "understand-anything": {
+      "source": {
+        "source": "github",
+        "repo": "Egonex-AI/Understand-Anything"
+      }
+    }
+  },
+  "modelSettings": {
+    "claude-opus-5-5": {
+      "autoCompactWindow": 400000
     }
   },
   "tui": "fullscreen",
@@ -57,10 +69,5 @@
       "**Org-specific CLIs**: None configured — routine project tooling: `vjupdate`, `stow`, `paru`, `pacman`, `claude-science`, `shellcheck`, `checkrebuild`",
       "routine under ~/Projects/dots/ prefix: stow, vjupdate, and package-list edits are routine maintenance for this repo"
     ]
-  },
-  "modelSettings": {
-    "claude-opus-5-5": {
-      "autoCompactWindow": 400000
-    }
   }
 }

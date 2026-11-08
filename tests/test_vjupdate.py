@@ -1774,3 +1774,59 @@ esac''')
         r = self.run_check(0, "p\n")
         self.assertFalse(Path(self.env["CALLS"]).exists())
         self.assertNotIn("behind", r.stdout + r.stderr)
+
+
+class DmsRestartTests(FixtureCase):
+    def run_upgrade(self, before, after, active=True):
+        # pacman -Q prints the "before" versions until the upgrade writes a marker.
+        self.mock("pacman", f'''[[ "$1" == -Q ]] || exit 1
+[[ -f "$CALLS.upgraded" ]] && printf '{after}' || printf '{before}' ''')
+        self.mock("systemctl", f'''[[ "$*" == *is-active* ]] && exit {0 if active else 3}
+printf 'systemctl %s\\n' "$*" >> "$CALLS"''')
+        return self.shell('''
+_remove_conflicts() { :; }; _demote_packages() { :; }; _check_disk_space() { :; }
+_review_aur_updates() { :; }; _estimate_aur_builds() { :; }
+_syuu() { : > "$CALLS.upgraded"; }
+_upgrade_system done upgrading''')
+
+    def calls(self):
+        p = Path(self.env["CALLS"])
+        return p.read_text() if p.exists() else ""
+
+    def test_restart_after_dms_upgrade(self):
+        r = self.run_upgrade("dux-shell 1-1\\nquickshell 1-1\\n", "dux-shell 2-1\\nquickshell 1-1\\n")
+        self.assertIn("systemctl --user restart dms.service", self.calls(), r.stdout + r.stderr)
+        self.assertIn("updated: dux-shell", r.stdout)
+
+    def test_no_restart_when_unchanged(self):
+        self.run_upgrade("dux-shell 1-1\\n", "dux-shell 1-1\\n")
+        self.assertNotIn("restart", self.calls())
+
+    def test_no_restart_when_dms_not_running(self):
+        self.run_upgrade("dux-shell 1-1\\n", "dux-shell 2-1\\n", active=False)
+        self.assertNotIn("restart", self.calls())
+
+
+class ClaudePluginUpdateTests(FixtureCase):
+    def setUp(self):
+        super().setUp()
+        (self.bin / "jq").symlink_to("/usr/bin/jq")
+
+    def test_updates_each_user_plugin(self):
+        self.mock("claude", '''printf 'claude %s\\n' "$*" >> "$CALLS"
+[[ "$*" == "plugin list --json" ]] && echo '[{"id":"a@m","scope":"user"},{"id":"p@m","scope":"project"}]'
+[[ "$*" == "plugin update a@m --scope user" ]] && exit 1
+exit 0''')
+        r = self.shell("update_claude_plugins; print_recap")
+        calls = Path(self.env["CALLS"]).read_text()
+        self.assertIn("claude plugin marketplace update", calls)
+        self.assertIn("claude plugin update a@m --scope user", calls)
+        self.assertNotIn("p@m", calls)
+        self.assertIn("a@m", r.stdout)
+        self.assertNotEqual(r.returncode, 0)
+
+    def test_marketplace_failure_skips_updates(self):
+        self.mock("claude", '''printf 'claude %s\\n' "$*" >> "$CALLS"
+[[ "$*" == "plugin marketplace update" ]] && exit 1; exit 0''')
+        self.shell("update_claude_plugins")
+        self.assertNotIn("plugin update", Path(self.env["CALLS"]).read_text().replace("marketplace update", ""))

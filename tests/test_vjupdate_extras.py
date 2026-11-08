@@ -483,7 +483,7 @@ class ClaudePluginTests(ExtrasCase):
         self.mock('claude', '''
 echo "$*" >> "$CALLS"
 if [[ "$*" == 'plugin list --json' ]]; then
- printf '%s' '[{"id":"caveman@caveman","scope":"user"},{"id":"superpowers@claude-plugins-official","scope":"user"},{"id":"ponytail@ponytail","scope":"user"}]'
+ printf '%s' '[{"id":"caveman@caveman","scope":"user"},{"id":"superpowers@claude-plugins-official","scope":"user"},{"id":"ponytail@ponytail","scope":"user"},{"id":"understand-anything@understand-anything","scope":"user"}]'
 else exit 1; fi
 ''')
         self.mock('graphify', 'echo BAD_REINSTALL; exit 1')
