@@ -75,7 +75,7 @@ dots/
       vesktop/        → ~/.config/vesktop/  (settings.json + settings/)
       cave/           → ~/.cave/  (Cave AI agent config + ollama extension)
       caveman/        → ~/.config/caveman/  (caveman plugin defaultMode = ultra)
-      ollama/         → /etc/systemd/system/ollama.service.d/  (rocm.conf + limits.conf ~40% cap; stow -t /)
+      ollama/         → /etc/systemd/system/ollama.service.d/  (rocm.conf + limits.conf: 8 threads, 60% RAM/GPU compute; stow -t /)
       nicotine/       → ~/.config/nicotine/  (nicotine+; notification popups off. `.gitattributes` clean filter
                         .githooks/nicotine-clean blanks `passw` + drops [statistics] on commit — the live file
                         keeps both; registered by deploy_dotfiles. A pull that changes it blanks the local password)
@@ -655,14 +655,16 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   deployment starts selected; adoption requires explicit `--adopt`. Noninteractive
   `--yes` retains the legacy dotfiles phase (deploy and DMS import).
 - **Ollama (2026-10-30).** `setup_ollama` pulls `qwen3.5` (`models=` array; DeepSeek
-  and the `dsh` harness were removed the same day at user request). `limits.conf`: `CPUQuota=640%`, `MemoryHigh=40%` — user
-  rejected `MemoryMax` because it OOM-kills — `OLLAMA_KEEP_ALIVE=1m`).
+  and the `dsh` harness were removed the same day at user request). `limits.conf`: `CPUQuota=800%` (8 of 16 threads), `MemoryHigh=60%` — user
+  rejected `MemoryMax` because it OOM-kills — `HSA_CU_MASK=0:0-23` (24 of 40 CUs = 60% GPU
+  compute, unverified with ollama's bundled ROCm), `OLLAMA_KEEP_ALIVE=1m`).
   ollama 0.40 IGNORES `OLLAMA_GPU_OVERHEAD` and `OLLAMA_MAX_LOADED_MODELS`
   (verified 2026-10-30: two runners, 11.7/12 GB VRAM, qwen warm-up hung), so
   the only VRAM cap is per model: `scripts/.local/share/ollama/qwen3.5.Modelfile`
-  (`num_gpu 26`, ~30/70 CPU/GPU, ~19 vs 53 tok/s — the user chose the cap after
-  trying both; no SYSTEM prompt). `setup_ollama` rebuilds every `<name>.Modelfile`
-  as model `<name>` after the pulls. GPU compute cannot be capped. The drop-in dir is a folded link,
+  (`num_gpu 24`, ≤5 GB VRAM, ~33/67 CPU/GPU, ~14 vs 55 tok/s — the user chose the cap after
+  trying both; no SYSTEM prompt). LightRAG uses this capped `qwen3.5` too (2026-11-08: the
+  uncapped `qwen3.5-full` it used before was dropped at user request; indexing is ~4× slower). `setup_ollama` rebuilds every `<name>.Modelfile`
+  as model `<name>` after the pulls. The drop-in dir is a folded link,
   so edits need a daemon-reload: `_reload_ollama` (in `deploy_dotfiles`) checks
   `NeedDaemonReload` and try-restarts the service.
   `update_ollama` (install phase + `--update`, silent without the feature or a
