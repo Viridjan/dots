@@ -205,6 +205,7 @@ EOF
 ```
 
 `claude` may need `sysup --adopt` on a fresh machine (absorbs existing real files, backing them up first).
+`~/.claude` is unfolded (file-level links). Claude Code writing a memory file or plugin script replaces its link with a real file → `stow conflict in 'claude'`. If live is newer: `mv` it over the repo copy, then `stow --restow -t ~ claude`.
 
 `desktop/`, `surface/` and `plancia/` inside a set are not stow packages: `_stow_niri_cfg` links the files of the dir named after the active profile.
 
