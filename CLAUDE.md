@@ -550,7 +550,9 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
     `sysup --actions lostfiles` runs `pacreport --unowned-files` (~1 min, report).
   - *Preflight*: refuses to run as root; warns under 5 GiB free on `/`
     (`SYSUP_MIN_FREE_GB`); keeps an existing sudo ticket alive (`sudo -n -v`
-    loop, terminal runs only, killed in `_cleanup`).
+    loop, terminal runs only, killed in `_cleanup`). `--update`/`--yes` in a terminal
+    first ask for it once (`_sudo_prime`, `sudo -v`): an unattended prompt mid-run timed
+    out and failed the upgrade and paccache (2026-11-08).
 - **Guards added 2026-11-01 (Surface incidents).** `_warn_unfolded` (after each
   home package stows): warns when a target is a real dir instead of a folded
   link (stow then links file by file and new files never reach git; skips

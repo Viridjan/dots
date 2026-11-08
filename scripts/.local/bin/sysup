@@ -380,6 +380,13 @@ _runtime_error() {
     print_recap || true
     exit "$rc"
 }
+# Ask for the sudo password once at the start of long runs, while the user is
+# still watching; a prompt minutes into an update times out unattended.
+_sudo_prime() {
+    case "$ACTION" in --update|-u|--yes|-y) ;; *) return 0 ;; esac
+    sudo -v || warn "no sudo ticket: steps that need root will fail"
+}
+
 _init_runtime() {
     $_RUNTIME_READY && return 0
     mkdir -p "$STAMP_DIR"
@@ -405,6 +412,7 @@ _init_runtime() {
     # builds; paru's SudoLoop only covers paru itself. -n never prompts, and
     # the loop holds no stdout so the log tee can still finish on exit.
     if [[ -t 0 ]] && command -v sudo &>/dev/null; then
+        _sudo_prime
         ( trap - ERR; while kill -0 "$$" 2>/dev/null; do sudo -n -v 2>/dev/null || true; sleep 60 || true; done ) \
             </dev/null >/dev/null 2>&1 &
         _SUDO_PID=$!

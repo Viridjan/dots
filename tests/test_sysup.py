@@ -1905,6 +1905,20 @@ exit 0''')
         self.assertNotIn("plugin update", Path(self.env["CALLS"]).read_text().replace("marketplace update", ""))
 
 
+class SudoPrimeTests(FixtureCase):
+    """--update/--yes ask for sudo once up front (2026-11-08: prompts timed out mid-run)."""
+    def test_update_asks_once_and_warns_on_failure(self):
+        self.mock("sudo", 'printf "%s\\n" "sudo $*" >> "$CALLS"; exit 1')
+        r = self.shell('ACTION=--update; _sudo_prime; printf "%s\\n" "${WARNINGS[@]}"')
+        self.assertEqual(Path(self.env["CALLS"]).read_text(), "sudo -v\n")
+        self.assertIn("no sudo ticket", r.stdout)
+
+    def test_other_actions_do_not_prompt(self):
+        for action in ("--check", "--actions"):
+            self.shell(f"ACTION={action}; _sudo_prime")
+        self.assertFalse(Path(self.env["CALLS"]).exists())
+
+
 class ConfigFlagTests(FixtureCase):
     """--profile / --pkg / --status / --skip-once against a fixture repo."""
 
