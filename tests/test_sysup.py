@@ -995,33 +995,47 @@ class ReviewFollowupTests(FixtureCase):
         self.assertFalse(Path(self.env["CALLS"]).exists())
 
     def _menu_fzf(self):
-        # Mode picker (--no-multi) answers $MODE; action list answers the IDs in $PICK.
-        self.mock("fzf", 'echo "fzf $*" >> "$CALLS"\n[ -n "${ESC:-}" ] && exit 130\n'
-                         'if [[ " $* " == *" --no-multi "* ]]; then grep "^$MODE\t"; exit 0; fi\n'
+        # Single-select screens answer the next word of $KEYS (ESC = Esc key);
+        # the action list answers the IDs in $PICK (ESC as PICK = Esc).
+        self.mock("fzf", 'echo "fzf $*" >> "$CALLS"\n'
+                         'if [[ " $* " == *" --no-multi "* ]]; then\n'
+                         '  n=$(cat "$CALLS.n" 2>/dev/null || echo 0); echo $((n+1)) > "$CALLS.n"\n'
+                         '  k=$(echo $KEYS | cut -d" " -f$((n+1))); [ "$k" = ESC ] && exit 130\n'
+                         '  grep -- "^$k\t"; exit 0\n'
+                         'fi\n'
+                         '[ "$PICK" = ESC ] && exit 130\n'
                          'in=$(cat); [ -n "${HDR:-}" ] && grep -e "^\t" -e "^RUN\t" <<< "$in"\n'
                          'for id in $PICK; do grep "^$id\t" <<< "$in"; done')
 
     MENU_PY = ('_py() { [ "$1" = menu ] || return 1\n'
                "  printf 'sources\\troutine\\tRefresh\\t\\tdesc\\nfish\\ttools\\tFish\\tnever run\\tdesc2\\n'"
-               '\n  printf "py %s\\n" "$*" >> "$CALLS"; }\n')
+               '\n  printf "py %s\\n" "$*" >> "$CALLS"; }\n'
+               '_menu_run() { printf "run %s\\n" "${*:2}" >> "$CALLS"; }\n'
+               '_menu_pause() { :; }\n')
 
-    def test_menu_actions_builds_actions_args(self):
+    def menu(self, keys, pick=""):
         self._menu_fzf()
-        self.env.update(MODE="actions", PICK="sources fish", HDR="1")  # RUN/header rows are dropped
-        r = self.shell(self.MENU_PY + '_menu\necho "A=$ACTION S=$SYSUP_ACTIONS O=${_ORIG_ARGS[*]}"')
+        self.env.update(KEYS=keys, PICK=pick, HDR="1")  # RUN/header rows are dropped
+        r = self.shell(self.MENU_PY + '_menu\necho MENU_RETURNED')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("A=--actions S=sources,fish O=--actions sources,fish", r.stdout)
-        self.assertIn("py menu sources install", Path(self.env["CALLS"]).read_text())  # whole MENU_ORDER
+        self.assertIn("MENU_RETURNED", r.stdout)
+        return [l for l in Path(self.env["CALLS"]).read_text().splitlines() if not l.startswith("fzf ")]
 
-    def test_menu_update_mode_and_escape(self):
-        self._menu_fzf()
-        self.env["MODE"] = "update"
-        r = self.shell(self.MENU_PY + '_menu\necho "A=$ACTION O=${_ORIG_ARGS[*]}"')
-        self.assertIn("A=--update O=--update", r.stdout)
-        self.env["ESC"] = "1"
-        r = self.shell(self.MENU_PY + '_menu\necho BAD_CONTINUED')
-        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertNotIn("BAD_CONTINUED", r.stdout)
+    def test_menu_runs_actions_then_comes_back(self):
+        calls = self.menu("actions check quit", pick="sources fish")
+        self.assertIn("py menu sources install", calls[0])  # whole MENU_ORDER
+        self.assertEqual(calls[1:], ["run --actions sources,fish", "run --check"])
+
+    def test_menu_options_toggle_and_pass_through(self):
+        # adopt on, dry-run on, adopt off again, back, update
+        calls = self.menu("options --adopt --dry-run --adopt ESC update quit")
+        self.assertEqual(calls, ["run --update --dry-run"])
+
+    def test_menu_escape_goes_back_or_quits(self):
+        calls = self.menu("actions quit", pick="ESC")  # Esc in the action list: back, nothing run
+        self.assertEqual([c for c in calls if c.startswith("run")], [])
+        Path(self.env["CALLS"]).unlink(); Path(self.env["CALLS"] + ".n").unlink()
+        self.assertEqual(self.menu("ESC"), [])  # Esc on the main screen quits
 
     def test_removed_flags_die_before_any_work(self):
         self.mock("git", 'echo "git $*" >> "$CALLS"')

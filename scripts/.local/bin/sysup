@@ -3707,44 +3707,86 @@ _status() {
     printf '\ndotset backups (sysup --restore 1|2):\n%s\n' "${backups:-  none yet}"
 }
 
-# Bare sysup in a terminal. Only picks arguments main already handles: sets
-# ACTION (+ SYSUP_ACTIONS), and _ORIG_ARGS so a self-update relaunch runs the
-# choice instead of reopening the menu. Esc quits with 0.
+# Bare sysup in a terminal: a menu loop. Each choice runs as a child sysup
+# (same lock, recap and self-update as the command line), then the menu comes
+# back. Esc quits on the main screen and goes back on the others.
 _menu() {
-    local mode rows sel ids
-    mode=$(printf '%s\t%s\n' \
-            update  "Update packages + clean caches" \
-            check   "Audit, report only" \
-            actions "Choose actions…" \
-            status  "Profile, one-time actions, last check" \
-        | fzf --delimiter='\t' --with-nth=2 --height=~10 --reverse --no-multi \
-              --prompt='sysup> ' --header='Enter: choose   Esc: quit') || exit 0
-    case "${mode%%$'\t'*}" in
-        update) ACTION=--update ;;
-        check)  ACTION=--check ;;
-        status) _status; exit $? ;;
-        actions)
-            rows=$(_py menu "${MENU_ORDER[@]}") || exit $?
-            # Rows arrive grouped; a header row (empty ID) opens each group and a
-            # RUN row comes first. Enter marks; Enter on RUN (or Ctrl-R) runs the marks.
-            # Display column: label + one-time state; field 3 = description.
-            sel=$(awk -F'\t' 'NR == 1 { printf "RUN\t▶ Run marked actions\t\n" }
-                    $2 != g { g = $2; printf "\t── %s ──\t\n", g }
-                    { printf "%s\t   %-38s %s\t%s\n", $1, $3, $4, $5 }' <<< "$rows" \
-                | fzf --multi --delimiter='\t' --with-nth=2 --height=80% --reverse \
-                      --prompt='actions> ' --header='Enter/Tab: mark   ▶ Run or Ctrl-R: run marked   Esc: quit' \
-                      --bind="enter:transform:[ {1} = RUN ] && echo accept || { [ -n {1} ] && echo toggle+down || echo down; }" \
-                      --bind='ctrl-r:accept' \
-                      --preview="[ -n {3} ] && printf '%s\n\nsysup --actions %s\n' {3} {1}" --preview-window=down,4,wrap) \
-                || exit 0
-            ids=$(awk -F'\t' '$1 != "" && $1 != "RUN" { print $1 }' <<< "$sel"); ids=${ids//$'\n'/,}
-            [[ -n "$ids" ]] || exit 0
-            SYSUP_ACTIONS=$ids; ACTION=--actions ;;
-        *) exit 0 ;;
-    esac
-    _ORIG_ARGS=("$ACTION" ${SYSUP_ACTIONS:+"$SYSUP_ACTIONS"})
-    info "sysup ${_ORIG_ARGS[*]}"
+    local self="${BASH_SOURCE[0]}" mode ids opts=()
+    while :; do
+        mode=$(printf '%s\t%s\n' \
+                update  "Update packages + clean caches" \
+                check   "Audit, report only" \
+                actions "Choose actions…" \
+                options "Options… [${opts[*]:-none}]" \
+                status  "Profile, one-time actions, last check" \
+                quit    "Quit" \
+            | fzf --delimiter='\t' --with-nth=2 --height=~12 --reverse --no-multi \
+                  --prompt='sysup> ' --header='Enter: choose   Esc: quit') || return 0
+        case "${mode%%$'\t'*}" in
+            update)  _menu_run "$self" --update "${opts[@]}" ;;
+            check)   _menu_run "$self" --check "${opts[@]}" ;;
+            actions) ids=$(_menu_actions) && _menu_run "$self" --actions "$ids" "${opts[@]}" ;;
+            options) _menu_options opts ;;
+            status)  _status; _menu_pause ;;
+            *)       return 0 ;;
+        esac
+    done
 }
+
+# Action picker. Prints the marked IDs comma-separated; fails on Esc or no marks.
+_menu_actions() {
+    local rows sel ids
+    rows=$(_py menu "${MENU_ORDER[@]}") || return 1
+    # Rows arrive grouped; a header row (empty ID) opens each group and a
+    # RUN row comes first. Enter marks; Enter on RUN (or Ctrl-R) runs the marks.
+    # Display column: label + one-time state; field 3 = description.
+    sel=$(awk -F'\t' 'NR == 1 { printf "RUN\t▶ Run marked actions\t\n" }
+            $2 != g { g = $2; printf "\t── %s ──\t\n", g }
+            { printf "%s\t   %-38s %s\t%s\n", $1, $3, $4, $5 }' <<< "$rows" \
+        | fzf --multi --delimiter='\t' --with-nth=2 --height=80% --reverse \
+              --prompt='actions> ' --header='Enter/Tab: mark   ▶ Run or Ctrl-R: run marked   Esc: back' \
+              --bind="enter:transform:[ {1} = RUN ] && echo accept || { [ -n {1} ] && echo toggle+down || echo down; }" \
+              --bind='ctrl-r:accept' \
+              --preview="[ -n {3} ] && printf '%s\n\nsysup --actions %s\n' {3} {1}" --preview-window=down,4,wrap) \
+        || return 1
+    ids=$(awk -F'\t' '$1 != "" && $1 != "RUN" { print $1 }' <<< "$sel")
+    [[ -n "$ids" ]] || return 1
+    printf '%s\n' "${ids//$'\n'/,}"
+}
+
+# Modifier toggles, kept in the caller's array (name in $1) until the menu quits.
+_menu_options() {
+    local -n _o=$1
+    local pick flag x o keep
+    while :; do
+        pick=$(for flag in --dry-run --adopt --clean-aggressive; do
+                x=" "; [[ " ${_o[*]} " == *" $flag "* ]] && x=x
+                case "$flag" in
+                    --dry-run) printf '%s\t[%s] %s\n' "$flag" "$x" "dry run: preview update/check, change nothing (not for actions)" ;;
+                    --adopt)   printf '%s\t[%s] %s\n' "$flag" "$x" "adopt: stow takes over conflicting live files (backed up first)" ;;
+                    *)         printf '%s\t[%s] %s\n' "$flag" "$x" "clean aggressive: also wipe ~/.cache/paru and ~/.cache/yay" ;;
+                esac
+            done | fzf --delimiter='\t' --with-nth=2 --height=~6 --reverse --no-multi \
+                       --prompt='options> ' --header='Enter: toggle   Esc: back') || return 0
+        flag=${pick%%$'\t'*}
+        if [[ " ${_o[*]} " == *" $flag "* ]]; then
+            keep=(); for o in "${_o[@]}"; do [[ "$o" == "$flag" ]] || keep+=("$o"); done
+            _o=("${keep[@]}")
+        else
+            _o+=("$flag")
+        fi
+    done
+}
+
+_menu_run() {
+    local rc=0
+    echo; info "sysup ${*:2}"
+    bash "$@" || rc=$?
+    (( rc == 0 )) && ok "done" || echo -e "${YEL}[!] sysup exited with status $rc${NC}"
+    _menu_pause
+}
+
+_menu_pause() { read -rsn1 -p $'\nPress any key to return to the menu ' _ < /dev/tty || true; echo; }
 
 usage() {
     echo "Usage: sysup [OPTION]"
@@ -3860,7 +3902,7 @@ if [[ "$ACTION" == help ]]; then usage; exit 0; fi
 if ! $DRY_RUN && [[ -z "$ACTION" ]]; then
     if [[ -t 0 && -t 1 ]] && command -v fzf &>/dev/null; then
         (( EUID != 0 )) || die "run sysup as your user, not root — it calls sudo itself"
-        _menu
+        _menu; exit 0
     else
         [[ -t 0 && -t 1 ]] && warn "fzf is not installed; showing help instead of the menu"
         usage; exit 0

@@ -595,12 +595,16 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   unchanged. Audit and update runs warn about pending held AUR updates with
   review and manual upgrade commands; dry runs list the holds.
 - **Menu (2026-11-08).** Bare `sysup` with stdin+stdout on a TTY and `fzf`
-  installed runs `_menu`; otherwise help (timer, pipes, tests). Step 1 picks
-  update / check / actions / status; step 2 is `fzf --multi` (grouped by `GROUPS`; Enter marks, the top `▶ Run` row or Ctrl-R runs) over rows from
-  `sysup.py menu "${MENU_ORDER[@]}"` (feature-gated one-time actions hidden,
-  `[once]` state shown). It only sets `ACTION`/`SYSUP_ACTIONS` and
-  `_ORIG_ARGS` (so the self-update relaunch runs the choice), then main runs
-  as for `--actions`. `MENU_ORDER` (top-level array) is the only action ID list:
+  installed runs `_menu`; otherwise help (timer, pipes, tests). `_menu` loops:
+  main screen update / check / actions / options / status / quit (Esc quits);
+  each choice runs as a child `bash sysup <args>` (`_menu_run`: own lock, recap,
+  self-update), then a keypress returns to the menu. Sub-screens: Esc = back.
+  `_menu_actions` is `fzf --multi` (grouped by `GROUPS`; Enter marks, the top
+  `▶ Run` row or Ctrl-R runs) over `sysup.py menu "${MENU_ORDER[@]}"`
+  (feature-gated one-time actions hidden, `[once]` state shown).
+  `_menu_options` toggles `--dry-run` / `--adopt` / `--clean-aggressive`, added
+  to every later run until the menu quits (`--dry-run` + actions dies, as on
+  the CLI). `MENU_ORDER` (top-level array) is the only action ID list:
   `--actions` validates against it, fish completion reads it. Labels and
   descriptions live in `ACTIONS` in `sysup.py`; a test fails when an ID lacks
   an entry. `ONCE` is the list of one-time IDs.
