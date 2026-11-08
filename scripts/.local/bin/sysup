@@ -1833,7 +1833,8 @@ setup_fingerprint() {
 setup_bitwarden() {
     command -v bitwarden-desktop &>/dev/null || { ok "Bitwarden not installed — nothing to do"; return 0; }
     local data="$HOME/.config/Bitwarden/data.json"
-    if python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("global_account_activeAccountId") else 1)' "$data" 2>/dev/null; then
+    if jq -e '.global_account_activeAccountId | select(. != null and . != false and . != "" and . != 0)' \
+            "$data" >/dev/null 2>&1; then
         ok "Bitwarden: logged in"
         return 0
     fi
@@ -2368,12 +2369,8 @@ setup_claude() {
     # These commands install the plugin assets (skills, hook scripts).
     local entry market plugin hint installed installed_json full_id out
     installed_json=$(claude plugin list --json 2>/dev/null) || installed_json='[]'
-    installed=$(python3 -c 'import json,sys
-try:
-    for p in json.load(sys.stdin):
-        if p.get("scope") == "user": print(p["id"])
-except (ValueError, TypeError, KeyError, AttributeError):
-    pass' <<< "$installed_json") || installed=""
+    installed=$(jq -r '.[]? | select(type == "object" and .scope == "user") | .id // empty' \
+        <<< "$installed_json" 2>/dev/null) || installed=""
     # "marketplace-repo plugin-id"; "-" uses the official marketplace.
     for entry in "JuliusBrussee/caveman caveman" \
                  "- superpowers@claude-plugins-official" \
@@ -2941,19 +2938,17 @@ check_aur_malware() {
     # comes back empty. Lumping 1 and 3 in with 2 cried malware over a missing
     # log file. Parse the code, the warning kinds and their details in one go.
     local parsed verdict kinds detail
-    parsed=$(python3 -c "import json,sys
-try:
-    d = json.loads(sys.argv[1])
-    ws = d.get('warnings') or []
-    code = d['exit_code']
-    if type(code) is not int:
-        raise ValueError('invalid exit_code')
-    lines = [str(code), ', '.join(sorted({(w.get('kind') or '?') for w in ws}))]
-    lines += ['      - ' + (w.get('kind') or '?') + ': ' + (w.get('detail') or '') for w in ws]
-    print('\n'.join(lines))
-except Exception:
-    print('unreadable')
-    print('')" "$result" 2>/dev/null) || parsed=$'unreadable\n'
+    # Any shape error (not an object, exit_code not an integer, warnings not a
+    # list of objects) makes jq fail, and the whole result counts as unreadable.
+    parsed=$(jq -r '
+        def kind: if (.kind // "") == "" then "?" else .kind end;
+        if (.exit_code | type) != "number" or (.exit_code | floor) != .exit_code then error("bad exit_code") else . end
+        | (.warnings // []) as $ws
+        | if ($ws | type) != "array" or any($ws[]; type != "object") then error("bad warnings") else . end
+        | (.exit_code | tostring),
+          ([$ws[] | kind] | unique | join(", ")),
+          ($ws[] | "      - " + kind + ": " + ((.detail // "") | tostring))
+        ' <<< "$result" 2>/dev/null) || parsed=$'unreadable\n'
     verdict=$(printf '%s\n' "$parsed" | sed -n '1p')
     kinds=$(printf '%s\n'  "$parsed" | sed -n '2p')
     detail=$(printf '%s\n' "$parsed" | tail -n +3)

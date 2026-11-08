@@ -25,7 +25,7 @@ class FixtureCase(unittest.TestCase):
         # Restricted PATH: system/package commands cannot accidentally run.
         for name in ("bash", "cat", "grep", "sed", "awk", "cut", "tail", "head",
                      "tr", "sort", "tee", "date", "mkdir", "cp", "rm", "dirname",
-                     "basename", "mktemp", "python3", "readlink", "flock", "mv", "ln", "du", "xargs", "echo",
+                     "basename", "mktemp", "python3", "readlink", "jq", "flock", "mv", "ln", "du", "xargs", "echo",
                      "nice", "ionice"):
             (self.bin / name).symlink_to(Path("/usr/bin") / name)
         for name in ("pacman", "paru", "sudo", "systemctl", "stow", "git",
@@ -568,6 +568,30 @@ done
                 r = self.shell(body + 'check_aur_malware')
                 self.assertEqual(r.returncode == 0, verdict == 0 and rc == 0)
                 self.assertIn(message, r.stdout + r.stderr)
+
+
+class ScannerJsonTests(FixtureCase):
+    """The jq parser must fail closed: any odd shape is 'unreadable', never clean."""
+
+    def verdict(self, json_text):
+        (self.home / ".local/share/aur-malware-check").mkdir(parents=True, exist_ok=True)
+        body = "_update_malware_defs() { :; }\npython() { printf '%s' " + shlex.quote(json_text) + "; }\ncheck_aur_malware"
+        return self.shell(body)
+
+    def test_odd_shapes_never_pass(self):
+        for text in ('{"exit_code":"0","warnings":[]}', '{"exit_code":true,"warnings":[]}',
+                     '{"exit_code":0.5,"warnings":[]}', '{"warnings":[]}', '[0]', 'not json',
+                     '{"exit_code":0,"warnings":{"a":{"kind":"x"}}}'):
+            with self.subTest(text=text):
+                r = self.verdict(text)
+                self.assertNotEqual(r.returncode, 0, r.stdout)
+                self.assertNotIn("check: clean", r.stdout)
+
+    def test_warning_kinds_listed(self):
+        r = self.verdict('{"exit_code":1,"warnings":[{"kind":"log","detail":"missing"},{"kind":""}]}')
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("?, log", r.stdout + r.stderr)
+        self.assertIn("- log: missing", r.stdout + r.stderr)
 
 
 class UpgradeFailureReportingTests(FixtureCase):
@@ -1809,10 +1833,6 @@ _upgrade_system done upgrading''')
 
 
 class ClaudePluginUpdateTests(FixtureCase):
-    def setUp(self):
-        super().setUp()
-        (self.bin / "jq").symlink_to("/usr/bin/jq")
-
     def test_updates_each_user_plugin(self):
         self.mock("claude", '''printf 'claude %s\\n' "$*" >> "$CALLS"
 [[ "$*" == "plugin list --json" ]] && echo '[{"id":"a@m","scope":"user"},{"id":"p@m","scope":"project"}]'
