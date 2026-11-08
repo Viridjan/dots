@@ -524,10 +524,11 @@ def cmd_add(where: str, src: str, name: str, profile: str = "") -> None:
 
 def main(argv) -> int:
     cmd, args = (argv[0], argv[1:]) if argv else ("", [])
-    if cmd == "plan" and len(args) == 1:
+    if cmd in ("plan", "choose", "status", "add", "once-done", "once-skip"):
         msg = migrate_config()
         if msg:
             print(msg, file=sys.stderr)
+    if cmd == "plan" and len(args) == 1:
         repo = load_repo()
         cfg = effective(repo)
         write_plan(repo, cfg, Path(args[0]),
@@ -540,7 +541,6 @@ def main(argv) -> int:
         cmd_add(*args)
         return 0
     if cmd == "choose" and len(args) in (1, 2):
-        migrate_config()
         repo = load_repo()
         if args[0] not in repo.profiles:
             raise ConfigError(f"unknown profile '{args[0]}' — choose one of: {', '.join(repo.profiles)}")
@@ -553,7 +553,6 @@ def main(argv) -> int:
         print(f"profile: {args[0]}   dotset: {dotset}")
         return 0
     if cmd == "status" and not args:
-        migrate_config()
         repo = load_repo()
         print("\n".join(status_lines(repo, effective(repo))))
         return 0
