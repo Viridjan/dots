@@ -2386,10 +2386,15 @@ setup_fish() {
         return
     fi
 
-    info "Installing fish plugins (tide)..."
-    fish -c 'fisher install IlanCosman/tide@v6' >/dev/null 2>&1 \
-        && ok "installed: tide" \
-        || _failw fish "tide install failed — run manually: fisher install IlanCosman/tide@v6"
+    # Installed tide needs no network: a GitHub API outage used to warn every run.
+    if fish -c 'functions -q tide' 2>/dev/null; then
+        ok "already installed: tide"
+    else
+        info "Installing fish plugins (tide)..."
+        fish -c 'fisher install IlanCosman/tide@v6' >/dev/null 2>&1 \
+            && ok "installed: tide" \
+            || _failw fish "tide install failed — run manually: fisher install IlanCosman/tide@v6"
+    fi
 
     # Configure only on first setup so later manual tweaks aren't overwritten.
     if fish -c 'set -q _tide_left_items' 2>/dev/null; then

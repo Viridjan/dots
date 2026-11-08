@@ -20,7 +20,7 @@
 - [pacman no progress under tee](pacman-no-progress-under-tee.md) — tee pipe kills pacman bars/candy; script-pty fix proposed, not applied
 - [device missing after kernel upgrade](device-missing-after-kernel-upgrade.md) — "not detected" → compare uname -r vs /usr/lib/modules; reboot after kernel upgrade
 - [package preferences](dots-package-preferences.md) — -bin AUR fine (source rule was update misconception, dropped 2026-10-25); no third-party repos; swap via [paru].remove; give `! paru` cmds
-- [vj TUI rewrite](vj-tui-rewrite.md) — 2026-10-21 vj + profiles + dotsets/viridjan pushed 2026-10-21; pending /etc sudo relink, Surface runbook
+- [sysup rename](sysup-rename.md) — 2026-11-08 vjupdate→sysup, vj deleted; Surface/Plancia runbook pending (vj-tui-rewrite.md is history)
 - [vjupdate 2026-10-27 cleanup](vjupdate-2026-10-27-cleanup.md) — bash menu gone (vjupdate → vj), AUDIT_CHECKS, weekly check timer, last-check in vj
 - [graphify on dots](graphify-dots-ids.md) — AST id format vs subagent ids; ignore list; incremental runs
 - [Battle.net under Wine](battlenet-wine.md) — ~/Games/battlenet via start-battlenet (umu+GE-Proton); stale prefix sessions → wineserver -k

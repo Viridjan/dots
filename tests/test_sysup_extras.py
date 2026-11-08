@@ -265,6 +265,14 @@ print_recap
         self.assertNotIn("action:fish\tok", results)
         self.assertIn("action:fish\tskip", results)
 
+    def test_installed_tide_is_not_refetched(self):
+        # GitHub API outage (504) made every run warn although tide was there.
+        self.recorder("fish", 'case "$*" in *"fisher install"*) exit 1;; esac')
+        r = self.shell('setup_fish; printf "%s\\n" "${WARNINGS[@]}"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("fisher install", self.calls())
+        self.assertNotIn("tide install failed", r.stdout)
+
     def test_mirror_override_replaces_existing_boot_trigger(self):
         self.env["TIMER_OUTPUT"] = str(self.root / "timer.conf")
         # Redirect the fixed /etc path in a test copy so host overrides cannot
