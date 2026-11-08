@@ -234,11 +234,12 @@ _fix_stow() {
 _fix_unlisted() {
     local p="$1" src=flatpak
     [[ "$(pacman -Qq -- "$p" 2>/dev/null)" == "$p" ]] && src=paru
-    _ask "unlisted $src package $p: [p]ackages.toml / pro[f]ile ${MACHINE:-?} / [i]gnore / [u]ninstall / [s]kip"
+    _ask "unlisted $src package $p: [p]ackages.toml / pro[f]ile ${MACHINE:-?} / [m] this machine / [i]gnore / [u]ninstall / [s]kip"
     case "$FIX_REPLY" in
         p) _py add shared "$src" "$p" && ok "$p → packages.toml (commit it)" ;;
         f) [[ -n "${MACHINE:-}" ]] || { warn "no active profile"; return 1; }
            _py add profile "$src" "$p" "$MACHINE" && ok "$p → profiles/$MACHINE.toml (commit it)" ;;
+        m) _py add local "$src" "$p" && ok "$p kept on this machine (local config)" ;;
         i) _py add ignore "$src" "$p" && ok "$p ignored on this machine" ;;
         u) if [[ "$src" == flatpak ]]; then
                flatpak uninstall -y -- "$p" && ok "uninstalled: $p"
@@ -3303,7 +3304,47 @@ bootstrap() {
     _run_phase "audit"     phase_audit
     local _rc=0
     print_recap || _rc=$?
+    _stamp_once
     return $_rc
+}
+
+# Record one-time actions that finished ok (sysup --status shows the dates).
+# sysup.py ignores IDs that are not one-time actions.
+_stamp_once() {
+    local i ids=()
+    for i in "${!_RESULT_NAMES[@]}"; do
+        [[ "${_RESULT_NAMES[i]}" == action:* && "${_RESULT_STATES[i]}" == ok ]] \
+            && ids+=("${_RESULT_NAMES[i]#action:}")
+    done
+    (( ${#ids[@]} )) && ! $DRY_RUN || return 0
+    _py once-done "${ids[@]}" || warn "could not record one-time actions in the config"
+}
+
+# --pkg WHERE NAME...: put packages in a list. Flatpak when the name is an
+# installed flatpak app or looks like an app ID (two dots), else pacman/AUR.
+_pkg_cmd() {
+    local where="${1:-}" n src rc=0
+    case "$where" in
+        shared|profile|local|remove|ignore) shift ;;
+        *) die "--pkg needs a target: shared profile local remove ignore" ;;
+    esac
+    (( $# )) || die "--pkg $where needs package names"
+    if [[ "$where" == profile ]]; then
+        _ensure_plan
+        [[ -n "$MACHINE" ]] || die "no profile chosen — run: sysup --profile NAME"
+    fi
+    for n in "$@"; do
+        src=paru
+        if [[ "$n" == *.*.* ]] || { command -v flatpak &>/dev/null && flatpak info -- "$n" &>/dev/null; }; then
+            src=flatpak
+        fi
+        if _py add "$where" "$src" "$n" "${MACHINE:-}"; then ok "$n ($src) → $where"; else rc=1; fi
+    done
+    case "$where" in
+        shared)  info "now commit packages.toml" ;;
+        profile) info "now commit profiles/$MACHINE.toml" ;;
+    esac
+    return $rc
 }
 
 update() {
@@ -3600,6 +3641,14 @@ usage() {
     echo "  --pacnew            Interactively merge .pacnew files with pacdiff"
     echo "  --rebuild           Rebuild packages flagged by rebuild-detector"
     echo "  --lostfiles         List files no package owns (pacreport; slow, report only)"
+    echo ""
+    echo "Configuration (edit config files only, run nothing):"
+    echo "  --profile NAME [--dotset SET]  This machine's profile (profiles/NAME.toml) and dotfile set"
+    echo "  --pkg WHERE NAME...  Put packages in a list. WHERE: shared (packages.toml),"
+    echo "                      profile (profiles/<this>.toml), local (this machine only),"
+    echo "                      remove (demote on this machine), ignore (stop reporting)"
+    echo "  --status            Profile, features, one-time actions with dates, last check"
+    echo "  --skip-once ID      Mark a one-time action as skipped"
     echo "  --help, -h          Show this message"
     echo ""
     echo "Modifiers (combine with the actions above):"
@@ -3634,6 +3683,26 @@ fi
 _ARGS="$*"
 ACTION=""
 _ORIG_ARGS=("$@")
+# Config commands: no lock, no log, no plan run; they only edit config files.
+case "${1:-}" in
+    --profile|--pkg|--status|--skip-once)
+        (( EUID != 0 )) || die "run sysup as your user, not root"
+        _cmd=$1; shift
+        case "$_cmd" in
+            --profile)
+                [[ $# -ge 1 && "$1" != -* ]] || die "--profile needs a profile name (see profiles/)"
+                _prof=$1; shift; _set=""
+                if [[ "${1:-}" == --dotset ]]; then
+                    [[ $# -ge 2 ]] || die "--dotset needs a set name (or none)"
+                    _set=$2; shift 2
+                fi
+                (( $# == 0 )) || die "unexpected arguments: $*"
+                _py choose "$_prof" ${_set:+"$_set"}; exit $? ;;
+            --pkg)       _pkg_cmd "$@"; exit $? ;;
+            --status)    (( $# == 0 )) || die "--status takes no arguments"; _py status; exit $? ;;
+            --skip-once) (( $# == 1 )) || die "--skip-once needs one action ID"; _py once-skip "$1"; exit $? ;;
+        esac ;;
+esac
 # Modifiers are order-independent and may be combined with any action; the
 # action itself is whatever non-modifier argument appears.
 while [[ $# -gt 0 ]]; do

@@ -1831,3 +1831,65 @@ exit 0''')
 [[ "$*" == "plugin marketplace update" ]] && exit 1; exit 0''')
         self.shell("update_claude_plugins")
         self.assertNotIn("plugin update", Path(self.env["CALLS"]).read_text().replace("marketplace update", ""))
+
+
+class ConfigFlagTests(FixtureCase):
+    """--profile / --pkg / --status / --skip-once against a fixture repo."""
+
+    def setUp(self):
+        super().setUp()
+        repo = self.home / "Projects/dots"
+        (repo / "profiles").mkdir(parents=True)
+        (repo / "dotsets/mine/fish").mkdir(parents=True)
+        (repo / "packages.toml").write_text('[paru]\ninstall = [\n    "a",  # keep\n]\n')
+        (repo / "profiles/desktop.toml").write_text('hostname = "desktop"\ndotset = "mine"\n')
+        self.cfg = self.root / "cfg.toml"
+        self.env["SYSUP_CONFIG"] = str(self.cfg)
+        self.env.pop("SYSUP_PLAN_DIR")
+        self.mock("flatpak", "exit 1")
+
+    def test_profile_writes_config(self):
+        r = self.cli("--profile", "desktop", "--dotset", "none")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn('profile = "desktop"', self.cfg.read_text())
+        self.assertIn('dotset = "none"', self.cfg.read_text())
+        self.assertNotEqual(self.cli("--profile", "nope").returncode, 0)
+
+    def test_pkg_targets(self):
+        self.assertEqual(self.cli("--pkg", "shared", "newpkg").returncode, 0)
+        self.assertIn('"newpkg"', (self.home / "Projects/dots/packages.toml").read_text())
+        self.assertIn("# keep", (self.home / "Projects/dots/packages.toml").read_text())
+        r = self.cli("--pkg", "ignore", "x", "com.example.App")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        text = self.cfg.read_text()
+        self.assertIn('"paru" = ["x"]', text)
+        self.assertIn('"flatpak" = ["com.example.App"]', text)
+        r = self.cli("--pkg", "profile", "y")  # hostname desktop → profile desktop
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn('"y"', (self.home / "Projects/dots/profiles/desktop.toml").read_text())
+        self.assertNotEqual(self.cli("--pkg", "bogus", "x").returncode, 0)
+
+    def test_pkg_profile_without_profile_writes_nothing(self):
+        self.env["HOSTNAME"] = "unknown-host"
+        before = (self.home / "Projects/dots/profiles/desktop.toml").read_text()
+        r = self.cli("--pkg", "profile", "y")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("sysup --profile", r.stdout + r.stderr)
+        self.assertEqual((self.home / "Projects/dots/profiles/desktop.toml").read_text(), before)
+
+    def test_status_and_skip_once(self):
+        self.assertEqual(self.cli("--skip-once", "fish").returncode, 0)
+        r = self.cli("--status")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("profile: desktop", r.stdout)
+        self.assertRegex(r.stdout, r"fish +skipped")
+        self.assertNotEqual(self.cli("--skip-once", "audit").returncode, 0)
+
+    def test_actions_stamp_only_ok_one_time_actions(self):
+        r = self.shell('_RESULT_NAMES=(action:services action:fish action:audit)\n'
+                       '_RESULT_STATES=(ok fail ok)\n_stamp_once')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        text = self.cfg.read_text()
+        self.assertRegex(text, r'"services" = \d{4}-\d\d-\d\d')
+        self.assertNotIn("fish", text)
+        self.assertNotIn("audit", text)
