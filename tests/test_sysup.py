@@ -1,4 +1,4 @@
-"""Isolated regressions. VJUPDATE_SCRIPT can point at a pre-fix snapshot."""
+"""Isolated regressions. SYSUP_SCRIPT can point at a pre-fix snapshot."""
 import os
 import fcntl
 from pathlib import Path
@@ -9,13 +9,13 @@ import tempfile
 import unittest
 
 
-SCRIPT = Path(os.environ.get("VJUPDATE_SCRIPT", Path(__file__).resolve().parents[1]
-                             / "scripts/.local/bin/vjupdate")).resolve()
+SCRIPT = Path(os.environ.get("SYSUP_SCRIPT", Path(__file__).resolve().parents[1]
+                             / "scripts/.local/bin/sysup")).resolve()
 
 
 class FixtureCase(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory(prefix="vjupdate-test-")
+        self.tmp = tempfile.TemporaryDirectory(prefix="sysup-test-")
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
         self.home = self.root / "home"
@@ -25,7 +25,7 @@ class FixtureCase(unittest.TestCase):
         # Restricted PATH: system/package commands cannot accidentally run.
         for name in ("bash", "cat", "grep", "sed", "awk", "cut", "tail", "head",
                      "tr", "sort", "tee", "date", "mkdir", "cp", "rm", "dirname",
-                     "basename", "mktemp", "python3", "flock", "mv", "ln", "du", "xargs", "echo",
+                     "basename", "mktemp", "python3", "readlink", "flock", "mv", "ln", "du", "xargs", "echo",
                      "nice", "ionice"):
             (self.bin / name).symlink_to(Path("/usr/bin") / name)
         for name in ("pacman", "paru", "sudo", "systemctl", "stow", "git",
@@ -40,10 +40,10 @@ class FixtureCase(unittest.TestCase):
         # Run plan written by `vj plan`; tests write the list files directly.
         self.plan_dir = self.root / "plan"
         self.plan_dir.mkdir()
-        self.env["VJ_PLAN_DIR"] = str(self.plan_dir)
+        self.env["SYSUP_PLAN_DIR"] = str(self.plan_dir)
         # Existing tests treat the repo root as the dotfile set (the pre-dotsets layout).
-        self.env["VJ_DOTSET_DIR"] = str(self.home / "Projects/dots")
-        (self.plan_dir / "env").write_text(f"VJ_PROFILE=desktop\nVJ_DOTSET_DIR={self.env['VJ_DOTSET_DIR']}\n")
+        self.env["SYSUP_DOTSET_DIR"] = str(self.home / "Projects/dots")
+        (self.plan_dir / "env").write_text(f"SYSUP_PROFILE=desktop\nSYSUP_DOTSET_DIR={self.env['SYSUP_DOTSET_DIR']}\n")
 
     def plan(self, name, content):
         path = self.plan_dir / name
@@ -119,7 +119,7 @@ update
         self.fixture_repo()
         self.conflict_mock()
         r = self.shell('''
-echo sample > "$VJ_PLAN_DIR/stow.list"
+echo sample > "$SYSUP_PLAN_DIR/stow.list"
 STOW_ADOPT=true
 git() { :; }
 _stow_niri_cfg() { :; }
@@ -137,7 +137,7 @@ print_recap
         (repo / "scripts").mkdir()
         self.mock("stow", 'printf "%s\\n" "$*" >> "$CALLS"')
         r = self.shell('''
-echo sample > "$VJ_PLAN_DIR/stow.list"
+echo sample > "$SYSUP_PLAN_DIR/stow.list"
 git() { :; }
 _stow_niri_cfg() { :; }
 deploy_dotfiles
@@ -241,7 +241,7 @@ _run_phase fixture broken_step
 
     def test_configure_kernel_action_scans_first(self):
         r = self.shell('''
-VJ_ACTIONS=kernels
+SYSUP_ACTIONS=kernels
 detect_machine() { MACHINE=desktop; }
 _ensure_dots_repo() { :; }
 _check_packages_against_malware() { :; }
@@ -266,7 +266,7 @@ case " $* " in
 esac
 ''')
         r = self.shell('''
-echo sample > "$VJ_PLAN_DIR/stow.list"
+echo sample > "$SYSUP_PLAN_DIR/stow.list"
 git() { :; }
 _stow_niri_cfg() { :; }
 deploy_dotfiles
@@ -484,18 +484,18 @@ print_recap
     def test_lock_precedes_log_rotation_and_releases(self):
         state = self.home / ".state/dots"
         state.mkdir(parents=True)
-        log = state / "vjupdate.log"
+        log = state / "sysup.log"
         log.write_text("original log")
-        with (state / "vjupdate.lock").open("w") as lock:
+        with (state / "sysup.lock").open("w") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             r = self.cli("--app-launchers")
             self.assertNotEqual(r.returncode, 0)
             self.assertIn("already running", r.stderr)
             self.assertEqual(log.read_text(), "original log")
-            self.assertFalse((state / "vjupdate.log.1").exists())
+            self.assertFalse((state / "sysup.log.1").exists())
         r = self.cli("--app-launchers")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertEqual((state / "vjupdate.log.1").read_text(), "original log")
+        self.assertEqual((state / "sysup.log.1").read_text(), "original log")
 
     def test_stow_23_conflict_format(self):
         # Ubuntu (CI) ships Stow 2.3, which words the conflict line differently.
@@ -664,7 +664,7 @@ class BuildTimeEstimateTests(FixtureCase):
         self.plan("pkgs.list", "one\ntwo\n")
         self.mock("pacman", "exit 0")
         self.mock("paru", "exit 0")
-        r = self.shell('_install_list "$VJ_PLAN_DIR/pkgs.list"')
+        r = self.shell('_install_list "$SYSUP_PLAN_DIR/pkgs.list"')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertRegex(self.times(), r"^@pacman-per-pkg\t[1-9][0-9]*\n$")
 
@@ -818,7 +818,7 @@ echo 'safe-pkg 1-1 -> 2-1'
         self.plan("packages.list", "vectorcraft-bin\n")
         self.mock("pacman", 'exit 0')
         self.mock("paru", 'printf "%s\\n" "$*" >> "$CALLS"')
-        r = self.shell('_install_list "$VJ_PLAN_DIR/packages.list"')
+        r = self.shell('_install_list "$SYSUP_PLAN_DIR/packages.list"')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(self.calls(), ["-S --needed --noconfirm --useask --ask=4 vectorcraft-bin"])
         Path(self.env["CALLS"]).unlink()
@@ -935,7 +935,7 @@ print_recap
         self.mock("lsblk", '''
 case "$*" in
     '-rno NAME,MOUNTPOINT') echo 'testdrive /unused' ;;
-    '-Pno NAME,FSTYPE,LABEL,UUID') echo 'NAME="testdrive" FSTYPE="vfat" LABEL="Test" UUID="vjupdate-test-unique-uuid"' ;;
+    '-Pno NAME,FSTYPE,LABEL,UUID') echo 'NAME="testdrive" FSTYPE="vfat" LABEL="Test" UUID="sysup-test-unique-uuid"' ;;
 esac
 ''')
         self.mock("sudo", '''
@@ -955,18 +955,19 @@ exit 0
 
 
 class ReviewFollowupTests(FixtureCase):
-    def test_bootstrap_without_actions_points_to_vj(self):
+    def test_bootstrap_without_actions_lists_ids(self):
         r = self.shell('detect_machine() { MACHINE=desktop; }\n_ensure_dots_repo() { echo BAD_CONTINUED; }\nbootstrap')
         self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("run 'vj'", r.stderr)
+        self.assertIn("sysup --actions A,B (IDs: sources install", r.stderr)
         self.assertNotIn('BAD_CONTINUED', r.stdout)
 
-    def test_bare_run_without_terminal_does_not_open_vj(self):
+    def test_bare_invocation_prints_usage(self):
         self.mock("vj", 'echo BAD_VJ')
         r = self.cli()
-        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn('no terminal', r.stderr)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("Usage: sysup", r.stdout)
         self.assertNotIn('BAD_VJ', r.stdout)
+        self.assertFalse(Path(self.env["CALLS"]).exists())
 
     def test_unreadable_conflict_and_flatpak_lists_fail(self):
         self.plan("paru-remove.list", "conflict\n")
@@ -991,7 +992,7 @@ print_recap
         self.mock("lsblk", '''
 case "$*" in
     '-rno NAME,MOUNTPOINT') echo 'testdrive /unused' ;;
-    '-Pno NAME,FSTYPE,LABEL,UUID') echo 'NAME="testdrive" FSTYPE="vfat" LABEL="Test" UUID="vjupdate-test-unique-uuid"' ;;
+    '-Pno NAME,FSTYPE,LABEL,UUID') echo 'NAME="testdrive" FSTYPE="vfat" LABEL="Test" UUID="sysup-test-unique-uuid"' ;;
 esac
 ''')
         self.mock("sudo", '[[ "$1" != tee ]] || cat >> "$CALLS"; exit 0')
@@ -1003,7 +1004,7 @@ esac
 
 
 class RunPlanTests(FixtureCase):
-    """vjupdate reads package lists and profile features from the vj run plan."""
+    """sysup reads package lists and profile features from the vj run plan."""
 
     def fixture_vj_repo(self):
         repo = self.home / "Projects/dots"
@@ -1012,17 +1013,17 @@ class RunPlanTests(FixtureCase):
         (repo / "packages.toml").write_text('[paru]\ninstall = ["fish"]\n')
         (repo / "profiles/desktop.toml").write_text(
             'hostname = "desktop"\ndotset = "none"\nfeatures = ["amd-gpu-tuning", "windows-vm"]\n')
-        del self.env["VJ_PLAN_DIR"]
+        del self.env["SYSUP_PLAN_DIR"]
         return repo
 
     def test_has_feature(self):
-        r = self.shell('VJ_FEATURES="amd-gpu-tuning windows-vm"\n'
+        r = self.shell('SYSUP_FEATURES="amd-gpu-tuning windows-vm"\n'
                        '_has_feature windows-vm && echo YES; _has_feature windows && echo BAD; _has_feature linux-surface || echo NO')
         self.assertEqual(r.stdout.split(), ["YES", "NO"], r.stderr)
 
     def test_ensure_plan_generates_plan_and_profile(self):
         self.fixture_vj_repo()
-        r = self.shell('_ensure_plan; echo "M=$MACHINE F=$VJ_FEATURES"; cat "$VJ_PLAN_DIR/paru-install.list"')
+        r = self.shell('_ensure_plan; echo "M=$MACHINE F=$SYSUP_FEATURES"; cat "$SYSUP_PLAN_DIR/paru-install.list"')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("M=desktop F=amd-gpu-tuning windows-vm", r.stdout)
         self.assertIn("fish", r.stdout)
@@ -1032,11 +1033,11 @@ class RunPlanTests(FixtureCase):
         self.env["HOSTNAME"] = "friends-laptop"
         r = self.cli("--check")
         self.assertNotEqual(r.returncode, 0)
-        self.assertIn("run 'vj'", r.stdout + r.stderr)
+        self.assertIn("sysup --profile", r.stdout + r.stderr)
         self.assertFalse(Path(self.env["CALLS"]).exists())
 
     def test_existing_plan_env_is_sourced(self):
-        self.plan("env", "VJ_PROFILE=surface\nVJ_FEATURES=linux-surface\n")
+        self.plan("env", "SYSUP_PROFILE=surface\nSYSUP_FEATURES=linux-surface\n")
         r = self.shell('_ensure_plan; echo "M=$MACHINE"; _has_feature linux-surface && echo SURF')
         self.assertEqual(r.stdout.split(), ["M=surface", "SURF"], r.stderr)
 
@@ -1091,11 +1092,11 @@ class RunPlanTests(FixtureCase):
     def test_surface_kernel_check(self):
         self.mock("uname", 'echo 7.3.1-1-cachyos')
         self.mock("pacman", 'exit 0')
-        r = self.shell('VJ_FEATURES=linux-surface; check_surface_kernel; VJ_FEATURES=; check_surface_kernel')
+        r = self.shell('SYSUP_FEATURES=linux-surface; check_surface_kernel; SYSUP_FEATURES=; check_surface_kernel')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(r.stdout.count("not linux-surface"), 1)
         self.mock("uname", 'echo 7.2.11-arch1-1-surface')
-        r = self.shell('VJ_FEATURES=linux-surface; check_surface_kernel')
+        r = self.shell('SYSUP_FEATURES=linux-surface; check_surface_kernel')
         self.assertIn("running the surface kernel", r.stdout)
 
     def test_git_identity_kept_or_filled_with_defaults(self):
@@ -1124,7 +1125,7 @@ class RunPlanTests(FixtureCase):
 
     def test_surface_secureboot_off_needs_nothing(self):
         self.mock("bootctl", 'echo "   Secure Boot: disabled (setup)"; exit 1')  # real one exits 1 here
-        r = self.shell('VJ_FEATURES=linux-surface; setup_surface_secureboot; VJ_FEATURES=; setup_surface_secureboot')
+        r = self.shell('SYSUP_FEATURES=linux-surface; setup_surface_secureboot; SYSUP_FEATURES=; setup_surface_secureboot')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("Secure Boot disabled (setup) — no key to enroll", r.stdout)
         self.assertIn("not a Surface profile", r.stdout)
@@ -1132,7 +1133,7 @@ class RunPlanTests(FixtureCase):
 
     def test_apply_display_sets_text_scale_only_when_given(self):
         self.mock("gsettings", 'echo "gsettings $*" >> "$CALLS"')
-        r = self.shell('VJ_TEXT_SCALE=1.3 _apply_display; VJ_TEXT_SCALE= _apply_display')
+        r = self.shell('SYSUP_TEXT_SCALE=1.3 _apply_display; SYSUP_TEXT_SCALE= _apply_display')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(Path(self.env["CALLS"]).read_text(),
                          "gsettings set org.gnome.desktop.interface text-scaling-factor 1.3\n")
@@ -1142,7 +1143,7 @@ class RunPlanTests(FixtureCase):
         self.mock("pacman", '[ "$1 $2" = "-Qq linux" ] && echo linux && exit 0\nexit 0')
         self.mock("paru", '#si\nif [ "$1" = -Si ]; then printf "Name : newkernel\\nConflicts With  : linux>=6  None\\nMaintainer : x\\n"; exit 0; fi\n'
                           'printf "%s\\n" "paru $*" >> "$CALLS"; exit 0')
-        r = self.shell('_install_list "$VJ_PLAN_DIR/paru-install.list"')
+        r = self.shell('_install_list "$SYSUP_PLAN_DIR/paru-install.list"')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("not auto-removing protected conflicts: linux", r.stdout + r.stderr)
         self.assertIn("paru -S --needed --noconfirm newkernel fish", Path(self.env["CALLS"]).read_text())
@@ -1173,7 +1174,7 @@ class RunPlanTests(FixtureCase):
         self.assertIn("pacman -Rdd --noconfirm here", calls)
         self.assertNotIn("gone", calls)
         self.assertIn("DEMOTED", r.stdout)
-        self.assertIn("vjupdate --actions install", r.stdout)
+        self.assertIn("sysup --actions install", r.stdout)
 
     def test_check_saves_results_for_vj(self):
         r = self.shell('detect_machine() { :; }\n'
@@ -1192,22 +1193,22 @@ class ActionsTests(FixtureCase):
 
     def test_runs_only_selected_and_records_result(self):
         result = self.root / "result.tsv"
-        r = self.shell(self.STUBS + f'VJ_RESULT_FILE={shlex.quote(str(result))}\n'
-                       'setup_fish() { echo RAN_FISH; }\nVJ_ACTIONS=fish\nbootstrap')
+        r = self.shell(self.STUBS + f'SYSUP_RESULT_FILE={shlex.quote(str(result))}\n'
+                       'setup_fish() { echo RAN_FISH; }\nSYSUP_ACTIONS=fish\nbootstrap')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("RAN_FISH", r.stdout)
         self.assertNotIn("BAD_INSTALLERS", r.stdout)
         self.assertIn("action:fish\tok", result.read_text())
 
     def test_unknown_action_dies(self):
-        r = self.shell(self.STUBS + 'VJ_ACTIONS="fish,bogus"\nbootstrap; echo BAD_CONTINUED')
+        r = self.shell(self.STUBS + 'SYSUP_ACTIONS="fish,bogus"\nbootstrap; echo BAD_CONTINUED')
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("unknown action: bogus", r.stderr)
         self.assertNotIn("BAD_CONTINUED", r.stdout)
 
     def test_phases_follow_selected_ids(self):
         r = self.shell(self.STUBS + '_run_phase() { [[ " $SKIP_PHASES " == *" $1 "* ]] || echo "RUN:$1"; }\n'
-                       'VJ_ACTIONS="sources,audit"\nbootstrap')
+                       'SYSUP_ACTIONS="sources,audit"\nbootstrap')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual([l for l in r.stdout.split() if l.startswith("RUN:")], ["RUN:sources", "RUN:audit"])
 
@@ -1237,7 +1238,7 @@ class DotsetTests(FixtureCase):
 
     def test_deploy_stows_selected_set_packages_and_scripts(self):
         repo, dotset = self.setup_set()
-        r = self.shell(f'git() {{ :; }}\nVJ_DOTSET_DIR={shlex.quote(str(dotset))}\ndeploy_dotfiles')
+        r = self.shell(f'git() {{ :; }}\nSYSUP_DOTSET_DIR={shlex.quote(str(dotset))}\ndeploy_dotfiles')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         calls = Path(self.env["CALLS"]).read_text().splitlines()
         self.assertIn(f"{repo} --restow --no-folding -t {self.home} scripts", calls)
@@ -1247,13 +1248,13 @@ class DotsetTests(FixtureCase):
     def test_dead_links_are_pruned_before_stow(self):
         # Stale links from the pre-dotsets layout made stow fail with "not owned".
         repo, dotset = self.setup_set()
-        for name in ("find", "readlink", "realpath"):
+        for name in ("find", "realpath"):
             (self.bin / name).symlink_to(Path("/usr/bin") / name)
         (self.home / ".config").mkdir(exist_ok=True)
         dead = self.home / ".config/gtk-4.0"
         dead.symlink_to(repo / "gtk-4.0/.config/gtk-4.0")
         self.mock("stow", f'[ -L {shlex.quote(str(dead))} ] && echo STALE >> "$CALLS"; :')
-        r = self.shell(f'git() {{ :; }}\nVJ_DOTSET_DIR={shlex.quote(str(dotset))}\ndeploy_dotfiles')
+        r = self.shell(f'git() {{ :; }}\nSYSUP_DOTSET_DIR={shlex.quote(str(dotset))}\ndeploy_dotfiles')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         calls = Path(self.env["CALLS"])
         self.assertFalse(calls.exists() and "STALE" in calls.read_text(), r.stdout)
@@ -1261,7 +1262,7 @@ class DotsetTests(FixtureCase):
 
     def test_dotset_none_links_only_scripts(self):
         repo, _ = self.setup_set()
-        r = self.shell('git() { :; }\nVJ_DOTSET_DIR=""\ndeploy_dotfiles')
+        r = self.shell('git() { :; }\nSYSUP_DOTSET_DIR=""\ndeploy_dotfiles')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         calls = Path(self.env["CALLS"]).read_text().splitlines()
         self.assertEqual(calls, [f"{repo} --restow --no-folding -t {self.home} scripts"])
@@ -1272,7 +1273,7 @@ class DotsetTests(FixtureCase):
         (dotset / "niri/.config/niri/config.kdl").write_text("main")
         (dotset / "surface/.config/niri/cfg").mkdir(parents=True)
         (dotset / "surface/.config/niri/cfg/display.kdl").write_text("disp")
-        r = self.shell(f'VJ_DOTSET_DIR={shlex.quote(str(dotset))}\nMACHINE=surface\n_stow_niri_cfg')
+        r = self.shell(f'SYSUP_DOTSET_DIR={shlex.quote(str(dotset))}\nMACHINE=surface\n_stow_niri_cfg')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         live = self.home / ".config/niri"
         self.assertEqual(Path(os.readlink(live / "config.kdl")), dotset / "niri/.config/niri/config.kdl")
@@ -1282,7 +1283,7 @@ class DotsetTests(FixtureCase):
         live = self.home / ".config/niri/dms"
         live.mkdir(parents=True)
         (live / "binds.kdl").write_text("live")
-        r = self.shell('VJ_DOTSET_DIR=""\ndms_import; dms_export')
+        r = self.shell('SYSUP_DOTSET_DIR=""\ndms_import; dms_export')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(r.stdout.count("no dotfile set"), 2, r.stdout)
         self.assertEqual((live / "binds.kdl").read_text(), "live")
@@ -1301,7 +1302,7 @@ class BuildPriorityTests(FixtureCase):
 
     def test_install_runs_paru_at_lowest_priority(self):
         self.plan("pkgs.list", "one\n")
-        r = self.shell('_install_list "$VJ_PLAN_DIR/pkgs.list"')
+        r = self.shell('_install_list "$SYSUP_PLAN_DIR/pkgs.list"')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("paru NICE=19", self.calls()[0])
 
@@ -1328,21 +1329,21 @@ class OllamaUpdateTests(FixtureCase):
                 if l.startswith("ollama ")] if f.exists() else []
 
     def test_update_pulls_then_rebuilds_modelfile(self):
-        r = self.shell('VJ_FEATURES="ollama-model"; update_ollama')
+        r = self.shell('SYSUP_FEATURES="ollama-model"; update_ollama')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(self.calls(), ["ollama pull qwen3.5", "ollama create qwen3.5"])
 
     def test_failed_pull_is_recorded(self):
         self.mock("ollama", 'printf "%s\\n" "ollama $*" >> "$CALLS"; exit 1')
-        r = self.shell('VJ_FEATURES="ollama-model"; update_ollama; printf "%s\\n" "${WARNINGS[@]}"')
+        r = self.shell('SYSUP_FEATURES="ollama-model"; update_ollama; printf "%s\\n" "${WARNINGS[@]}"')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("ollama pull qwen3.5", r.stdout)
 
     def test_update_skips_without_feature_or_service(self):
-        r = self.shell('VJ_FEATURES=""; update_ollama')
+        r = self.shell('SYSUP_FEATURES=""; update_ollama')
         self.assertEqual((r.returncode, self.calls()), (0, []), r.stdout + r.stderr)
         self.mock("systemctl", 'exit 3')
-        r = self.shell('VJ_FEATURES="ollama-model"; update_ollama')
+        r = self.shell('SYSUP_FEATURES="ollama-model"; update_ollama')
         self.assertEqual((r.returncode, self.calls()), (0, []), r.stdout + r.stderr)
 
 class MpdServiceTests(FixtureCase):
@@ -1460,7 +1461,7 @@ class NvidiaNiriTests(FixtureCase):
         self.mock("sudo", 'printf "%s\\n" "sudo $*" >> "$CALLS"; [[ "$1" == tee ]] && cat > "$CALLS.tee"; exit 0')
 
     def test_writes_profile_with_feature(self):
-        r = self.shell('VJ_FEATURES="nvidia"; _act nvidia-niri setup_nvidia_niri; printf "%s\\n" "${_RESULT_STATES[@]}"')
+        r = self.shell('SYSUP_FEATURES="nvidia"; _act nvidia-niri setup_nvidia_niri; printf "%s\\n" "${_RESULT_STATES[@]}"')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         calls = Path(self.env["CALLS"]).read_text()
         self.assertIn("sudo tee /etc/nvidia/nvidia-application-profiles-rc.d/", calls)
@@ -1470,7 +1471,7 @@ class NvidiaNiriTests(FixtureCase):
         self.assertTrue(r.stdout.strip().endswith("ok"), r.stdout)
 
     def test_skips_without_feature(self):
-        r = self.shell('VJ_FEATURES="amd-gpu-tuning"; _act nvidia-niri setup_nvidia_niri; printf "%s\\n" "${_RESULT_STATES[@]}"')
+        r = self.shell('SYSUP_FEATURES="amd-gpu-tuning"; _act nvidia-niri setup_nvidia_niri; printf "%s\\n" "${_RESULT_STATES[@]}"')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertFalse(Path(self.env["CALLS"]).exists())
         self.assertTrue(r.stdout.strip().endswith("skip"), r.stdout)
@@ -1482,7 +1483,7 @@ class VmSetupFeatureTests(FixtureCase):
     def test_skips_without_feature(self):
         self.mock("docker", 'printf "%s\\n" "docker $*" >> "$CALLS"; exit 0')
         self.mock("mkdir", 'printf "%s\\n" "mkdir $*" >> "$CALLS"; exit 0')
-        r = self.shell('VJ_FEATURES="linux-surface"; _act vms setup_vms; printf "%s\\n" "${_RESULT_STATES[@]}"')
+        r = self.shell('SYSUP_FEATURES="linux-surface"; _act vms setup_vms; printf "%s\\n" "${_RESULT_STATES[@]}"')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         calls = Path(self.env["CALLS"]).read_text() if Path(self.env["CALLS"]).exists() else ""
         self.assertNotIn("/mnt/data", calls)
@@ -1589,7 +1590,7 @@ class NiriFreshDeploymentTests(FixtureCase):
             self.skipTest("niri is required for real configuration validation")
         (self.bin / "niri").symlink_to(niri)
         dotset = SCRIPT.parents[3] / "dotsets/viridjan"
-        r = self.shell(f'VJ_DOTSET_DIR={shlex.quote(str(dotset))}; MACHINE=surface; _stow_niri_cfg')
+        r = self.shell(f'SYSUP_DOTSET_DIR={shlex.quote(str(dotset))}; MACHINE=surface; _stow_niri_cfg')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         live = self.home / ".config/niri"
         self.assertTrue((live / "config.kdl").exists(), r.stdout + r.stderr)
@@ -1762,7 +1763,7 @@ esac''')
     def test_behind_pull_relaunches(self):
         r = self.run_check(3, "p\n")
         self.assertIn("pull", Path(self.env["CALLS"]).read_text())
-        self.assertIn("EXEC " + str(self.home / "Projects/dots/scripts/.local/bin/vjupdate") + " --update", r.stdout)
+        self.assertIn("EXEC " + str(self.home / "Projects/dots/scripts/.local/bin/sysup") + " --update", r.stdout)
 
     def test_behind_continue_does_not_pull(self):
         r = self.run_check(3, "c\n")

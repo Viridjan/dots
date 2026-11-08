@@ -9,7 +9,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from test_vjupdate import FixtureCase  # noqa: E402
+from test_sysup import FixtureCase  # noqa: E402
 
 
 class ExtrasCase(FixtureCase):
@@ -193,7 +193,7 @@ exit 0''')
 
 class SetupResultTests(ExtrasCase):
     def test_failed_keyboard_setup_never_emits_success(self):
-        self.env["VJ_RESULT_FILE"] = str(self.root / "results")
+        self.env["SYSUP_RESULT_FILE"] = str(self.root / "results")
         r = self.shell('''
 CONFIGURE_PROMPTED=true
 CONFIGURE_ITEMS=keyboard
@@ -207,7 +207,7 @@ echo FAILED=$_FAILED
         self.assertIn("FAILED=1", r.stdout)
 
     def test_failed_installer_fails_action_and_recap(self):
-        self.env["VJ_RESULT_FILE"] = str(self.root / "results")
+        self.env["SYSUP_RESULT_FILE"] = str(self.root / "results")
         self.mock("npm", "exit 1")
         r = self.shell('''
 CONFIGURE_PROMPTED=true
@@ -222,7 +222,7 @@ print_recap
         self.assertIn("action:fish\tskip", results)
 
     def test_successful_setup_records_ok(self):
-        self.env["VJ_RESULT_FILE"] = str(self.root / "results")
+        self.env["SYSUP_RESULT_FILE"] = str(self.root / "results")
         self.mock("npm", 'echo "$HOME/npm-root"')
         (self.home / ".local/bin").mkdir(parents=True)
         r = self.shell('_act caveman-code setup_caveman_code')
@@ -258,7 +258,7 @@ print_recap
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
     def test_warning_only_setup_is_not_stamped_done(self):
-        self.env["VJ_RESULT_FILE"] = str(self.root / "results")
+        self.env["SYSUP_RESULT_FILE"] = str(self.root / "results")
         r = self.shell('_act fish setup_fish')
         self.assertEqual(r.returncode, 0, r.stderr)
         results = (self.root / "results").read_text()
@@ -269,7 +269,7 @@ print_recap
         self.env["TIMER_OUTPUT"] = str(self.root / "timer.conf")
         # Redirect the fixed /etc path in a test copy so host overrides cannot
         # cause this test to skip generating the configuration.
-        script = self.root / "vjupdate"
+        script = self.root / "sysup"
         script.write_text(Path(self.env["SCRIPT"]).read_text().replace(
             "/etc/systemd/system/cachyos-rate-mirrors.timer.d/override.conf",
             str(self.root / "override.conf")))
@@ -308,7 +308,7 @@ optimize_system
 
 class LinkTests(ExtrasCase):
     def test_unticked_package_that_was_deployed_gets_unlinked(self):
-        dotset = Path(self.env["VJ_DOTSET_DIR"])
+        dotset = Path(self.env["SYSUP_DOTSET_DIR"])
         for p in ("fish", "alacritty", "never", "niri"):
             (dotset / p).mkdir(parents=True)
         state = self.home / ".state/dots"
@@ -345,7 +345,7 @@ class LinkTests(ExtrasCase):
 class NiriValidateTests(ExtrasCase):
     def setUp(self):
         super().setUp()
-        self.dotset = Path(self.env["VJ_DOTSET_DIR"])
+        self.dotset = Path(self.env["SYSUP_DOTSET_DIR"])
         src = self.dotset / "niri/.config/niri"
         src.mkdir(parents=True)
         (src / "config.kdl").write_text('include "cfg/input.kdl"\n')

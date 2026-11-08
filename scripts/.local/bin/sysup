@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────
-# vjupdate — bootstrap + maintenance for CachyOS
+# sysup — bootstrap + maintenance for CachyOS
 # Supports: desktop (tower) and surface (Surface Pro 9)
 #
 # Usage:
-#   vjupdate            # full bootstrap
-#   vjupdate --update   # system update + maintenance
-#   vjupdate --help
+#   sysup            # full bootstrap
+#   sysup --update   # system update + maintenance
+#   sysup --help
 # ─────────────────────────────────────────────────────────
 # The `cmd && ok "..." || warn "..."` logging idiom used ~28 times below is
 # deliberate. The middle command is always ok(), a plain echo, so the SC2015
@@ -64,36 +64,38 @@ AUDIT_PACNEW=false
 DRY_RUN=false
 CLEAN_AGGRESSIVE=false
 STOW_ADOPT=false
-LOG_FILE="$STAMP_DIR/vjupdate.log"
-LOCK_FILE="$STAMP_DIR/vjupdate.lock"
+LOG_FILE="$STAMP_DIR/sysup.log"
+LOCK_FILE="$STAMP_DIR/sysup.lock"
 
-# ─── Run plan (written by `vj`) ──────────────────────────
+# ─── Run plan (written by sysup.py) ──────────────────────
 # Package lists, projects, stow selection and the profile's features come from
-# a plan directory written by the Python side (`python3 -m vj plan DIR`). The
-# TUI passes VJ_PLAN_DIR; a standalone run builds a throwaway plan from
-# ~/.config/vjupdate/config.toml, or from the hostname when there is none.
-VJ_PLAN_DIR="${VJ_PLAN_DIR:-}"
+# a plan directory written by the Python helper (`sysup.py plan DIR`). The
+# TUI passes SYSUP_PLAN_DIR; a standalone run builds a throwaway plan from
+# ~/.config/sysup/config.toml, or from the hostname when there is none.
+SYSUP_PLAN_DIR="${SYSUP_PLAN_DIR:-}"
 _PLAN_OWNED=false
 _ensure_plan() {
-    if [[ -z "$VJ_PLAN_DIR" ]]; then
-        VJ_PLAN_DIR=$(mktemp -d "${TMPDIR:-/tmp}/vjupdate-plan.XXXXXX")
+    if [[ -z "$SYSUP_PLAN_DIR" ]]; then
+        SYSUP_PLAN_DIR=$(mktemp -d "${TMPDIR:-/tmp}/sysup-plan.XXXXXX")
         _PLAN_OWNED=true
         local err
-        if ! err=$(VJ_DOTS="$DOTS_DIR" PYTHONPATH="$DOTS_DIR" python3 -B -m vj plan "$VJ_PLAN_DIR" 2>&1); then
-            die "${err:-could not build the run plan (python3 -m vj plan)}"
+        if ! err=$(_py plan "$SYSUP_PLAN_DIR" 2>&1); then
+            die "${err:-could not build the run plan (sysup.py plan)}"
         fi
+        # The only stderr on success: the one-time config migration notice.
+        [[ -z "$err" ]] || info "$err"
     fi
-    if [[ -r "$VJ_PLAN_DIR/env" ]]; then
+    if [[ -r "$SYSUP_PLAN_DIR/env" ]]; then
         # shellcheck source=/dev/null
-        source "$VJ_PLAN_DIR/env"
+        source "$SYSUP_PLAN_DIR/env"
     fi
-    MACHINE="${VJ_PROFILE:-}"
-    export VJ_PLAN_DIR
+    MACHINE="${SYSUP_PROFILE:-}"
+    export SYSUP_PLAN_DIR
 }
 # Profile switches, e.g. `_has_feature linux-surface` (profiles/<name>.toml).
-_has_feature() { [[ " ${VJ_FEATURES:-} " == *" $1 "* ]]; }
+_has_feature() { [[ " ${SYSUP_FEATURES:-} " == *" $1 "* ]]; }
 
-# Never removed by vjupdate (conflict swaps, demotions, orphan removal), whatever
+# Never removed by sysup (conflict swaps, demotions, orphan removal), whatever
 # the lists say: kernels, firmware, microcode, bootloader, base system, keyrings.
 _PROTECTED_PKG_RE='^(base|base-devel|linux|linux-[a-z0-9-]+|.*-firmware.*|.*-ucode|limine.*|mkinitcpio.*|systemd|systemd-libs|glibc|pacman|paru|sudo|.*-keyring|cachyos-.*mirrorlist|networkmanager|mesa|lib32-mesa|niri|greetd)$'
 _is_protected() { [[ "$1" =~ $_PROTECTED_PKG_RE ]]; }
@@ -143,8 +145,8 @@ _RECAP_FAILURE_REPORTED=false
 _record() {
     _RESULT_NAMES+=("$1"); _RESULT_STATES+=("$2"); _RESULT_NOTES+=("${3:-}")
     [[ "$2" == fail ]] && _FAILED=1
-    # vj reads this to stamp one-time tasks as done.
-    [[ -z "${VJ_RESULT_FILE:-}" ]] || printf '%s\t%s\n' "$1" "$2" >> "$VJ_RESULT_FILE"
+    # Optional machine-readable copy for callers/tests: name<TAB>state per line.
+    [[ -z "${SYSUP_RESULT_FILE:-}" ]] || printf '%s\t%s\n' "$1" "$2" >> "$SYSUP_RESULT_FILE"
     return 0
 }
 # A command the user asked for failed: record it (nonzero recap) and warn.
@@ -160,8 +162,10 @@ _queue_fix() { _FIXES+=("$1"$'\t'"$2"); }
 _fix_tty() { [[ -t 0 ]]; }
 # Lowercased answer in FIX_REPLY; EOF counts as an empty answer (skip).
 _ask() { local r=""; read -rp "    $1 " r || true; FIX_REPLY=${r,,}; }
-# python -m vj from the repo (plan, unused report, list edits).
-_vj() { VJ_DOTS="$DOTS_DIR" PYTHONPATH="$DOTS_DIR" python3 -B -m vj "$@"; }
+# The Python helper (plan, unused report, config edits). Found next to this
+# script's real path, so it works from the repo and through the stow link.
+SYSUP_LIB="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/../lib/sysup"
+_py() { SYSUP_DOTS="$DOTS_DIR" python3 -B "$SYSUP_LIB/sysup.py" "$@"; }
 # pacman/paru print "name-ver-rel" in some messages; keep the name.
 _strip_ver() {
     local p="$1"
@@ -223,7 +227,7 @@ _fix_stow() {
     if (cd "$dir" && stow "${args[@]}"); then
         ok "stowed: $pkg"
     else
-        warn "stow '$pkg' still conflicts — rerun or use: vjupdate --adopt"; return 1
+        warn "stow '$pkg' still conflicts — rerun or use: sysup --adopt"; return 1
     fi
 }
 
@@ -232,10 +236,10 @@ _fix_unlisted() {
     [[ "$(pacman -Qq -- "$p" 2>/dev/null)" == "$p" ]] && src=paru
     _ask "unlisted $src package $p: [p]ackages.toml / pro[f]ile ${MACHINE:-?} / [i]gnore / [u]ninstall / [s]kip"
     case "$FIX_REPLY" in
-        p) _vj add shared "$src" "$p" && ok "$p → packages.toml (commit it)" ;;
+        p) _py add shared "$src" "$p" && ok "$p → packages.toml (commit it)" ;;
         f) [[ -n "${MACHINE:-}" ]] || { warn "no active profile"; return 1; }
-           _vj add profile "$src" "$p" "$MACHINE" && ok "$p → profiles/$MACHINE.toml (commit it)" ;;
-        i) _vj add ignore "$src" "$p" && ok "$p ignored on this machine" ;;
+           _py add profile "$src" "$p" "$MACHINE" && ok "$p → profiles/$MACHINE.toml (commit it)" ;;
+        i) _py add ignore "$src" "$p" && ok "$p ignored on this machine" ;;
         u) if [[ "$src" == flatpak ]]; then
                flatpak uninstall -y -- "$p" && ok "uninstalled: $p"
            elif _is_protected "$p"; then
@@ -255,7 +259,7 @@ _fix_conflict() {
     [[ "$FIX_REPLY" == y ]] || return 1
     sudo pacman -Rdd --noconfirm -- "$p" || { warn "could not remove $p"; return 1; }
     _PKG_INDEX_READY=false
-    if _install_list "$VJ_PLAN_DIR/paru-install.list"; then
+    if _install_list "$SYSUP_PLAN_DIR/paru-install.list"; then
         ok "packages installed"
     else
         warn "install still failing: ${INSTALL_FAIL_DETAIL:-see output}"; return 1
@@ -313,7 +317,7 @@ _conflict_paths() {
 # Before a terminal run: if the repo is behind its upstream, offer to pull and
 # relaunch. Runs before the lock is taken, so the relaunched copy can lock.
 _check_repo_current() {
-    [[ -z "${VJ_SELF_UPDATED:-}" ]] && _fix_tty || return 0
+    [[ -z "${SYSUP_SELF_UPDATED:-}" ]] && _fix_tty || return 0
     command -v git >/dev/null || return 0
     git -C "$DOTS_DIR" rev-parse --abbrev-ref '@{u}' &>/dev/null || return 0
     if ! timeout 15 git -C "$DOTS_DIR" fetch --quiet 2>/dev/null; then
@@ -327,8 +331,8 @@ _check_repo_current() {
     [[ "$FIX_REPLY" == p ]] || return 0
     if git -C "$DOTS_DIR" pull --ff-only; then
         ok "pulled — relaunching"
-        export VJ_SELF_UPDATED=1
-        exec "$DOTS_DIR/scripts/.local/bin/vjupdate" "$@"
+        export SYSUP_SELF_UPDATED=1
+        exec "$DOTS_DIR/scripts/.local/bin/sysup" "$@"
     fi
     warn "pull failed (local changes or diverged) — continuing with this version"
 }
@@ -349,7 +353,7 @@ _TEE_PID=""
 _cleanup() {
     local _rc=$?
     [[ -n "${_SUDO_PID:-}" ]] && kill "$_SUDO_PID" 2>/dev/null
-    ${_PLAN_OWNED:-false} && rm -rf "${VJ_PLAN_DIR:?}"
+    ${_PLAN_OWNED:-false} && rm -rf "${SYSUP_PLAN_DIR:?}"
     if [[ -n "${_TEE_PID:-}" ]]; then
         exec 1>&- 2>&- || true
         wait "$_TEE_PID" 2>/dev/null || true
@@ -384,7 +388,7 @@ _init_runtime() {
     # life of the process, so the kernel releases it on any exit, including kill.
     exec {_LOCK_FD}>"$LOCK_FILE"
     if ! flock -n "$_LOCK_FD"; then
-        die "another vjupdate is already running (lock: $LOCK_FILE) — wait for it to finish"
+        die "another sysup is already running (lock: $LOCK_FILE) — wait for it to finish"
     fi
 
     for _i in 2 1; do
@@ -404,7 +408,7 @@ _init_runtime() {
             </dev/null >/dev/null 2>&1 &
         _SUDO_PID=$!
     fi
-    echo "=== vjupdate $(date '+%Y-%m-%d %H:%M:%S') args: ${_ARGS:-<none>} ==="
+    echo "=== sysup $(date '+%Y-%m-%d %H:%M:%S') args: ${_ARGS:-<none>} ==="
 }
 
 # Pause tee before TUI (close pipe so tee flushes), resume after.
@@ -463,7 +467,7 @@ _mark_done() { touch "$STAMP_DIR/$1"; }
 # ─── Phase 1: Machine detection ──────────────────────────
 detect_machine() {
     _ensure_plan
-    [[ -n "$MACHINE" ]] || die "no profile chosen — run 'vj' to choose one"
+    [[ -n "$MACHINE" ]] || die "no profile chosen — run: sysup --profile NAME"
     ok "profile: $MACHINE"
 }
 
@@ -580,7 +584,7 @@ _syy() {
 # from the first Making to Finished is the wall time the user waits, so record
 # it per package and sum the history before the next upgrade. paru runs with
 # LC_TIME=C so `date -d` can parse makepkg's %c timestamps.
-# Committed with the repo so every machine's history informs the estimates vj
+# Committed with the repo so every machine's history informs the estimates
 # shows. Keys: aur:<pkg> (makepkg span), @pacman-per-pkg, @flatpak-per-pkg.
 BUILD_TIMES="$DOTS_DIR/build-times.tsv"
 
@@ -704,8 +708,8 @@ _pkg_list() {
 }
 
 _held_packages() {
-    if [[ -f "$VJ_PLAN_DIR/paru-hold.list" ]]; then
-        _pkg_list "$VJ_PLAN_DIR/paru-hold.list"
+    if [[ -f "$SYSUP_PLAN_DIR/paru-hold.list" ]]; then
+        _pkg_list "$SYSUP_PLAN_DIR/paru-hold.list"
     fi
 }
 
@@ -751,15 +755,15 @@ _init_pkg_index() {
 
     local pkg installed skipped=""
     installed=$(pacman -Qq) || return 1
-    if [[ -f "$VJ_PLAN_DIR/paru-skip.list" ]]; then
-        skipped=$(_pkg_list "$VJ_PLAN_DIR/paru-skip.list") || return 1
+    if [[ -f "$SYSUP_PLAN_DIR/paru-skip.list" ]]; then
+        skipped=$(_pkg_list "$SYSUP_PLAN_DIR/paru-skip.list") || return 1
     fi
     _INSTALLED_PKGS=(); _SKIPPED_PKGS=()
     while IFS= read -r pkg; do
         [[ -n "$pkg" ]] && _INSTALLED_PKGS["$pkg"]=1
     done <<< "$installed"
 
-    if [[ -f "$VJ_PLAN_DIR/paru-skip.list" ]]; then
+    if [[ -f "$SYSUP_PLAN_DIR/paru-skip.list" ]]; then
         while IFS= read -r pkg; do
             [[ -n "$pkg" ]] && _SKIPPED_PKGS["$pkg"]=1
         done <<< "$skipped"
@@ -871,7 +875,7 @@ _check_packages_against_malware() {
     [[ -e "${campaign_pkgs[0]}" ]] || die "malware gate: definitions missing after fetch — aborting install"
     info "Pre-install malware gate: scanning package lists..."
     local requested="" contents list matches
-    list="$VJ_PLAN_DIR/paru-install.list"
+    list="$SYSUP_PLAN_DIR/paru-install.list"
     contents=$(_pkg_list "$list") || die "malware gate: cannot read $list"
     requested+="$contents"$'\n'
     matches=$(_infected_packages "${campaign_pkgs[@]}" <<< "$requested") \
@@ -974,7 +978,7 @@ refresh_mirrors() {
 REMOVED_CONFLICTS=()
 _remove_conflicts() {
     local _conflicts pkg out
-    if [[ -f "$VJ_PLAN_DIR/paru-remove.list" ]] && ! _conflicts=$(_pkg_list "$VJ_PLAN_DIR/paru-remove.list"); then
+    if [[ -f "$SYSUP_PLAN_DIR/paru-remove.list" ]] && ! _conflicts=$(_pkg_list "$SYSUP_PLAN_DIR/paru-remove.list"); then
         _record "conflict-removal" fail "cannot read paru-remove.list"
         warn "Cannot read paru-remove.list — conflicting packages were not removed"
         return 0
@@ -1000,7 +1004,7 @@ _upgrade_system() {
     _demote_packages
     if [[ "${3:-}" == warn-conflicts ]]; then
         ((${#REMOVED_CONFLICTS[@]} == 0)) \
-            || warn "removed ${REMOVED_CONFLICTS[*]}; install replacements with: vjupdate --actions install"
+            || warn "removed ${REMOVED_CONFLICTS[*]}; install replacements with: sysup --actions install"
     fi
     _check_disk_space
     _review_aur_updates
@@ -1026,7 +1030,7 @@ install_all() {
 
     _do_install() {
         info "Installing packages (profile: ${MACHINE:-?})..."
-        _install_list "$VJ_PLAN_DIR/paru-install.list" || return 1
+        _install_list "$SYSUP_PLAN_DIR/paru-install.list" || return 1
     }
 
     if ! _do_install; then
@@ -1054,14 +1058,14 @@ install_all() {
 
     # The selected pacman list may omit Flatpak even when apps are selected.
     # Sources runs before package installation, so configure Flathub here too.
-    if [[ -s "$VJ_PLAN_DIR/flatpak-install.list" ]]; then
+    if [[ -s "$SYSUP_PLAN_DIR/flatpak-install.list" ]]; then
         if _ensure_package_command flatpak flatpak; then
             flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo \
                 || _failw flathub "failed to configure Flathub"
         fi
     fi
     local _apps
-    if command -v flatpak &>/dev/null && ! _apps=$(_pkg_list "$VJ_PLAN_DIR/flatpak-install.list"); then
+    if command -v flatpak &>/dev/null && ! _apps=$(_pkg_list "$SYSUP_PLAN_DIR/flatpak-install.list"); then
         _record "flatpak" fail "cannot read flatpak-install.list"
         warn "Cannot read flatpak-install.list — flatpak apps were not installed"
     elif command -v flatpak &>/dev/null; then
@@ -1083,7 +1087,7 @@ install_all() {
         done <<< "$_apps"
         # [flatpak].remove: apps replaced by a package; runs after the paru
         # install above, so the old app goes only after its replacement exists.
-        if [[ -f "$VJ_PLAN_DIR/flatpak-remove.list" ]] && _apps=$(_pkg_list "$VJ_PLAN_DIR/flatpak-remove.list"); then
+        if [[ -f "$SYSUP_PLAN_DIR/flatpak-remove.list" ]] && _apps=$(_pkg_list "$SYSUP_PLAN_DIR/flatpak-remove.list"); then
             while IFS= read -r app; do
                 [[ -n "$app" ]] && flatpak info "$app" &>/dev/null || continue
                 if flatpak uninstall -y --noninteractive "$app" &>/dev/null; then
@@ -1112,7 +1116,7 @@ install_all() {
 # then remove only those that are now orphans (-s takes their unneeded deps).
 # Anything still required by another package stays, and the recap says why.
 _demote_packages() {
-    local list="$VJ_PLAN_DIR/paru-demote.list" pkgs=() pkg contents
+    local list="$SYSUP_PLAN_DIR/paru-demote.list" pkgs=() pkg contents
     [[ -f "$list" ]] || return 0
     contents=$(_pkg_list "$list") || { _record "demote" fail "cannot read paru-demote.list"; return 0; }
     while IFS= read -r pkg; do
@@ -1154,7 +1158,7 @@ _check_disk_space() {
     local avail
     avail=$(df --output=avail -BG / 2>/dev/null | tail -1 | tr -dc '0-9') || return 0
     [[ -n "$avail" ]] || return 0
-    if (( avail < ${VJ_MIN_FREE_GB:-5} )); then
+    if (( avail < ${SYSUP_MIN_FREE_GB:-5} )); then
         warn "only ${avail} GiB free on / — AUR builds and snapshots may fill it mid-upgrade"
     fi
     return 0
@@ -1206,7 +1210,7 @@ _review_aur_updates() {
 }
 
 # makepkg verifies source signatures with the USER's keyring, not pacman-key,
-# so vjupdate's keyring reset never fixes "unknown public key". Import the
+# so sysup's keyring reset never fixes "unknown public key". Import the
 # validpgpkeys the updated .SRCINFO names, before paru builds.
 _import_aur_keys() {
     local clone="$1" key
@@ -1263,7 +1267,7 @@ _show_install_error() {
 
 # _user_tools TOOL LIST LIST-CALLBACK INSTALL-ARGV...
 _user_tools() {
-    local tool="$1" list="$VJ_PLAN_DIR/$2" listing="$3" have pkg; shift 3
+    local tool="$1" list="$SYSUP_PLAN_DIR/$2" listing="$3" have pkg; shift 3
     [[ -s "$list" ]] || return 0
     if [[ "$tool" == npm ]]; then
         _ensure_package_command npm npm || return 0
@@ -1296,20 +1300,20 @@ install_user_tools() {
 }
 
 # ─── Phase 4: Dotfiles ───────────────────────────────────
-# Stow packages come from the chosen dotfile set (dotsets/<name>/, VJ_DOTSET_DIR),
+# Stow packages come from the chosen dotfile set (dotsets/<name>/, SYSUP_DOTSET_DIR),
 # limited to the run plan's stow.list. `scripts` is tooling, not a dotfile set:
 # it is always linked from the repo root. niri, ollama and brave keep their
 # special handling below.
-# vj → Display (plan env): GTK/GNOME text-scaling-factor (GTK, libadwaita,
+# Local config [display] (plan env): GTK/GNOME text-scaling-factor (GTK, libadwaita,
 # Chromium/Electron). Unset → left alone.
 _apply_display() {
-    [[ -n "${VJ_TEXT_SCALE:-}" ]] || return 0
+    [[ -n "${SYSUP_TEXT_SCALE:-}" ]] || return 0
     if ! command -v gsettings &>/dev/null; then
         _failw display "gsettings not found — text scale not applied"
-    elif gsettings set org.gnome.desktop.interface text-scaling-factor "$VJ_TEXT_SCALE"; then
-        ok "text scale: $VJ_TEXT_SCALE"
+    elif gsettings set org.gnome.desktop.interface text-scaling-factor "$SYSUP_TEXT_SCALE"; then
+        ok "text scale: $SYSUP_TEXT_SCALE"
     else
-        _failw display "failed to set text scale $VJ_TEXT_SCALE"
+        _failw display "failed to set text scale $SYSUP_TEXT_SCALE"
     fi
 }
 
@@ -1317,9 +1321,9 @@ _stow_niri_cfg() {
     # ~/.config/niri/ must stay a real directory — DMS writes dms/ inside it and
     # stow would fold the whole dir into a symlink, breaking DMS on regeneration.
     # So we skip stow for niri and create file-level symlinks directly.
-    local src="$VJ_DOTSET_DIR/niri/.config/niri"
+    local src="$SYSUP_DOTSET_DIR/niri/.config/niri"
     local dst="$HOME/.config/niri"
-    local mach_src="$VJ_DOTSET_DIR/$MACHINE/.config/niri"
+    local mach_src="$SYSUP_DOTSET_DIR/$MACHINE/.config/niri"
 
     local files=(display input autostart-machine surface-layout) f
 
@@ -1447,7 +1451,7 @@ deploy_dotfiles() {
         _record "stow:$label" fail "conflicts"
         local _payload; printf -v _payload '%s\x1f' "$PWD" "$@"
         _queue_fix stow "${_payload%$'\x1f'}"
-        warn "stow conflict in '$label' — fix offered at the end, or run 'vjupdate --adopt'"
+        warn "stow conflict in '$label' — fix offered at the end, or run 'sysup --adopt'"
         echo "$_err" | sed 's/^/        /'
         return 1
     }
@@ -1472,7 +1476,7 @@ deploy_dotfiles() {
             sudo stow --adopt -t / "$_rpkg" && _stowed+=("$_rpkg→/") || _record "stow:$_rpkg" fail "adopt failed"
         else
             sudo stow --restow -t / "$_rpkg" && _stowed+=("$_rpkg→/") \
-                || { _record "stow:$_rpkg" fail "conflicts"; warn "stow conflict in '$_rpkg' — run 'vjupdate --adopt'"; }
+                || { _record "stow:$_rpkg" fail "conflicts"; warn "stow conflict in '$_rpkg' — run 'sysup --adopt'"; }
         fi
     }
 
@@ -1486,10 +1490,10 @@ deploy_dotfiles() {
             || _failw ollama "ollama reload failed — run: sudo systemctl daemon-reload && sudo systemctl restart ollama"
     }
 
-    if [[ -z "${VJ_DOTSET_DIR:-}" ]]; then
+    if [[ -z "${SYSUP_DOTSET_DIR:-}" ]]; then
         info "dotfile set: none — only scripts linked"
     else
-        cd "$VJ_DOTSET_DIR" || die "cannot cd to dotfile set $VJ_DOTSET_DIR"
+        cd "$SYSUP_DOTSET_DIR" || die "cannot cd to dotfile set $SYSUP_DOTSET_DIR"
         local pkg
         while IFS= read -r pkg; do
             [[ -n "$pkg" && -d "$pkg" ]] || continue
@@ -1499,7 +1503,7 @@ deploy_dotfiles() {
                 brave)        _deploy_root_pkg "$pkg" || return 1 ;;
                 *)            _deploy_pkg --restow -t "$HOME" "$pkg" "$pkg" && _warn_unfolded "$pkg" ;;
             esac
-        done < <([[ -f "$VJ_PLAN_DIR/stow.list" ]] && cat "$VJ_PLAN_DIR/stow.list")
+        done < <([[ -f "$SYSUP_PLAN_DIR/stow.list" ]] && cat "$SYSUP_PLAN_DIR/stow.list")
         _unstow_unticked
     fi
 
@@ -1516,21 +1520,21 @@ deploy_dotfiles() {
     return 0
 }
 
-# Packages vjupdate linked on an earlier run but that are unticked now
-# (vj → Dotfiles) get unlinked. Only packages recorded in the state file are
+# Packages sysup linked on an earlier run but that are unticked now
+# (local config [select] dotfiles) get unlinked. Only packages recorded in the state file are
 # touched, so a package that was never deployed here is left alone. niri is
 # never unlinked: niri without config.kdl starts with defaults.
 _unstow_unticked() {
     local state="$STAMP_DIR/stowed-pkgs" now pkg
-    now=$(cat "$VJ_PLAN_DIR/stow.list" 2>/dev/null) || return 0
+    now=$(cat "$SYSUP_PLAN_DIR/stow.list" 2>/dev/null) || return 0
     if [[ -f "$state" ]]; then
         while IFS= read -r pkg; do
-            [[ -n "$pkg" && -d "$VJ_DOTSET_DIR/$pkg" ]] || continue
+            [[ -n "$pkg" && -d "$SYSUP_DOTSET_DIR/$pkg" ]] || continue
             grep -qxF "$pkg" <<< "$now" && continue
             case "$pkg" in
                 niri) warn "niri is unticked but stays linked (unlinking would leave niri without config)"; continue ;;
-                ollama|brave) _mutate sudo stow -D -d "$VJ_DOTSET_DIR" -t / "$pkg" ;;
-                *) _mutate stow -D -d "$VJ_DOTSET_DIR" -t "$HOME" "$pkg" ;;
+                ollama|brave) _mutate sudo stow -D -d "$SYSUP_DOTSET_DIR" -t / "$pkg" ;;
+                *) _mutate stow -D -d "$SYSUP_DOTSET_DIR" -t "$HOME" "$pkg" ;;
             esac && ok "unlinked (unticked): $pkg" || warn "could not unlink unticked package: $pkg"
         done < "$state"
     fi
@@ -1620,11 +1624,11 @@ _sc() {
 }
 
 # Units come from packages.toml/profiles [systemd] (systemd-*.list in the plan).
-# vjupdate records what it enabled; a unit dropped from the lists is disabled
+# sysup records what it enabled; a unit dropped from the lists is disabled
 # (not stopped — that happens at the next boot, so nothing dies mid-session).
 # Nothing is disabled on the first run, before there is a record.
 enable_services() {
-    local sys="$VJ_PLAN_DIR/systemd-enable.list" usr="$VJ_PLAN_DIR/systemd-user.list"
+    local sys="$SYSUP_PLAN_DIR/systemd-enable.list" usr="$SYSUP_PLAN_DIR/systemd-user.list"
     local managed="$STAMP_DIR/managed-units" now="" u kind
     mkdir -p "$STAMP_DIR"
     if [[ ! -r "$sys" || ! -r "$usr" ]]; then
@@ -1686,7 +1690,7 @@ enable_services() {
 # `ufw allow` skips existing rules itself, so this is safe to rerun.
 # ponytail: add-only; a rule dropped from the list stays until `ufw delete allow <rule>`.
 ufw_allow() {
-    local list="$VJ_PLAN_DIR/ufw-allow.list" line rule=()
+    local list="$SYSUP_PLAN_DIR/ufw-allow.list" line rule=()
     [[ -s "$list" ]] && command -v ufw &>/dev/null || return 0
     while IFS= read -r line; do
         read -ra rule <<< "$line"
@@ -1709,9 +1713,9 @@ setup_snapper() {
     fi
 }
 
-# ─── Automount disks (code in ../lib/vjupdate/automount.sh, loaded on use) ──
-_AUTOMOUNT_LIB="${BASH_SOURCE[0]%/*}/../lib/vjupdate/automount.sh"  # ~/.local/lib via stow, or the repo
-# shellcheck source=scripts/.local/lib/vjupdate/automount.sh
+# ─── Automount disks (code in ../lib/sysup/automount.sh, loaded on use) ──
+_AUTOMOUNT_LIB="${BASH_SOURCE[0]%/*}/../lib/sysup/automount.sh"  # ~/.local/lib via stow, or the repo
+# shellcheck source=scripts/.local/lib/sysup/automount.sh
 automount_disks() { source "$_AUTOMOUNT_LIB" && automount_disks "$@"; }
 
 # ─── Phase 7a: Greeter ───────────────────────────────────
@@ -1785,7 +1789,7 @@ setup_ssh_key() {
     local key="$HOME/.ssh/id_ed25519" body
     if [[ ! -f "$key" ]]; then
         if ! $INTERACTIVE; then
-            warn "no SSH key — needs a terminal for the passphrase: vjupdate --actions ssh-key"
+            warn "no SSH key — needs a terminal for the passphrase: sysup --actions ssh-key"
             return 0
         fi
         info "Creating an SSH key (choose a passphrase, or Enter for none)..."
@@ -1821,7 +1825,7 @@ setup_fingerprint() {
     elif $INTERACTIVE; then
         fprintd-enroll && ok "fingerprint enrolled" || _failw fingerprint "fprintd-enroll failed"
     else
-        warn "fingerprint not enrolled — needs a terminal: vjupdate --actions fingerprint"
+        warn "fingerprint not enrolled — needs a terminal: sysup --actions fingerprint"
     fi
 }
 
@@ -1847,11 +1851,11 @@ setup_yubikey_pin() {
     if [[ "$out" == *"PIN:"* && "$out" != *"Not set"* && "$out" != *"not set"* ]]; then
         ok "YubiKey FIDO PIN is set"
     elif [[ "$out" != *"PIN:"* ]]; then
-        warn "no YubiKey found — plug it in and re-run: vjupdate --actions yubikey-pin"
+        warn "no YubiKey found — plug it in and re-run: sysup --actions yubikey-pin"
     elif $INTERACTIVE; then
         ykman fido access change-pin && ok "YubiKey PIN set" || _failw yubikey-pin "ykman could not set the PIN"
     else
-        warn "YubiKey has no FIDO PIN — needs a terminal: vjupdate --actions yubikey-pin"
+        warn "YubiKey has no FIDO PIN — needs a terminal: sysup --actions yubikey-pin"
     fi
 }
 
@@ -1951,7 +1955,7 @@ optimize_system() {
         if [[ ! -f "$_ovr" ]] || [[ "$(cat "$_ovr")" == $'[Timer]\nOnBootSec=2h' ]]; then
             sudo mkdir -p "$(dirname "$_ovr")"
             # Timer assignments accumulate. Clear the original boot trigger;
-            # also migrate the exact override generated by older vjupdate.
+            # also migrate the exact override generated by older sysup.
             printf '[Timer]\nOnBootSec=\nOnBootSec=2h\n' | sudo tee "$_ovr" >/dev/null
             sudo systemctl daemon-reload
             ok "cachyos-rate-mirrors: OnBootSec → 2h"
@@ -1994,8 +1998,8 @@ optimize_system() {
 DMS_LIVE="$HOME/.config/niri/dms"
 # Repo side of the DMS overrides lives in the chosen dotfile set.
 _dms_repo() {
-    [[ -n "${VJ_DOTSET_DIR:-}" ]] || { warn "no dotfile set chosen — DMS overrides not synced"; return 1; }
-    DMS_REPO="$VJ_DOTSET_DIR/niri/.config/niri/dms"
+    [[ -n "${SYSUP_DOTSET_DIR:-}" ]] || { warn "no dotfile set chosen — DMS overrides not synced"; return 1; }
+    DMS_REPO="$SYSUP_DOTSET_DIR/niri/.config/niri/dms"
 }
 DMS_MANUAL=(alttab.kdl binds.kdl cursor.kdl layout.kdl windowrules.kdl wpblur.kdl)
 DMS_AUTO=(colors.kdl)
@@ -2236,7 +2240,7 @@ update_ollama() {
 # when HEAD moved since the last successful build. A repo with local changes is
 # being worked on, so it is neither pulled nor rebuilt.
 update_projects() {
-    local list="$VJ_PLAN_DIR/project-builds.list" name cmd dir head stamp
+    local list="$SYSUP_PLAN_DIR/project-builds.list" name cmd dir head stamp
     [[ -s "$list" ]] || return 0
     mkdir -p "$STAMP_DIR/builds"
     while IFS=$'\t' read -r name cmd || [[ -n "$name" ]]; do
@@ -2506,7 +2510,7 @@ setup_caveman_code() {
 
 # ─── Phase 8: Projects ───────────────────────────────────
 clone_projects() {
-    local list="$VJ_PLAN_DIR/projects.list"
+    local list="$SYSUP_PLAN_DIR/projects.list"
     [[ -f "$list" ]] || { warn "projects.list not in run plan — skipping"; return; }
 
     info "Cloning projects into ~/Projects/..."
@@ -2601,11 +2605,11 @@ clean_caches() {
 
 # ─── Audit: unlisted / unused apps (report only) ────────
 # Apps with a launcher that no package list mentions, and apps with no DMS
-# usage record in 60 days. Logic and data sources: vj/unused.py.
+# usage record in 60 days. Logic and data sources: sysup.py (report).
 check_unused_apps() {
     info "Checking for unlisted and unused apps..."
     local out
-    if ! out=$(_vj unused "$VJ_PLAN_DIR" 60 2>&1); then
+    if ! out=$(_py unused "$SYSUP_PLAN_DIR" 60 2>&1); then
         warn "unused-app check failed: ${out##*$'\n'}"
         return 0
     fi
@@ -2903,7 +2907,7 @@ check_pacnew() {
     # tabs, no diff view — use 'd' to see the diff first), so it needs a
     # terminal — a --yes run would block on stdin forever.
     if ! $INTERACTIVE; then
-        warn "pacnew merge skipped — needs a terminal, run: vjupdate --pacnew"
+        warn "pacnew merge skipped — needs a terminal, run: sysup --pacnew"
         return
     fi
     # -s: pacdiff does its own sudo/sudoedit, so this stays unprivileged.
@@ -3078,7 +3082,7 @@ phase_sources() {
 }
 phase_install()  { install_all; }
 phase_dotfiles() { deploy_dotfiles; dms_import; }
-# Action IDs for --actions (vj's MAINT list uses the same IDs; fish completion reads this line).
+# Action IDs for --actions (fish completion reads this line).
 MENU_ORDER=(sources install services snapper automount optimize keyboard kernels greeter keyring-pam nvidia-niri install-scripts fish dms-plugins dms-export claude caveman-code ollama vms steam-launchers app-launchers dotfiles-export stow-symlinks dms-import audit orphan-removal rebuild python-rebuild pacnew-merge git-identity ssh-key fingerprint bitwarden yubikey-pin surface-secureboot)
 
 # Accept stable IDs; keep legacy programmatic selection payloads compatible.
@@ -3147,7 +3151,7 @@ export_dotfiles() {
     return 0
 }
 
-# Run one selected action and record it, so vj can stamp one-time tasks.
+# Run one selected action and record it; one-time ones get stamped at the end.
 # Unexpected failures still abort through errexit. Handled failures and
 # warnings must not stamp an incomplete one-time task as done.
 _act() {
@@ -3226,7 +3230,7 @@ AUDIT_CHECKS=(check_held_updates check_foreign_orphans check_unused_apps check_r
               check_logins check_firmware check_aur_malware check_pacman_db)
 _run_audit_checks() { local c; for c in "${AUDIT_CHECKS[@]}"; do "$c"; done; }
 # The audit phase also removes unused flatpak runtimes; --check stays report-only.
-# vj shows this on its Maintenance row (the weekly timer runs --check too).
+# sysup --status shows this (the weekly timer runs --check too).
 _save_last_check() {
     local i f="$STAMP_DIR/last-check.tsv"
     mkdir -p "$STAMP_DIR"
@@ -3243,11 +3247,10 @@ bootstrap() {
         SKIP_PHASES=""
         local _selected
         detect_machine
-        # Chosen in vj (or on the command line). The menu lives in vj only.
-        [[ -n "${VJ_ACTIONS:-}" ]] || die "no actions given: run 'vj', or vjupdate --actions A,B / --yes"
+        [[ -n "${SYSUP_ACTIONS:-}" ]] || die "no actions given: sysup --actions A,B (IDs: ${MENU_ORDER[*]})"
         local _id
         _selected=""
-        for _id in ${VJ_ACTIONS//,/ }; do
+        for _id in ${SYSUP_ACTIONS//,/ }; do
             [[ " ${MENU_ORDER[*]} " == *" $_id "* ]] || die "unknown action: $_id"
             _selected+="$_id"$'\n'
         done
@@ -3304,7 +3307,7 @@ bootstrap() {
 }
 
 update() {
-    _banner "$BLU" "vjupdate — update" box
+    _banner "$BLU" "sysup — update" box
     echo ""
 
     detect_machine
@@ -3323,7 +3326,7 @@ update() {
 }
 
 check() {
-    _banner "$BLU" "vjupdate — check" box
+    _banner "$BLU" "sysup — check" box
     echo ""
 
     _run_audit_checks
@@ -3510,15 +3513,15 @@ plan_preview() {
     if ! _skipped "install"; then
         info "Packages that would be installed:"
         local installed list pkg missing=0
-        if [[ -r "$VJ_PLAN_DIR/paru-install.list" ]] && installed=$(pacman -Qq 2>/dev/null); then
+        if [[ -r "$SYSUP_PLAN_DIR/paru-install.list" ]] && installed=$(pacman -Qq 2>/dev/null); then
             local -A present=() skipped=()
             while IFS= read -r pkg; do
                 [[ -n "$pkg" ]] && present["$pkg"]=1
             done <<< "$installed"
-            if [[ -f "$VJ_PLAN_DIR/paru-skip.list" ]]; then
-                while IFS= read -r pkg; do skipped["$pkg"]=1; done < <(_pkg_list "$VJ_PLAN_DIR/paru-skip.list")
+            if [[ -f "$SYSUP_PLAN_DIR/paru-skip.list" ]]; then
+                while IFS= read -r pkg; do skipped["$pkg"]=1; done < <(_pkg_list "$SYSUP_PLAN_DIR/paru-skip.list")
             fi
-            list="$VJ_PLAN_DIR/paru-install.list"
+            list="$SYSUP_PLAN_DIR/paru-install.list"
             while IFS= read -r pkg; do
                 [[ -v skipped["$pkg"] ]] && continue
                 [[ -v present["$pkg"] ]] || { echo "      + $pkg"; (( missing++ )) || true; }
@@ -3528,8 +3531,8 @@ plan_preview() {
             _unknown "package lists or installed-package query unavailable"
         fi
         echo "      Would remove installed packages listed in packages.toml [paru].remove, then upgrade the system."
-        if [[ -s "$VJ_PLAN_DIR/paru-demote.list" ]]; then
-            echo "      Would demote to dependencies (and remove if unneeded): $(_pkg_list "$VJ_PLAN_DIR/paru-demote.list" | tr '\n' ' ')"
+        if [[ -s "$SYSUP_PLAN_DIR/paru-demote.list" ]]; then
+            echo "      Would demote to dependencies (and remove if unneeded): $(_pkg_list "$SYSUP_PLAN_DIR/paru-demote.list" | tr '\n' ' ')"
         fi
         echo "      Would review pending AUR updates (diffs in \$STAMP_DIR/aur-review/) and install [npm]/[uv] tools."
         _preview_holds
@@ -3539,9 +3542,9 @@ plan_preview() {
 
     if ! _skipped "dotfiles"; then
         info "Dotfile deployment:"
-        if [[ -z "${VJ_DOTSET_DIR:-}" ]]; then
+        if [[ -z "${SYSUP_DOTSET_DIR:-}" ]]; then
             echo "      Dotfile set: none — only scripts would be linked."
-        elif cd "$VJ_DOTSET_DIR" 2>/dev/null; then
+        elif cd "$SYSUP_DOTSET_DIR" 2>/dev/null; then
             local out rc target
             while IFS= read -r pkg; do
                 [[ -n "$pkg" && -d "$pkg" && "$pkg" != niri ]] || continue
@@ -3554,11 +3557,11 @@ plan_preview() {
                 else
                     ok "$pkg: stow simulation passed"
                 fi
-            done < <([[ -f "$VJ_PLAN_DIR/stow.list" ]] && cat "$VJ_PLAN_DIR/stow.list")
+            done < <([[ -f "$SYSUP_PLAN_DIR/stow.list" ]] && cat "$SYSUP_PLAN_DIR/stow.list")
             echo "      Would link machine-specific niri files and import DMS overrides."
             $STOW_ADOPT && echo "      Would back up live AND repo files before adoption."
         else
-            _unknown "cannot read $VJ_DOTSET_DIR — stow conflicts not checked"
+            _unknown "cannot read $SYSUP_DOTSET_DIR — stow conflicts not checked"
         fi
     fi
     if ! _skipped "configure"; then
@@ -3578,12 +3581,12 @@ plan_preview() {
 }
 
 usage() {
-    echo "Usage: vjupdate [OPTION]"
+    echo "Usage: sysup [OPTION]"
     echo ""
-    echo "  (no args)           Open vj (the TUI); it runs vjupdate --actions for you"
+    echo "  (no args)           Show this help"
     echo "  --interactive, -i   Same as no args (explicit)"
     echo "  --yes, -y           Full bootstrap, non-interactive"
-    echo "  --actions A,B,...   Run exactly these menu action IDs, no menu (used by vj)"
+    echo "  --actions A,B,...   Run exactly these action IDs (see sysup --status)"
     echo "  --update, -u        Update packages + clean caches"
     echo "  --check, -c         Audit: orphans, rebuilds, pacnew, firmware"
     echo "  --kernels           Interactively install or remove CachyOS kernels"
@@ -3618,7 +3621,7 @@ usage() {
     echo "                      sources install dotfiles configure audit"
     echo "                      (anything else is silently ignored)"
     echo ""
-    echo "Only one vjupdate may run at a time (flock on $LOCK_FILE)."
+    echo "Only one sysup may run at a time (flock on $LOCK_FILE)."
     echo "Exit status is nonzero if any requested action failed."
 }
 
@@ -3643,10 +3646,10 @@ while [[ $# -gt 0 ]]; do
             [[ -n "$ACTION" ]] && die "More than one action given ($ACTION, $1). Use --help."
             if [[ "$1" == --actions ]]; then
                 [[ $# -ge 2 && -n "$2" ]] || die "--actions needs a comma-separated list of action IDs"
-                VJ_ACTIONS="$2"; shift
+                SYSUP_ACTIONS="$2"; shift
             else
-                VJ_ACTIONS="${1#--actions=}"
-                [[ -n "$VJ_ACTIONS" ]] || die "--actions needs a comma-separated list of action IDs"
+                SYSUP_ACTIONS="${1#--actions=}"
+                [[ -n "$SYSUP_ACTIONS" ]] || die "--actions needs a comma-separated list of action IDs"
             fi
             ACTION=--actions ;;
         "")                 ;;
@@ -3659,14 +3662,10 @@ done
 
 # --help and --dry-run are read-only: no lock, no log rotation, no stamps.
 if [[ "$ACTION" == help ]]; then usage; exit 0; fi
-# The interactive menu is vj's job; vj calls back with --actions.
-if ! $DRY_RUN && [[ -z "$ACTION" || "$ACTION" == --interactive || "$ACTION" == -i ]]; then
-    [[ -t 0 && -t 1 ]] || die "no terminal: use --yes, --actions A,B or --dry-run"
-    command -v vj >/dev/null || die "vj not found in PATH — stow scripts, or use --yes / --actions"
-    exec vj
-fi
+# No menu: bare sysup (or -i) prints help.
+if ! $DRY_RUN && [[ -z "$ACTION" || "$ACTION" == --interactive || "$ACTION" == -i ]]; then usage; exit 0; fi
 # Root would write stamps, logs and links into /root; sudo is called per command.
-(( EUID != 0 )) || die "run vjupdate as your user, not root — it calls sudo itself"
+(( EUID != 0 )) || die "run sysup as your user, not root — it calls sudo itself"
 $DRY_RUN || _check_repo_current "${_ORIG_ARGS[@]}"
 _ensure_plan
 if $DRY_RUN; then
