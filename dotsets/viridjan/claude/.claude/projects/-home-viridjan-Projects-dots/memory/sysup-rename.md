@@ -9,4 +9,4 @@ metadata:
 **Why:** user wanted no TUI, better name.
 **How to apply:** Surface/Plancia still need `~/Projects/dots/scripts/.local/bin/sysup --actions stow-symlinks,services` after pull (TODO.md). Supersedes [[vj-tui-rewrite]].
 
-**Menu back (2026-11-08, user request):** bare `sysup` in a TTY with fzf → `_menu` (mode pick, then `fzf --multi` over `sysup.py menu`), sets args and falls into the normal `--actions`/`--update`/`--check` path. Labels in sysup.py `ACTIONS`. No TTY → help. Details in CLAUDE.md.
+**Menu back (2026-11-08, user request):** bare `sysup` in a TTY with fzf → `_menu` loop (update/check/actions/options/status/quit; Esc = back; each choice runs as child `bash sysup`, keypress returns). Actions = grouped `fzf --multi` over `sysup.py menu`; options toggle --dry-run/--adopt/--clean-aggressive. Labels in sysup.py `ACTIONS`. No TTY → help. Details in CLAUDE.md.
