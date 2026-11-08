@@ -211,6 +211,10 @@ animations {
 // Window rules let you adjust behavior for individual windows.
 // Find more information on the wiki:
 // https://github.com/YaLTeR/niri/wiki/Configuration:-Window-Rules
+// New windows never take focus (2026-11-08, user request). First, so later rules can override.
+window-rule {
+    open-focused false
+}
 window-rule {
     match app-id=r#"^org\.gnome\."#
     draw-border-with-background false
