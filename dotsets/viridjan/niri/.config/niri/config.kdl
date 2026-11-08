@@ -393,3 +393,4 @@ include "dms/wpblur.kdl"
 // corrected 2026-08-25). cfg/display.kdl is the sole output source for DP-1.
 
 include "cfg/display.kdl"
+include "dms/windowrules.kdl"

@@ -89,7 +89,7 @@
       "noBackground": false,
       "maximizeWidgetIcons": false,
       "maximizeWidgetText": false,
-      "widgetPadding": 10,
+      "widgetPadding": 8,
       "gothCornersEnabled": false,
       "gothCornerRadiusOverride": false,
       "gothCornerRadiusValue": 12,
@@ -181,7 +181,13 @@
       "islandSatellitePosition": "edges",
       "islandSatelliteBackground": false,
       "islandSatelliteGothCorners": true,
-      "widgetStyle": "flat"
+      "widgetStyle": "flat",
+      "islandCompactThickness": 38,
+      "islandSatelliteGap": 12,
+      "islandInteractionMode": "click",
+      "islandDashTabs": true,
+      "islandMediaLyrics": true,
+      "islandNotificationBadgeClearOnOpen": true
     },
     {
       "id": "dot1792883797400",
@@ -216,7 +222,7 @@
       "noBackground": false,
       "maximizeWidgetIcons": false,
       "maximizeWidgetText": false,
-      "widgetPadding": 10,
+      "widgetPadding": 8,
       "gothCornersEnabled": false,
       "gothCornerRadiusOverride": false,
       "gothCornerRadiusValue": 12,
@@ -304,7 +310,9 @@
       "islandHomeClockDisplay": "both",
       "islandHomeVolumeDisplay": "both",
       "islandHomeStatusContent": "connectivity",
-      "islandHomeCompactTight": false
+      "islandHomeCompactTight": false,
+      "islandCompactThickness": 38,
+      "islandSatelliteGap": 12
     }
   ],
   "builtInPluginSettings": {
@@ -335,11 +343,12 @@
       "showOnLastDisplay": true,
       "position": 1,
       "mode": "compact",
+      "middleClickAction": "close",
       "taskbarAlign": "center",
       "widgetExpansion": "popout",
       "iconSize": 40,
-      "spacing": 4,
-      "itemSpacing": 4,
+      "spacing": 8,
+      "itemSpacing": 8,
       "margin": 0,
       "bottomGap": 0,
       "transparency": 1,
@@ -472,7 +481,7 @@
         ],
         "syncPositionAcrossScreens": true,
         "showMediaPlayer": true,
-        "showWeather": true,
+        "showWeather": false,
         "background": false
       }
     },
@@ -550,7 +559,7 @@
         ],
         "syncPositionAcrossScreens": true,
         "showMediaPlayer": true,
-        "showWeather": true,
+        "showWeather": false,
         "background": false
       }
     },
@@ -580,5 +589,63 @@
   ],
   "connectedFrameBarStyleBackups": {},
   "frameEnabled": false,
-  "barInsetPaddingSyncAll": true
+  "barInsetPaddingSyncAll": true,
+  "interfaceStyle": "expressive",
+  "density": "comfortable",
+  "blurLayerOutlineOpacity": 0,
+  "blurBorderEnabled": false,
+  "blurEnabled": false,
+  "blurBorderSeeded": true,
+  "blurForegroundLayers": false,
+  "m3ElevationEnabled": false,
+  "radiusMode": "scale",
+  "focusRingEnabled": true,
+  "scrollbarsEnabled": true,
+  "floatingWindowSyncGlobal": false,
+  "useAutoLocation": true,
+  "lockScreenShowWeather": false,
+  "dashTabs": [
+    {
+      "id": "overview",
+      "enabled": true
+    },
+    {
+      "id": "media",
+      "enabled": true
+    },
+    {
+      "id": "wallpaper",
+      "enabled": true
+    },
+    {
+      "id": "weather",
+      "enabled": true
+    },
+    {
+      "id": "wellbeing",
+      "enabled": true
+    },
+    {
+      "id": "notifications",
+      "enabled": true
+    },
+    {
+      "id": "settings",
+      "enabled": true
+    }
+  ],
+  "matugenTemplateHyprland": false,
+  "matugenTemplateMangowc": false,
+  "matugenTemplateQt5ct": false,
+  "matugenTemplateQtengine": false,
+  "matugenTemplateQt6ct": false,
+  "matugenTemplateFcitx5": false,
+  "matugenTemplateFirefox": false,
+  "matugenTemplatePywalfox": false,
+  "matugenTemplateZenBrowser": false,
+  "matugenTemplateVencord": false,
+  "matugenTemplateEquibop": false,
+  "matugenTemplateGhostty": false,
+  "matugenTemplateFoot": false,
+  "matugenTemplateZed": false
 }
