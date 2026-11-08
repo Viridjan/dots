@@ -1,0 +1,52 @@
+name: dots-suitecrm
+services:
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: suitecrm
+      MARIADB_USER: suitecrm
+      MARIADB_PASSWORD: ${DB_PASSWORD:?}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?}
+    volumes:
+      - database:/var/lib/mysql
+    healthcheck:
+      test: [CMD, healthcheck.sh, --connect, --innodb_initialized]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  web:
+    image: dots-suitecrm:8.10.2
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8088:80"
+    volumes:
+      - application:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+  scheduler:
+    image: dots-suitecrm:8.10.2
+    pull_policy: never
+    restart: unless-stopped
+    user: www-data
+    working_dir: /var/www/html
+    command: [sh, -c, "while true; do if [ -f public/legacy/config.php ]; then php bin/console schedulers:run --no-interaction; fi; sleep 60; done"]
+    volumes:
+      - application:/var/www/html
+    depends_on:
+      - web
+  worker:
+    image: dots-suitecrm:8.10.2
+    pull_policy: never
+    restart: unless-stopped
+    user: www-data
+    command: [sh, -c, "while [ ! -f public/legacy/config.php ]; do sleep 5; done; exec php bin/console messenger:consume internal-async --time-limit=3600 --memory-limit=256M --no-interaction"]
+    volumes:
+      - application:/var/www/html
+    depends_on:
+      - web
+volumes:
+  database:
+  application:

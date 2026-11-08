@@ -71,10 +71,20 @@ Optional, by hand:
 ```bash
 # Open Notebook
 cd ~/Projects/Open_notebook && docker compose up -d
+# SuiteCRM — local CRM (http://localhost:8088)
+cd ~/Projects/dots && docker compose -f suitecrm/compose.yaml up -d
 # Windows VM — desktop only (web UI: http://localhost:8006, RDP: localhost:3389)
 cd ~/Projects/dots/windows && docker compose up -d
 # Shared folder: ~/Shared on host → \\host.lan\Data inside Windows (map as network drive)
 ```
+
+**SuiteCRM.** The local installation runs SuiteCRM 8.10.2 with PHP/Apache,
+MariaDB, a scheduler and a background worker in Docker. Open
+http://localhost:8088 and log in as `admin`; the generated password is
+`ADMIN_PASSWORD` in `suitecrm/.env` (excluded from Git). Application and database
+data persist in Docker volumes. See [SuiteCRM setup and commands](suitecrm/README.md)
+for stopping, logs, backups and rebuild details. This setup is managed separately
+from `sysup`.
 
 **Surface only — `vjsurface`.** Run it before or after `sysup`, as often as
 you like. It restores `pacman.conf`/mirrorlists that lost repos to a pacnew
