@@ -1405,7 +1405,81 @@ _warn_unfolded() {
     return 0
 }
 
+# ─── Dotset backups ──────────────────────────────────────
+# Two local tags per dotfile set: backup/<set>/1 (newest) and backup/<set>/2,
+# on snapshot commits. A new snapshot moves 1 → 2 and drops the old 2. Tags
+# are never pushed: commit-tree skips the pre-commit secret scan, and two
+# machines would overwrite each other's rotation.
+#   _backup_dotset head       the last saved state (HEAD), before a git export
+#   _backup_dotset work [why] the working tree, before deploy / restore
+#   _backup_dotset live-dms   working tree + live DMS overrides, before dms-import
+# Never blocks the step it protects: any failure warns and returns 0.
+_backup_dotset() {
+    local mode="$1" why="${2:-$1}" set rel idx tree commit prev f name failed=false
+    $DRY_RUN && return 0
+    [[ -n "${SYSUP_DOTSET_DIR:-}" ]] || return 0
+    rel=${SYSUP_DOTSET_DIR#"$DOTS_DIR"/}
+    [[ "$rel" != "$SYSUP_DOTSET_DIR" ]] || return 0      # set outside the repo
+    set=${rel##*/}
+    git -C "$DOTS_DIR" rev-parse -q --verify HEAD >/dev/null 2>&1 || return 0
+    if [[ "$mode" == head ]]; then
+        commit=$(git -C "$DOTS_DIR" rev-parse HEAD) || failed=true
+    else
+        idx=$(mktemp) || return 0
+        export GIT_INDEX_FILE="$idx"
+        git -C "$DOTS_DIR" read-tree HEAD && git -C "$DOTS_DIR" add -A -- "$rel" || failed=true
+        if [[ "$mode" == live-dms ]] && ! $failed; then
+            for f in "$DOTS_DIR/$rel/niri/.config/niri/dms/"*.kdl; do
+                name=${f##*/}
+                [[ -f "$f" && -f "$DMS_LIVE/$name" && ! -L "$DMS_LIVE/$name" ]] || continue
+                git -C "$DOTS_DIR" update-index --add --cacheinfo \
+                    "100644,$(git -C "$DOTS_DIR" hash-object -w -- "$DMS_LIVE/$name"),$rel/niri/.config/niri/dms/$name" \
+                    || failed=true
+            done
+        fi
+        $failed || tree=$(git -C "$DOTS_DIR" write-tree) || failed=true
+        unset GIT_INDEX_FILE
+        rm -f "$idx"
+        $failed || commit=$(git -C "$DOTS_DIR" commit-tree "$tree" -p HEAD \
+            -m "sysup backup $set $(date '+%F %T') before $why") || failed=true
+    fi
+    if $failed; then warn "dotset backup failed — continuing without it"; return 0; fi
+    # Rotate only when the set itself changed since backup 1.
+    prev=$(git -C "$DOTS_DIR" rev-parse -q --verify "backup/$set/1:$rel" 2>/dev/null) || prev=""
+    [[ "$(git -C "$DOTS_DIR" rev-parse -q --verify "$commit:$rel" 2>/dev/null)" != "$prev" ]] || return 0
+    if git -C "$DOTS_DIR" rev-parse -q --verify "refs/tags/backup/$set/1" >/dev/null; then
+        git -C "$DOTS_DIR" tag -f "backup/$set/2" "backup/$set/1" >/dev/null || { warn "dotset backup rotation failed"; return 0; }
+    fi
+    git -C "$DOTS_DIR" tag -f "backup/$set/1" "$commit" >/dev/null \
+        && ok "dotset backup: backup/$set/1 (before $why)" || warn "dotset backup failed — continuing without it"
+}
+
+# sysup --restore 1|2: put the active set back to a backup (working tree only,
+# nothing committed). The state it replaces becomes backup 1 first.
+restore_dotset() {
+    local n="$1" set rel commit
+    [[ -n "${SYSUP_DOTSET_DIR:-}" ]] || die "no dotfile set chosen — run: sysup --profile NAME --dotset SET"
+    rel=${SYSUP_DOTSET_DIR#"$DOTS_DIR"/}; set=${rel##*/}
+    commit=$(git -C "$DOTS_DIR" rev-parse -q --verify "refs/tags/backup/$set/$n^{commit}") \
+        || die "no backup/$set/$n yet — backups are made before deploy, dms-import and git export"
+    info "backup/$set/$n: $(git -C "$DOTS_DIR" log -1 --format='%cs %s' "$commit")"
+    if git -C "$DOTS_DIR" diff --quiet "$commit" -- "$rel"; then
+        ok "$rel already matches backup $n"; return 0
+    fi
+    git -C "$DOTS_DIR" --no-pager diff --stat "$commit" -- "$rel"
+    _confirm "Restore $rel from backup $n? The current state becomes backup 1. [y/N]" \
+        || { info "nothing changed"; return 0; }
+    _backup_dotset work restore
+    if git -C "$DOTS_DIR" restore --source="$commit" --worktree -- "$rel"; then
+        ok "restored $rel from backup $n (not committed — review with git diff)"
+        info "DMS overrides are copies: run 'sysup --dms-import' to apply them"
+    else
+        _failw restore "git restore from backup $n failed"
+    fi
+}
+
 deploy_dotfiles() {
+    _backup_dotset work deploy
     info "Deploying dotfiles via stow..."
     cd "$DOTS_DIR" || die "cannot cd to $DOTS_DIR"
 
@@ -2041,6 +2115,7 @@ dms_import() {
         return
     fi
     _dms_repo || return 0
+    _backup_dotset live-dms dms-import
     info "Importing DMS manual overrides: repo → live..."
     # DMS_AUTO included here on purpose: DMS regenerates these live, so pushing
     # the repo's curated copy back is the only way manual theme overrides stick.
@@ -3108,6 +3183,7 @@ export_dotfiles() {
     changes=$(git -C "$DOTS_DIR" status --porcelain) \
         || { _record "dotfiles-export" fail "cannot read repository status"; return 0; }
     info "Upload destination: $remote/${merge_ref#refs/heads/} (local branch: $branch)"
+    _backup_dotset head export
     if [[ -n "$changes" ]]; then
         printf '%s\n' "$changes"
         if ! _confirm "Stage ALL non-ignored changes in the dots repository for review? [y/N]"; then
@@ -3644,6 +3720,9 @@ usage() {
     echo "                      remove (demote on this machine), ignore (stop reporting)"
     echo "  --status            Profile, features, one-time actions with dates, last check"
     echo "  --skip-once ID      Mark a one-time action as skipped"
+    echo "  --restore 1|2       Restore the dotfile set from backup 1 (newest) or 2."
+    echo "                      Backups (local git tags backup/<set>/1|2) are taken"
+    echo "                      before deploy, dms-import and git export."
     echo "  --help, -h          Show this message"
     echo ""
     echo "Modifiers (combine with the actions above):"
@@ -3694,7 +3773,13 @@ case "${1:-}" in
                 (( $# == 0 )) || die "unexpected arguments: $*"
                 _py choose "$_prof" ${_set:+"$_set"}; exit $? ;;
             --pkg)       _pkg_cmd "$@"; exit $? ;;
-            --status)    (( $# == 0 )) || die "--status takes no arguments"; _py status; exit $? ;;
+            --status)
+                (( $# == 0 )) || die "--status takes no arguments"
+                _py status || exit $?
+                _backups=$(git -C "$DOTS_DIR" for-each-ref 'refs/tags/backup/' \
+                    --format='  %(refname:short)  %(creatordate:short)  %(subject)' 2>/dev/null) || _backups=""
+                printf '\ndotset backups (sysup --restore 1|2):\n%s\n' "${_backups:-  none yet}"
+                exit 0 ;;
             --skip-once) (( $# == 1 )) || die "--skip-once needs one action ID"; _py once-skip "$1"; exit $? ;;
         esac ;;
 esac
@@ -3706,6 +3791,10 @@ while [[ $# -gt 0 ]]; do
         --adopt)            STOW_ADOPT=true ;;
         --clean-aggressive) CLEAN_AGGRESSIVE=true ;;
         --help|-h)          ACTION=help ;;
+        --restore)
+            [[ -n "$ACTION" ]] && die "More than one action given ($ACTION, $1). Use --help."
+            [[ "${2:-}" == 1 || "${2:-}" == 2 ]] || die "--restore needs 1 (newest) or 2"
+            RESTORE_N=$2; shift; ACTION=--restore ;;
         --actions=*|--actions)
             [[ -n "$ACTION" ]] && die "More than one action given ($ACTION, $1). Use --help."
             if [[ "$1" == --actions ]]; then
@@ -3757,5 +3846,6 @@ case "$ACTION" in
     --app-launchers)     _init_runtime; check_app_launchers ;;
     --rebuild)           _init_runtime; check_aur_malware; _enable_audit_action rebuild; check_rebuilds ;;
     --pacnew)            _init_runtime; _enable_audit_action pacnew-merge; check_pacnew ;;
+    --restore)           _init_runtime; restore_dotset "$RESTORE_N"; print_recap ;;
     *)                   die "Unknown option: $ACTION. Use --help." ;;
 esac

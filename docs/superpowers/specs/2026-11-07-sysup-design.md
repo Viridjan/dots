@@ -105,9 +105,11 @@ Local config keys after the change: `profile`, `dotset`, `[display]`,
 Two local tags per dotfile set: `backup/<set>/1` (newest) and
 `backup/<set>/2`. Each points at a snapshot commit of the repo.
 
-`_backup_dotset [live-dms]` runs before the git export commits (inside
-`export_dotfiles`, before staging), before `deploy_dotfiles`, and before
-`dms_import`:
+`_backup_dotset MODE` runs before the git export (`head`: the last saved
+commit is the "previous active dots", tagged as is), before
+`deploy_dotfiles` (`work`) and before `dms_import` (`live-dms`). Rotation
+compares only the set's subtree (`<ref>:dotsets/<set>`), so commits outside
+the set never push a backup out. For `work` / `live-dms`:
 
 1. Temp index (`GIT_INDEX_FILE`) seeded from `HEAD` (`git read-tree HEAD`),
    then `git add -A -- dotsets/<set>`. This captures uncommitted edits;
@@ -115,8 +117,7 @@ Two local tags per dotfile set: `backup/<set>/1` (newest) and
    (dms-import only) each live `~/.config/niri/dms/*.kdl` that the import
    would overwrite replaces its repo path in the index
    (`git hash-object -w` + `git update-index --cacheinfo`).
-2. `tree=$(git write-tree)`. If it equals `backup/<set>/1^{tree}`, stop:
-   nothing changed, so repeated runs don't push the real backup out.
+2. `tree=$(git write-tree)`.
 3. `commit=$(git commit-tree "$tree" -p HEAD -m "sysup backup <set> <date> before <action>")`.
    `main`, the working tree and the real index are untouched.
 4. `git tag -f backup/<set>/2 backup/<set>/1` (if 1 exists), then
@@ -134,7 +135,8 @@ rotation. So "2 backups per set" is per machine.
 `sysup --restore 1|2`: shows `git diff --stat` between the backup and the
 working tree for `dotsets/<set>`, asks to confirm, runs `_backup_dotset`
 (so the replaced state becomes backup 1 and the restore can be undone),
-then `git checkout backup/<set>/N -- dotsets/<set>`. Live links already
+then `git restore --source=backup/<set>/N --worktree -- dotsets/<set>`
+(tracked files only; the index is untouched). Live links already
 point into the repo, so restored files are live at once. DMS overrides need
 `sysup --dms-import` afterwards (printed as a hint). Nothing is committed.
 
