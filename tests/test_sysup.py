@@ -1910,8 +1910,16 @@ class SudoPrimeTests(FixtureCase):
     def test_update_asks_once_and_warns_on_failure(self):
         self.mock("sudo", 'printf "%s\\n" "sudo $*" >> "$CALLS"; exit 1')
         r = self.shell('ACTION=--update; _sudo_prime; printf "%s\\n" "${WARNINGS[@]}"')
-        self.assertEqual(Path(self.env["CALLS"]).read_text(), "sudo -v\n")
+        self.assertEqual(Path(self.env["CALLS"]).read_text(),
+                         "sudo -n true\nsudo -v -p     sudo password for %u: \n")
+        self.assertIn("enter your password once", r.stdout)
         self.assertIn("no sudo ticket", r.stdout)
+
+    def test_valid_ticket_skips_the_prompt(self):
+        self.mock("sudo", 'printf "%s\\n" "sudo $*" >> "$CALLS"; exit 0')
+        r = self.shell("ACTION=--update; _sudo_prime")
+        self.assertEqual(Path(self.env["CALLS"]).read_text(), "sudo -n true\n")
+        self.assertEqual(r.stdout, "")
 
     def test_other_actions_do_not_prompt(self):
         for action in ("--check", "--actions"):

@@ -384,7 +384,13 @@ _runtime_error() {
 # still watching; a prompt minutes into an update times out unattended.
 _sudo_prime() {
     case "$ACTION" in --update|-u|--yes|-y) ;; *) return 0 ;; esac
-    sudo -v || warn "no sudo ticket: steps that need root will fail"
+    sudo -n true 2>/dev/null && return 0
+    info "Root access: enter your password once, it is kept for the whole run"
+    if sudo -v -p "    sudo password for %u: "; then
+        ok "root access granted"
+    else
+        warn "no sudo ticket: steps that need root will fail"
+    fi
 }
 
 _init_runtime() {
