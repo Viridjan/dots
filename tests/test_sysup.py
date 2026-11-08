@@ -994,6 +994,34 @@ class ReviewFollowupTests(FixtureCase):
         self.assertNotIn('BAD_VJ', r.stdout)
         self.assertFalse(Path(self.env["CALLS"]).exists())
 
+    def _menu_fzf(self):
+        # Mode picker (--no-multi) answers $MODE; action list answers the IDs in $PICK.
+        self.mock("fzf", 'echo "fzf $*" >> "$CALLS"\n[ -n "${ESC:-}" ] && exit 130\n'
+                         'if [[ " $* " == *" --no-multi "* ]]; then grep "^$MODE\t"; exit 0; fi\n'
+                         'in=$(cat); for id in $PICK; do grep "^$id\t" <<< "$in"; done')
+
+    MENU_PY = ('_py() { [ "$1" = menu ] || return 1\n'
+               "  printf 'sources\\troutine\\tRefresh\\t\\tdesc\\nfish\\ttools\\tFish\\tnever run\\tdesc2\\n'"
+               '\n  printf "py %s\\n" "$*" >> "$CALLS"; }\n')
+
+    def test_menu_actions_builds_actions_args(self):
+        self._menu_fzf()
+        self.env.update(MODE="actions", PICK="sources fish")
+        r = self.shell(self.MENU_PY + '_menu\necho "A=$ACTION S=$SYSUP_ACTIONS O=${_ORIG_ARGS[*]}"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("A=--actions S=sources,fish O=--actions sources,fish", r.stdout)
+        self.assertIn("py menu sources install", Path(self.env["CALLS"]).read_text())  # whole MENU_ORDER
+
+    def test_menu_update_mode_and_escape(self):
+        self._menu_fzf()
+        self.env["MODE"] = "update"
+        r = self.shell(self.MENU_PY + '_menu\necho "A=$ACTION O=${_ORIG_ARGS[*]}"')
+        self.assertIn("A=--update O=--update", r.stdout)
+        self.env["ESC"] = "1"
+        r = self.shell(self.MENU_PY + '_menu\necho BAD_CONTINUED')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("BAD_CONTINUED", r.stdout)
+
     def test_removed_flags_die_before_any_work(self):
         self.mock("git", 'echo "git $*" >> "$CALLS"')
         for flag in ("-i", "--interactive", "--pacnew", "--kernels", "--lostfiles"):

@@ -3698,10 +3698,52 @@ plan_preview() {
     return 0
 }
 
+# Profile, features, one-time actions, last check, dotset backups.
+_status() {
+    local backups
+    _py status || return $?
+    backups=$(git -C "$DOTS_DIR" for-each-ref 'refs/tags/backup/' \
+        --format='  %(refname:short)  %(creatordate:short)  %(subject)' 2>/dev/null) || backups=""
+    printf '\ndotset backups (sysup --restore 1|2):\n%s\n' "${backups:-  none yet}"
+}
+
+# Bare sysup in a terminal. Only picks arguments main already handles: sets
+# ACTION (+ SYSUP_ACTIONS), and _ORIG_ARGS so a self-update relaunch runs the
+# choice instead of reopening the menu. Esc quits with 0.
+_menu() {
+    local mode rows sel ids
+    mode=$(printf '%s\t%s\n' \
+            update  "Update packages + clean caches" \
+            check   "Audit, report only" \
+            actions "Choose actions…" \
+            status  "Profile, one-time actions, last check" \
+        | fzf --delimiter='\t' --with-nth=2 --height=~10 --reverse --no-multi \
+              --prompt='sysup> ' --header='Enter: choose   Esc: quit') || exit 0
+    case "${mode%%$'\t'*}" in
+        update) ACTION=--update ;;
+        check)  ACTION=--check ;;
+        status) _status; exit $? ;;
+        actions)
+            rows=$(_py menu "${MENU_ORDER[@]}") || exit $?
+            # Display column: group, label, one-time state; field 3 = description.
+            sel=$(awk -F'\t' '{printf "%s\t%-9s %-38s %s\t%s\n", $1, $2, $3, $4, $5}' <<< "$rows" \
+                | fzf --multi --delimiter='\t' --with-nth=2 --height=80% --reverse \
+                      --prompt='actions> ' --header='Tab: mark   Enter: run marked (or current)   Esc: quit' \
+                      --preview="printf '%s\n\nsysup --actions %s\n' {3} {1}" --preview-window=down,4,wrap) \
+                || exit 0
+            ids=$(cut -f1 <<< "$sel"); ids=${ids//$'\n'/,}
+            [[ -n "$ids" ]] || exit 0
+            SYSUP_ACTIONS=$ids; ACTION=--actions ;;
+        *) exit 0 ;;
+    esac
+    _ORIG_ARGS=("$ACTION" ${SYSUP_ACTIONS:+"$SYSUP_ACTIONS"})
+    info "sysup ${_ORIG_ARGS[*]}"
+}
+
 usage() {
     echo "Usage: sysup [OPTION]"
     echo ""
-    echo "  (no args)           Show this help"
+    echo "  (no args)           Menu (in a terminal, needs fzf); this help otherwise"
     echo "  --yes, -y           Full bootstrap, non-interactive"
     echo "  --actions A,B,...   Run exactly these action IDs (list below)"
     echo "  --update, -u        Update packages + clean caches"
@@ -3772,11 +3814,7 @@ case "${1:-}" in
             --pkg)       _pkg_cmd "$@"; exit $? ;;
             --status)
                 (( $# == 0 )) || die "--status takes no arguments"
-                _py status || exit $?
-                _backups=$(git -C "$DOTS_DIR" for-each-ref 'refs/tags/backup/' \
-                    --format='  %(refname:short)  %(creatordate:short)  %(subject)' 2>/dev/null) || _backups=""
-                printf '\ndotset backups (sysup --restore 1|2):\n%s\n' "${_backups:-  none yet}"
-                exit 0 ;;
+                _status; exit $? ;;
             --skip-once) (( $# == 1 )) || die "--skip-once needs one action ID"; _py once-skip "$1"; exit $? ;;
         esac ;;
 esac
@@ -3812,8 +3850,16 @@ done
 
 # --help and --dry-run are read-only: no lock, no log rotation, no stamps.
 if [[ "$ACTION" == help ]]; then usage; exit 0; fi
-# No menu: bare sysup prints help.
-if ! $DRY_RUN && [[ -z "$ACTION" ]]; then usage; exit 0; fi
+# Bare sysup: menu in a terminal, help otherwise (timer, pipes, scripts).
+if ! $DRY_RUN && [[ -z "$ACTION" ]]; then
+    if [[ -t 0 && -t 1 ]] && command -v fzf &>/dev/null; then
+        (( EUID != 0 )) || die "run sysup as your user, not root — it calls sudo itself"
+        _menu
+    else
+        [[ -t 0 && -t 1 ]] && warn "fzf is not installed; showing help instead of the menu"
+        usage; exit 0
+    fi
+fi
 case "$ACTION" in
     ""|--actions|--yes|-y|--update|-u|--check|-c|--restore) ;;
     *) die "Unknown option: $ACTION. Use --help." ;;

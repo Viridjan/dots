@@ -168,7 +168,7 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
   `sysup.py once-done`, which stamps the one-time ones in `[once]`.
 - **Config flags** (no lock, no plan run): `--profile NAME [--dotset SET]`
   (`sysup.py choose`), `--pkg WHERE NAME…`, `--status` (+ backup tags),
-  `--skip-once ID`. Bare `sysup` prints help.
+  `--skip-once ID`. Bare `sysup` opens the menu (TTY + fzf), else prints help.
 - **Display** (2026-11-01): local `[display]` `text_scale` (hand-edited) → plan env
   `SYSUP_TEXT_SCALE` → `_apply_display` (in `_stow_niri_cfg`) sets
   `gsettings … text-scaling-factor`.
@@ -594,10 +594,16 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   upgrades (including retries) and both rebuild paths. First installation is
   unchanged. Audit and update runs warn about pending held AUR updates with
   review and manual upgrade commands; dry runs list the holds.
-- **No menu at all.** The bash menu went 2026-10-27, the vj TUI 2026-11-08
-  (sysup rename). `MENU_ORDER` (top-level array) is the only action ID list:
-  `--actions` validates against it, fish completion reads it, and `ONCE` in
-  `sysup.py` must use the same IDs.
+- **Menu (2026-11-08).** Bare `sysup` with stdin+stdout on a TTY and `fzf`
+  installed runs `_menu`; otherwise help (timer, pipes, tests). Step 1 picks
+  update / check / actions / status; step 2 is `fzf --multi` over rows from
+  `sysup.py menu "${MENU_ORDER[@]}"` (feature-gated one-time actions hidden,
+  `[once]` state shown). It only sets `ACTION`/`SYSUP_ACTIONS` and
+  `_ORIG_ARGS` (so the self-update relaunch runs the choice), then main runs
+  as for `--actions`. `MENU_ORDER` (top-level array) is the only action ID list:
+  `--actions` validates against it, fish completion reads it. Labels and
+  descriptions live in `ACTIONS` in `sysup.py`; a test fails when an ID lacks
+  an entry. `ONCE` is the list of one-time IDs.
 - **Dotset backups (2026-11-08).** `_backup_dotset head|work|live-dms`: local
   tags `backup/<set>/1` (newest) and `/2` on snapshot commits (temp
   `GIT_INDEX_FILE` + `commit-tree`, so branch/index/tree are untouched;
@@ -764,7 +770,7 @@ sources → install → dotfiles → configure → audit
 | `configure` | system services, snapper, keyboard, greeter, keyring-pam (user-prompted); DMS plugins, install scripts, fish, claude, VMs (first-run prompted) |
 | `audit` | (`AUDIT_CHECKS`) orphan packages, unlisted/unused apps (report only), flatpak cleanup, rebuild check, pacnew files, modified configs, DMS owner, logins, firmware updates |
 
-Bare `sysup` prints help; `--help` lists the action IDs.
+Bare `sysup` opens the menu in a terminal (help otherwise); `--help` lists the action IDs.
 `--yes` runs the legacy full bootstrap, `--update` and `--check` stay direct.
 
 ## Shell script linting

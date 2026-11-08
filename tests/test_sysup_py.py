@@ -371,6 +371,27 @@ class CommandTests(Tmp):
         self.assertIn("skipped", out)
         self.assertNotIn("surface-secureboot", out)  # needs linux-surface feature
 
+    def test_menu_rows_carry_label_state_and_hide_gated(self):
+        self.cli("choose", "desktop")
+        self.cli("once-done", "services")
+        r = self.cli("menu", "sources", "services", "fish", "surface-secureboot")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        rows = [line.split("\t") for line in r.stdout.splitlines()]
+        self.assertEqual([row[0] for row in rows], ["sources", "services", "fish"])  # gated one hidden
+        self.assertTrue(all(len(row) == 5 for row in rows))
+        self.assertEqual(rows[0][1:4], ["routine", "Refresh package sources", ""])  # repeatable: no state
+        self.assertEqual(rows[1][3], f"done {datetime.date.today()}")
+        self.assertEqual(rows[2][3], "never run")
+        r = self.cli("menu", "sources", "nope")
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("nope", r.stderr)
+
+    def test_every_menu_order_id_has_a_menu_entry(self):
+        script = (ROOT / "scripts/.local/bin/sysup").read_text()
+        ids = next(l for l in script.splitlines() if l.startswith("MENU_ORDER=("))[12:-1].split()
+        self.assertEqual(sorted(ids), sorted(S.ACTIONS))
+        self.assertTrue(set(S.ONCE) <= set(ids))
+
     def test_migrates_old_config_once(self):
         xdg = self.root / "xdg"
         (xdg / "vjupdate").mkdir(parents=True)

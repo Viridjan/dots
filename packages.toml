@@ -158,6 +158,8 @@ install = [
     # CLI tools
     # jq: used by the Claude Code statusline segments (model, topic, dir)
     "jq",
+    # fzf: the bare `sysup` menu
+    "fzf",
     "ripgrep",
     "duf",
     "glances",
