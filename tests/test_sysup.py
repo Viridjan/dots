@@ -1927,6 +1927,27 @@ class SudoPrimeTests(FixtureCase):
         self.assertFalse(Path(self.env["CALLS"]).exists())
 
 
+class SudoFailureDetailTests(FixtureCase):
+    """A sudo prompt nobody answered is named in the recap (2026-11-08)."""
+    def test_upgrade_detail_names_sudo_timeout(self):
+        log = self.root / "log"
+        log.write_text("sudo: timed out reading password\nsudo: a password is required\n")
+        r = self.shell(f'_syuu_fail_detail "{log}"')
+        self.assertEqual(r.stdout.strip(), "sudo: timed out reading password (password not entered)")
+
+    def test_build_failure_still_wins(self):
+        log = self.root / "log"
+        log.write_text("sudo: timed out reading password\nerror: packages failed to build: foo-1.0\n")
+        r = self.shell(f'_syuu_fail_detail "{log}"')
+        self.assertEqual(r.stdout.strip(), "AUR build failed: foo-1.0")
+
+    def test_paccache_warning_names_missing_sudo(self):
+        self.mock("sudo", "exit 1")
+        self.mock("paccache", "exit 0")
+        r = self.shell('clean_caches >/dev/null 2>&1 || true; printf "%s\\n" "${WARNINGS[@]}"')
+        self.assertIn("paccache -rk2 failed: no sudo access (password not entered)", r.stdout)
+
+
 class ConfigFlagTests(FixtureCase):
     """--profile / --pkg / --status / --skip-once against a fixture repo."""
 

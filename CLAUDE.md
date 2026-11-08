@@ -552,7 +552,9 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
     (`SYSUP_MIN_FREE_GB`); keeps an existing sudo ticket alive (`sudo -n -v`
     loop, terminal runs only, killed in `_cleanup`). `--update`/`--yes` in a terminal
     first ask for it once (`_sudo_prime`: sysup-style `==>` line + `sudo -v -p`, skipped when a ticket is valid): an unattended prompt mid-run timed
-    out and failed the upgrade and paccache (2026-11-08).
+    out and failed the upgrade and paccache (2026-11-08). Sudo failures are named in
+    the recap: `_syuu_fail_detail` reports paru's `sudo:` line, paccache warnings append
+    `_sudo_cause` (`sudo -n true` fails = no ticket).
 - **Guards added 2026-11-01 (Surface incidents).** `_warn_unfolded` (after each
   home package stows): warns when a target is a real dir instead of a folded
   link (stow then links file by file and new files never reach git; skips

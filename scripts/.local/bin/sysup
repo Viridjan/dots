@@ -574,9 +574,19 @@ _syuu_fail_detail() {
         echo "AUR build failed: $pkgs"
         return
     fi
+    # sudo never got a password: name that, not paru's generic exit.
+    local su
+    su=$(sed -n 's/^sudo: //p' "$log" | grep -v '^a password is required' | tail -n 1)
+    if [[ -n "$su" ]]; then
+        echo "sudo: $su (password not entered)"
+        return
+    fi
     # No build failure: fall back to the last error line paru printed.
     sed -n 's/^error: //p' "$log" | tail -n 1
 }
+
+# Why a sudo command failed, when the cause is sudo itself (no ticket left).
+_sudo_cause() { sudo -n true 2>/dev/null || echo ": no sudo access (password not entered)"; }
 
 # pacman -Syy with the same one-shot recovery as _syuu: a repo key that is
 # present but not locally signed (or lost since the last keyring reset) would
@@ -2662,8 +2672,8 @@ clean_caches() {
     # which may not be installed yet if a fresh bootstrap failed mid-install.
     # Unguarded, it would abort the run before print_recap.
     if command -v paccache &>/dev/null; then
-        _mutate sudo paccache -rk2  || { _cache_ok=false; warn "paccache -rk2 failed"; }
-        _mutate sudo paccache -ruk0 || { _cache_ok=false; warn "paccache -ruk0 failed"; }
+        _mutate sudo paccache -rk2  || { _cache_ok=false; warn "paccache -rk2 failed$(_sudo_cause)"; }
+        _mutate sudo paccache -ruk0 || { _cache_ok=false; warn "paccache -ruk0 failed$(_sudo_cause)"; }
     else
         _cache_ok=false
         warn "paccache not found — install pacman-contrib"
