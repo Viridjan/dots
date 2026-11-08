@@ -140,7 +140,7 @@ automount_disks() {
         sudo mkdir -p "$_mp"
     done
 
-    printf '\n# Added by sysup --automount on %s\n' "$(date)" | sudo tee -a /etc/fstab > /dev/null
+    printf '\n# Added by sysup (automount action) on %s\n' "$(date)" | sudo tee -a /etc/fstab > /dev/null
     for i in "${!_fstab_entries[@]}"; do
         printf '%s\n' "${_fstab_entries[$i]}" | sudo tee -a /etc/fstab > /dev/null
         ok "added: ${_fstab_entries[$i]}"

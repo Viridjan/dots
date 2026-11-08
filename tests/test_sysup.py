@@ -234,7 +234,7 @@ _run_phase fixture broken_step
         self.mock("checkrebuild", "printf 'foreign\\texample\\n'")
         self.mock("paru", 'echo BAD_REBUILD >> "$CALLS"')
         # No definitions can be refreshed: git is the default failing mock.
-        r = self.cli("--rebuild")
+        r = self.cli("--actions", "rebuild")
         self.assertNotEqual(r.returncode, 0, r.stdout)
         calls = Path(self.env["CALLS"])
         self.assertFalse(calls.exists() and "BAD_REBUILD" in calls.read_text())
@@ -486,14 +486,15 @@ print_recap
         state.mkdir(parents=True)
         log = state / "sysup.log"
         log.write_text("original log")
+        (self.home / "Projects/dots").mkdir(parents=True, exist_ok=True)
         with (state / "sysup.lock").open("w") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            r = self.cli("--app-launchers")
+            r = self.cli("--actions", "app-launchers")
             self.assertNotEqual(r.returncode, 0)
             self.assertIn("already running", r.stderr)
             self.assertEqual(log.read_text(), "original log")
             self.assertFalse((state / "sysup.log.1").exists())
-        r = self.cli("--app-launchers")
+        r = self.cli("--actions", "app-launchers")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual((state / "sysup.log.1").read_text(), "original log")
 
@@ -992,6 +993,14 @@ class ReviewFollowupTests(FixtureCase):
         self.assertIn("Usage: sysup", r.stdout)
         self.assertNotIn('BAD_VJ', r.stdout)
         self.assertFalse(Path(self.env["CALLS"]).exists())
+
+    def test_removed_flags_die_before_any_work(self):
+        self.mock("git", 'echo "git $*" >> "$CALLS"')
+        for flag in ("-i", "--interactive", "--pacnew", "--kernels", "--lostfiles"):
+            r = self.cli(flag)
+            self.assertNotEqual(r.returncode, 0, flag)
+            self.assertIn(f"Unknown option: {flag}", r.stderr, flag)
+        self.assertFalse(Path(self.env["CALLS"]).exists())  # no fetch, no plan
 
     def test_unreadable_conflict_and_flatpak_lists_fail(self):
         self.plan("paru-remove.list", "conflict\n")

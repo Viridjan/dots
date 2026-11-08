@@ -522,11 +522,10 @@ Create `.desktop` entries for all installed Steam games (shows up in app menus).
 Also removes launchers for games that were uninstalled:
 
 ```bash
-sysup --steam-launchers
+sysup --actions steam-launchers
 ```
 
 Re-run after installing new games. Launchers land in `~/.local/share/applications/`.
-Action ID `steam-launchers`.
 
 ### App launcher cleanup
 
@@ -536,10 +535,9 @@ app, deleted script), and reports installed apps not mirrored into
 `/usr/share/applications/`):
 
 ```bash
-sysup --app-launchers
+sysup --actions app-launchers
 ```
 
-Action ID `app-launchers`.
 
 ### Weekly health check
 
@@ -562,7 +560,7 @@ The audit (`sysup --check`, or action `audit`) reports, never removes:
 The audit also reports package config files you changed in `/etc` (only ones
 new since the last audit), DMS started twice (service plus niri spawn), and
 missing logins for installed tools (gh, SSH key, Claude, Codex,
-spotify_player, Vesktop). `sysup --lostfiles` lists files no package owns
+spotify_player, Vesktop). `sysup --actions lostfiles` lists files no package owns
 (takes about a minute).
 
 Usage comes from DankMaterialShell (launcher history + per-window focus time in
@@ -600,7 +598,7 @@ log. Point its **Settings → Logs** at:
 Arena also needs **Options → Account → Detailed Logs (Plugin Support)** enabled, or
 the tool sees almost nothing. Launch with `mtgatool` or from the app menu.
 
-Note: `sysup --app-launchers` deletes any `.desktop` whose target binary is
+Note: `sysup --actions app-launchers` deletes any `.desktop` whose target binary is
 missing — on a fresh clone, download the AppImage before running it, or the
 launcher symlink gets removed (`stow --no-folding --restow -t ~ scripts` brings it back).
 
@@ -710,7 +708,7 @@ cp /.snapshots/<N>/snapshot/path/to/file ~/restored-file
 
 ## System optimisations (CachyOS / Arch)
 
-Most of these are automated — run `sysup --optimize` (or `sysup --actions optimize`). It applies steps 1–5 below idempotently: CPU governor,
+Most of these are automated — run `sysup --actions optimize`. It applies steps 1–5 below idempotently: CPU governor,
 disabling NetworkManager-wait-online, masking lvm2-monitor, the rate-mirrors 2h
 delay, and the AMD GPU performance udev rule. Steps 7 (EFI cleanup) and 8 (greetd
 autologin) stay manual — EFI needs review, autologin conflicts with the DMS
