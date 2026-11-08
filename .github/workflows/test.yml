@@ -16,8 +16,7 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -yq stow shellcheck jq
-          pip install -q textual
       - name: shellcheck
-        run: shellcheck -S error scripts/.local/bin/vjupdate scripts/.local/lib/vjupdate/automount.sh .githooks/pre-commit
+        run: shellcheck -S error scripts/.local/bin/sysup scripts/.local/bin/vjsurface scripts/.local/lib/sysup/automount.sh .githooks/pre-commit
       - name: unittest
         run: python3 -B -m unittest discover -s tests -v

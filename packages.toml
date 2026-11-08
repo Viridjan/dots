@@ -1,5 +1,5 @@
 # Package lists shared by every profile. Per-profile lists: profiles/<name>.toml.
-# Per-machine changes go in ~/.config/vjupdate/config.toml, not here.
+# Per-machine changes go in ~/.config/sysup/config.toml, not here.
 # Install priority: pacman > flatpak > paru (AUR). Check new AUR names against
 # the malware blocklist first (see CLAUDE.md).
 
@@ -157,8 +157,6 @@ install = [
 
     # CLI tools
     # jq: used by the Claude Code statusline segments (model, topic, dir)
-    # python-textual: the vj terminal UI (scripts/.local/bin/vj)
-    "python-textual",
     "jq",
     "ripgrep",
     "duf",
@@ -262,9 +260,9 @@ hold = [
 
 # Skipped by install and audit even if listed above.
 skip = [
-    # Packages to skip during vjupdate install phases.
+    # Packages to skip during sysup install phases.
     # One package per line. Lines starting with # are ignored.
-    # Edit by hand; read by the install and audit phases of vjupdate.
+    # Edit by hand; read by the install and audit phases of sysup.
 ]
 
 [flatpak]
@@ -289,16 +287,16 @@ remove = []
 
 [systemd]
 # Enabled (systemctl enable --now). Dropping a unit from these lists disables
-# it on the next "Enable system services" run (vjupdate tracks what it enabled).
+# it on the next "Enable system services" run (sysup tracks what it enabled).
 enable = [
     "NetworkManager", "bluetooth", "cups", "bpftune", "ananicy-cpp",
     "dmemcg-booster-system", "systemd-oomd", "power-profiles-daemon",
     "snapper-timeline.timer", "snapper-cleanup.timer",
     "greetd", "docker",
 ]
-# User units (systemctl --user). vjupdate-check.timer: weekly report-only
+# User units (systemctl --user). sysup-check.timer: weekly report-only
 # health check, unit files in dotset package systemd-user.
-user = ["psd", "mpd", "vjupdate-check.timer"]
+user = ["psd", "mpd", "sysup-check.timer"]
 
 [npm]
 # Global npm tools (prefix ~/.local, see CLAUDE.md). Installed if missing.

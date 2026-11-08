@@ -1,16 +1,16 @@
 description = "Surface Pro 9 \u2014 touch, stylus"
-# Substring of the hostname; preselected on first run and used by `vjupdate` without a config.
+# Substring of the hostname; preselected on first run and used by `sysup` without a config.
 hostname = "surface"
 # Default dotfile set (dotsets/<name>/); each machine may pick another.
 dotset = "viridjan"
-# Behaviour switches read by vjupdate (_has_feature).
+# Behaviour switches read by sysup (_has_feature).
 features = ["linux-surface"]
 
 [paru]
 install = [
     # Surface Pro 9 packages — Intel 12th gen + Iris Xe
     #
-    # NOTE: vjupdate adds the linux-surface pacman repo to pacman.conf automatically.
+    # NOTE: sysup adds the linux-surface pacman repo to pacman.conf automatically.
     # Secure Boot key enrollment needed for linux-surface kernel — see INSTALL.md.
 
     # Surface kernel (linux-surface repo — includes all surface patches: WiFi, touchscreen, pen, camera)

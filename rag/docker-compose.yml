@@ -1,5 +1,5 @@
 # Milvus standalone (embedded etcd, local storage) for the claude-context MCP.
-# Settings from upstream scripts/standalone_embed.sh. Started by vjupdate's
+# Settings from upstream scripts/standalone_embed.sh. Started by sysup's
 # _setup_rag (rag-stack feature). Loopback only: Milvus has no auth here.
 name: rag
 services:

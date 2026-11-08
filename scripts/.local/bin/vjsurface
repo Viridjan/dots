@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # vjsurface — keep a Surface (linux-surface profile) in the state that was
-# fixed by hand on 2026-11-01. Run it before or after vjupdate, as often as
+# fixed by hand on 2026-11-01. Run it before or after sysup, as often as
 # you like: every step checks first and changes nothing when already done.
 #
 #   1. pacman repos    pacman.conf / mirrorlists lost repos or servers versus
@@ -19,7 +19,9 @@ set -uo pipefail
 
 DOTS="${VJS_DOTS:-$(cd "$(dirname "$(realpath "$0")")/../../.." && pwd)}"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/dots"
-CFG="${VJ_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/vjupdate/config.toml}"
+CFG="${SYSUP_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/sysup/config.toml}"
+# Before the first sysup run the config still sits at its pre-sysup path.
+[[ -e "$CFG" || -n "${SYSUP_CONFIG:-}" ]] || CFG="${XDG_CONFIG_HOME:-$HOME/.config}/vjupdate/config.toml"
 TS=$(date +%Y%m%d-%H%M%S)
 # Overridable for tests.
 GRUB_FILE="${VJS_GRUB_FILE:-/etc/default/grub}"
@@ -45,10 +47,10 @@ if [[ "$profile" != surface && "$(cat "$DMI" 2>/dev/null)" != *Surface* ]]; then
     echo "Not a Surface (profile '${profile:-unset}', no Surface in $DMI) — nothing to do."
     exit 0
 fi
-# vjupdate holds an flock on this file while it runs (pacman would clash).
-if command -v flock &>/dev/null && [[ -e "$STATE/vjupdate.lock" ]] \
-        && ! { flock -n 9; } 9<"$STATE/vjupdate.lock"; then
-    echo "vjupdate is running — run vjsurface after it finishes."
+# sysup holds an flock on this file while it runs (pacman would clash).
+if command -v flock &>/dev/null && [[ -e "$STATE/sysup.lock" ]] \
+        && ! { flock -n 9; } 9<"$STATE/sysup.lock"; then
+    echo "sysup is running — run vjsurface after it finishes."
     exit 0
 fi
 SUDO=true
@@ -77,14 +79,14 @@ step_pacman() {
             ok "$f"
         elif as_root cp -p "$f" "$f.vjsurface-$TS" && as_root cp -p "$bak" "$f"; then
             ok "$f had lost ${lost% } — restored $bak (previous file kept as $f.vjsurface-$TS)"
-            note "run 'sudo pacman -Syy' (or vjupdate) to resync the databases"
+            note "run 'sudo pacman -Syy' (or sysup) to resync the databases"
         else
             warn "$f lost ${lost% } compared with $bak — restore it: sudo cp $bak $f"
         fi
     done
     grep -q '^\[linux-surface\]' "${PACMAN_FILES[0]}" 2>/dev/null \
         && ok "linux-surface repo present" \
-        || warn "linux-surface repo missing from ${PACMAN_FILES[0]} — run: vjupdate --actions sources"
+        || warn "linux-surface repo missing from ${PACMAN_FILES[0]} — run: sysup --actions sources"
 }
 
 # ── 2. kernel packages ───────────────────────────────────────────────────────
@@ -165,7 +167,7 @@ step_touch() {
 }
 
 # ── 5. refold dotfile packages ───────────────────────────────────────────────
-# Same detection as vjupdate's _warn_unfolded: a package dir whose target is a
+# Same detection as sysup's _warn_unfolded: a package dir whose target is a
 # real directory instead of resolving into the package.
 _unfolded_dir() {
     local pkg="$1" d rel t

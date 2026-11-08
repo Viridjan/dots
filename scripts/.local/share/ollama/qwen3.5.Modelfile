@@ -1,5 +1,5 @@
 # qwen3.5 under its own name with a VRAM cap. Built over the official tag;
-# vjupdate re-applies it after every pull.
+# sysup re-applies it after every pull.
 # Owner's cap: ollama uses at most 5 GB of VRAM.
 # Measured 2026-10-31 at 32k context: 25 layers = 5.14 GB (over), 24 layers =
 # 4.94 GB, 14 tok/s (all 33 on GPU: 7.4 GB, 55 tok/s). The rest runs on CPU.

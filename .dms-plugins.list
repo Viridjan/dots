@@ -1,5 +1,5 @@
 # DMS plugins — installed via dms plugins install
-# Feed to vjupdate: reads this file and installs missing plugins
+# Feed to sysup: reads this file and installs missing plugins
 # Find IDs with: dms plugins browse
 
 # Monitoring

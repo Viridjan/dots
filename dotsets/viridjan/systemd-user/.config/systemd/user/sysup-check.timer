@@ -1,5 +1,5 @@
 [Unit]
-Description=Weekly vjupdate --check
+Description=Weekly sysup --check
 
 [Timer]
 OnCalendar=weekly

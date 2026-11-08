@@ -1,0 +1,9 @@
+[Unit]
+Description=sysup health check (report only; summary in sysup --status)
+
+[Service]
+Type=oneshot
+Nice=19
+IOSchedulingClass=idle
+# --check never removes anything; a failed check pops a desktop notification.
+ExecStart=/bin/bash -c '%h/.local/bin/sysup --check || notify-send -u critical -a sysup "sysup: health check found problems" "Run sysup --status, or read ~/.local/state/dots/sysup.log"'

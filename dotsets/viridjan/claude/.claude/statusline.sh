@@ -5,7 +5,7 @@
 # Why this exists: the plugin cache dirs carry version hashes
 # (caveman/25d22f864ad6, ponytail/4.7.0), so any settings.json that hardcodes
 # those paths goes stale on the next plugin update. Globbing them here means
-# settings.json stays a static committed file and vjupdate needs no statusline
+# settings.json stays a static committed file and sysup needs no statusline
 # generation code at all. Adding a segment = one line below.
 #
 # Each script gets its own copy of stdin — piping them in sequence would let the

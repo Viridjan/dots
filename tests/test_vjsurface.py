@@ -40,7 +40,7 @@ class VjsurfaceTests(unittest.TestCase):
         self.grub_cfg.write_text("menuentry linux-cachyos\n")
         self.conf = self.root / "pacman.conf"
         self.conf.write_text("[options]\n[cachyos]\n[core]\n[linux-surface]\n")
-        cfg = self.home / ".config/vjupdate/config.toml"
+        cfg = self.home / ".config/sysup/config.toml"
         cfg.parent.mkdir(parents=True)
         cfg.write_text('profile = "surface"\ndotset = "me"\n')
         self.env = {"HOME": str(self.home), "PATH": str(self.bin), "CALLS": str(self.calls),
@@ -64,22 +64,30 @@ class VjsurfaceTests(unittest.TestCase):
     def calls_text(self):
         return self.calls.read_text() if self.calls.exists() else ""
 
+    def test_reads_pre_sysup_config_until_migrated(self):
+        new = self.home / ".config/sysup/config.toml"
+        new.unlink()
+        old = self.home / ".config/vjupdate/config.toml"
+        old.parent.mkdir(parents=True)
+        old.write_text('profile = "surface"\n')
+        self.assertNotIn("Not a Surface", self.run_it())  # profile came from the old path
+
     def test_not_a_surface_does_nothing(self):
-        (self.home / ".config/vjupdate/config.toml").write_text('profile = "desktop"\n')
+        (self.home / ".config/sysup/config.toml").write_text('profile = "desktop"\n')
         out = self.run_it()
         self.assertIn("Not a Surface", out)
         self.assertEqual(self.calls_text(), "")
 
-    def test_waits_for_running_vjupdate(self):
-        lock = self.home / ".local/state/dots/vjupdate.lock"
+    def test_waits_for_running_sysup(self):
+        lock = self.home / ".local/state/dots/sysup.lock"
         lock.parent.mkdir(parents=True)
         lock.touch()
         import fcntl
         with open(lock) as f:
             fcntl.flock(f, fcntl.LOCK_EX)
-            self.assertIn("vjupdate is running", self.run_it())
+            self.assertIn("sysup is running", self.run_it())
             fcntl.flock(f, fcntl.LOCK_UN)
-        self.assertNotIn("vjupdate is running", self.run_it())
+        self.assertNotIn("sysup is running", self.run_it())
 
     def test_grub_set_once_then_idempotent(self):
         out = self.run_it()

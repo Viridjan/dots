@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Sourced by vjupdate on first use of automount_disks (one-time disk setup,
-# kept out of the main script). Relies on vjupdate's info/ok/warn/die/_confirm.
+# Sourced by sysup on first use of automount_disks (one-time disk setup,
+# kept out of the main script). Relies on sysup's info/ok/warn/die/_confirm.
 
 # Escape an fstab field without interpreting existing backslashes.
 _fstab_escape() {
@@ -140,7 +140,7 @@ automount_disks() {
         sudo mkdir -p "$_mp"
     done
 
-    printf '\n# Added by vjupdate --automount on %s\n' "$(date)" | sudo tee -a /etc/fstab > /dev/null
+    printf '\n# Added by sysup --automount on %s\n' "$(date)" | sudo tee -a /etc/fstab > /dev/null
     for i in "${!_fstab_entries[@]}"; do
         printf '%s\n' "${_fstab_entries[$i]}" | sudo tee -a /etc/fstab > /dev/null
         ok "added: ${_fstab_entries[$i]}"

@@ -66,8 +66,8 @@
       "### User-specific",
       "**Primary use of Claude Code**: personal/hobby — dotfiles and system configuration management for CachyOS + niri (GNU Stow-based)",
       "**Trusted repo**: ~/Projects/dots (github.com/Viridjan/dots) — PUBLIC repo; confidential/personal material is not automatically fine here — only this repo's own dotfiles/config content belongs in it; secrets remain excluded regardless of visibility (see gitignore'd credential paths above)",
-      "**Org-specific CLIs**: None configured — routine project tooling: `vjupdate`, `stow`, `paru`, `pacman`, `claude-science`, `shellcheck`, `checkrebuild`",
-      "routine under ~/Projects/dots/ prefix: stow, vjupdate, and package-list edits are routine maintenance for this repo"
+      "**Org-specific CLIs**: None configured — routine project tooling: `sysup`, `stow`, `paru`, `pacman`, `claude-science`, `shellcheck`, `checkrebuild`",
+      "routine under ~/Projects/dots/ prefix: stow, sysup, and package-list edits are routine maintenance for this repo"
     ]
   }
 }

@@ -3,32 +3,34 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 GNU Stow dotfiles for CachyOS + niri. All config files live here and are
-symlinked into `$HOME` via stow. `vj` (Textual TUI, `vj/`) drives `vjupdate`
-(bash backend). Machines are **profiles** (`profiles/*.toml`), configs are
+symlinked into `$HOME` via stow. `sysup` (bash, `scripts/.local/bin/sysup`)
+does everything; its TOML side is one stdlib helper,
+`scripts/.local/lib/sysup/sysup.py`. No TUI (vj was removed 2026-11-08). Machines are **profiles** (`profiles/*.toml`), configs are
 **dotfile sets** (`dotsets/<name>/`), per-machine choices live in
-`~/.config/vjupdate/config.toml` (not in git). Design:
-`docs/superpowers/specs/2026-10-21-vjupdate-tui-design.md`.
+`~/.config/sysup/config.toml` (not in git). Design:
+`docs/superpowers/specs/2026-11-07-sysup-design.md` (replaces
+`docs/superpowers/specs/2026-10-21-vjupdate-tui-design.md`).
 
 ## Commands
 
 ```bash
-vj                                                                # the TUI (needs python-textual)
-python3 -B -m vj plan /tmp/plan                                   # write the run plan vjupdate reads
-vjupdate --actions sources,install                                # run menu IDs without a menu (what vj does)
+sysup --update / --check / --status / --help
+python3 -B scripts/.local/lib/sysup/sysup.py plan /tmp/plan      # write the run plan sysup reads
+sysup --actions sources,install                                   # run exactly these action IDs
 python3 -B -m unittest discover -s tests -v                      # all tests (mocked; no system changes)
-python3 -B -m unittest tests.test_vjupdate.HoldTests             # one class
-python3 -B -m unittest tests.test_vjupdate.HoldTests.test_upgrade_holds_on_first_attempt_and_retry
-VJUPDATE_SCRIPT=/path/to/snapshot python3 -B -m unittest ...     # run tests against a saved script copy
-shellcheck -S warning scripts/.local/bin/vjupdate                 # pre-commit enforces -S error
-bash -n scripts/.local/bin/vjupdate
+python3 -B -m unittest tests.test_sysup.HoldTests             # one class
+python3 -B -m unittest tests.test_sysup.HoldTests.test_upgrade_holds_on_first_attempt_and_retry
+SYSUP_SCRIPT=/path/to/snapshot python3 -B -m unittest ...     # run tests against a saved script copy
+shellcheck -S warning scripts/.local/bin/sysup                 # pre-commit enforces -S error
+bash -n scripts/.local/bin/sysup
 niri validate -c ~/.config/niri/config.kdl; echo $?               # check exit code before reloading
 ```
 
-Tests `source` vjupdate (main is guarded by a `BASH_SOURCE` check) with a
+Tests `source` sysup (main is guarded by a `BASH_SOURCE` check) with a
 restricted `PATH` where pacman/paru/sudo/stow/git are mocks.
 
-**Don't edit vjupdate in place while it runs** (`pgrep -af vjupdate`): bash reads
-scripts by byte offset and `~/.local/bin/vjupdate` links to the repo file, so an
+**Don't edit sysup in place while it runs** (`pgrep -af sysup`): bash reads
+scripts by byte offset and `~/.local/bin/sysup` links to the repo file, so an
 in-place write corrupts a live upgrade. Write a temp file and `mv` it over.
 
 ## Claude Code launch
@@ -47,12 +49,9 @@ Memory and project context are scoped to the working directory at launch. Openin
 dots/
   packages.toml   ← package lists shared by every profile: [paru] install/remove/hold/skip, [flatpak] install
   profiles/       ← one TOML per machine type: description, hostname match, default dotset,
-                    features (switches read by vjupdate's _has_feature), [paru]/[flatpak] install
+                    features (switches read by sysup's _has_feature), [paru]/[flatpak] install
   projects.toml   ← [[repo]] name/url cloned into ~/Projects by the sources phase
   build-times.tsv ← committed timing history: aur:<pkg>, @pacman-per-pkg, @flatpak-per-pkg (seconds)
-  vj/             ← Python: config.py (repo + local config), resolve.py (lists, estimates, run plan),
-                    state.py (everything the TUI shows/changes), ui.py (Textual),
-                    progress.py (PTY-backed run screen), __main__.py (CLI)
   dotsets/
     viridjan/     ← my dotfile set; every subdir is a stow package except profile-named dirs:
       alacritty/      → ~/.config/alacritty/
@@ -72,7 +71,7 @@ dots/
       surface/        → same files as desktop/, for profile surface
       plancia/        → same files, for profile plancia (Plancia-PC: 7900X + RTX 4070 SUPER; no output
                         block, empty xkb = system keymap, infra-only autostart; 2026-10-31)
-      systemd-user/   → ~/.config/systemd/user/  (vjupdate-check.timer: weekly report-only --check)
+      systemd-user/   → ~/.config/systemd/user/  (sysup-check.timer: weekly report-only --check)
       vesktop/        → ~/.config/vesktop/  (settings.json + settings/)
       cave/           → ~/.cave/  (Cave AI agent config + ollama extension)
       caveman/        → ~/.config/caveman/  (caveman plugin defaultMode = ultra)
@@ -82,7 +81,7 @@ dots/
                         keeps both; registered by deploy_dotfiles. A pull that changes it blanks the local password)
       nirinit/        → ~/.config/nirinit/  (skip list: apps the niri autostart already opens)
       xdg-desktop-portal/ → ~/.config/xdg-desktop-portal/  (niri-portals.conf: copy of /usr/share's + ScreenCast=niri-autoselect)
-  scripts/        → ~/.local/bin/ + ~/.local/lib/vjupdate/ (automount.sh)  (vjupdate, vj, vjsurface, start-windows, start-open-notebook, start-battlenet, gamescope-media; stowed --no-folding,
+  scripts/        → ~/.local/bin/ + ~/.local/lib/sysup/ (sysup.py, automount.sh)  (sysup, vjsurface, start-windows, start-open-notebook, start-battlenet, gamescope-media; stowed --no-folding,
                     always from the repo root — tooling, not part of a dotfile set)
                   + ~/.local/share/applications/  (.desktop launchers)
                   + ~/.local/share/ollama/  (<name>.Modelfile, rebuilt by setup_ollama)
@@ -90,7 +89,7 @@ dots/
   rag/            ← NOT a stow package — Docker Compose for Milvus (rag-stack, 127.0.0.1:19530)
   .githooks/      ← NOT a stow package — git hooks (secret scan + shellcheck); registered via core.hooksPath
   .github/        ← CI: unittest suite + shellcheck on push
-  tests/          ← NOT a stow package — vjupdate + vj unittest suites (mocked system commands)
+  tests/          ← NOT a stow package — sysup, sysup.py, backup, vjsurface unittest suites (mocked system commands)
   docs/superpowers/ ← specs and plans
   graphify-out/   ← NOT a stow package — tracked /graphify knowledge graph; corpus filter in .graphifyignore
 ```
@@ -100,14 +99,14 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
 
 ### Profiles, dotfile sets, local config (2026-10-21)
 
-- **Run plan.** `python3 -m vj plan DIR` resolves `packages.toml` + profile +
+- **Run plan.** `sysup.py plan DIR` resolves `packages.toml` + profile +
   local config into `paru-install.list paru-remove.list paru-hold.list
-  paru-skip.list flatpak-install.list projects.list stow.list env`. vjupdate
-  reads only these (`VJ_PLAN_DIR`). vj passes its own plan; a standalone
-  `vjupdate` builds a temporary one (`_ensure_plan`), choosing the profile from
+  paru-skip.list flatpak-install.list projects.list stow.list env`. sysup
+  reads only these (`SYSUP_PLAN_DIR`). `_ensure_plan` builds a temporary one
+  unless `SYSUP_PLAN_DIR` is given, choosing the profile from
   `config.toml`, else the profile whose `hostname` is a substring of the host,
-  else dies with "run 'vj'". `env` sets `VJ_PROFILE` (= `MACHINE`),
-  `VJ_DOTSET_DIR` (empty for `none`), `VJ_FEATURES`.
+  else dies with "run 'sysup --profile NAME'". `env` sets `SYSUP_PROFILE` (= `MACHINE`),
+  `SYSUP_DOTSET_DIR` (empty for `none`), `SYSUP_FEATURES`.
 - **Resolution:** install = packages.toml + profile + local add − local remove
   − declined − skip. Declined ≠ removed. `[paru].remove` (repo) is
   force-removed (`pacman -Rdd`, conflict swaps); local `x` marks go to
@@ -129,15 +128,7 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
   repo + profile, no local overrides. `ignore.list` = local `[ignored]`.
   `known-packages.list` contains all declared shared/profile/local install
   names before declined selections are filtered out. The audit reads it to
-  match the menu's definition of unlisted; unticked does not mean unknown.
-- **In-app runs:** `RunScreen` (`vj/progress.py`) starts vjupdate on a controlling
-  PTY and polls output without blocking Textual. The overall bar counts the five
-  phase results in `result.tsv`; the current-task bar shows activity, not an
-  estimated percentage. Prompt replies go to the PTY, with masking when terminal
-  echo is disabled. Ctrl+C sends an interrupt; Ctrl+T explicitly hands over the
-  terminal for editors, Ctrl+] returns, `q` dismisses a finished run. `q` also
-  closes submenus and quits from the main menu or initial setup. The plan
-  stays available until dismissal, then results are applied and it is removed.
+  treat declined packages as known, not unlisted.
 - **Setup checks:** MPD's data directory (`~/.local/share/mpd`) must exist before
   its user service starts. Claude setup checks `plugin list --json` at user scope
   before installing plugins; Graphify is a CLI-installed skill, checked via
@@ -151,13 +142,12 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
   other failures retain the retry and include the last package error in the
   recap. CachyOS package names are `dux-shell` and `dux-gop`; binaries/service
   names such as `dms` remain unchanged.
-- **Unlisted packages** (vj menu row): explicit installs (`pacman -Qeq` +
-  flatpak apps) in no list, not skipped/removed/ignored. Keys act on ticked
-  rows, else the highlighted one: `p` → `packages.toml`, `f` → active profile
-  file (both via `config.add_to_list`, which keeps comments and refuses to
-  write TOML that doesn't parse — commit afterwards), `m` → local add, `x` →
-  local remove (demote; paru only), `i` → `[ignored]`. Audit reports the
-  remaining count via `vj unused`.
+- **Unlisted packages:** explicit installs (`pacman -Qeq` + flatpak apps) in
+  no list, not skipped/removed/ignored. Sorted with `sysup --pkg
+  {shared,profile,local,remove,ignore} NAME…` or the post-run fix (`sysup.py
+  add`): shared/profile go through `add_to_list`, which keeps comments and
+  refuses to write TOML that doesn't parse — commit afterwards; local/remove/
+  ignore edit the local config (remove = demote, paru only).
 - **Features** replace every old `MACHINE == desktop|surface` check:
   `linux-surface`, `desktop-services`, `cpu-performance`, `amd-gpu-tuning`,
   `ollama-model`, `windows-vm`, `rag-stack` (desktop: `_setup_rag` in the claude action starts
@@ -165,35 +155,43 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
   `lightrag` user unit in the desktop profile (`lightrag-hku[api] --with ollama`: [npm]/[uv] entries may carry installer args); `nomic-embed-text` pulled; see `docs/rag-tools.md`),
   `nvidia` (plancia: shows the one-time
   `nvidia-niri` action — niri wiki's GLVidHeapReuseRatio=0 app profile in
-  `/etc/nvidia/nvidia-application-profiles-rc.d/`; vj hides one-time tasks whose
-  `ONCE_FEATURE` the profile lacks). New machine-dependent behaviour → new feature
-  name in the profile + `_has_feature <name>` in vjupdate.
-- **Stow** deploys `stow.list` (vj's Dotfiles ticks, default every package in
-  the set) from `VJ_DOTSET_DIR`; `scripts` always from the repo root. Dotset
+  `/etc/nvidia/nvidia-application-profiles-rc.d/`; `sysup --status` hides one-time
+  actions whose `ONCE_FEATURE` (sysup.py) the profile lacks). New machine-dependent behaviour → new feature
+  name in the profile + `_has_feature <name>` in sysup.
+- **Stow** deploys `stow.list` (local `[select] dotfiles`, default every package in
+  the set) from `SYSUP_DOTSET_DIR`; `scripts` always from the repo root. Dotset
   `none` → only `scripts`; DMS import/export warn and skip.
 - **`--actions A,B`** runs exactly those action IDs (`MENU_ORDER`),
   no menu; unknown IDs die. `_record` also appends `name\tstate` to
-  `VJ_RESULT_FILE`; configure actions record `action:<id> ok` via `_act`, which
-  vj uses to stamp one-time tasks.
-- **Display** (vj row, 2026-11-01): local `[display]` `text_scale` → plan env
-  `VJ_TEXT_SCALE` → `_apply_display` (in `_stow_niri_cfg`) sets
+  `SYSUP_RESULT_FILE` when set. Configure actions record `action:<id> ok` via
+  `_act`; `_stamp_once` (end of `bootstrap`) passes those IDs to
+  `sysup.py once-done`, which stamps the one-time ones in `[once]`.
+- **Config flags** (no lock, no plan run): `--profile NAME [--dotset SET]`
+  (`sysup.py choose`), `--pkg WHERE NAME…`, `--status` (+ backup tags),
+  `--skip-once ID`. Bare `sysup` prints help.
+- **Display** (2026-11-01): local `[display]` `text_scale` (hand-edited) → plan env
+  `SYSUP_TEXT_SCALE` → `_apply_display` (in `_stow_niri_cfg`) sets
   `gsettings … text-scaling-factor`.
 - **Local config** keys: `profile`, `dotset`, `[display]`, `[paru]/[flatpak] add/remove`,
   `[declined]`, `[ignored]` (unlisted installs not to report), `[once]` (date
-  or "skip"), `[last]` (maint/repos/dotfiles ticks). Saved atomically on every change. Override path with `VJ_CONFIG`.
+  or "skip"), `[select]` (`dotfiles`/`repos` subsets; missing = all). Path
+  `~/.config/sysup/config.toml`, override with `SYSUP_CONFIG`. `sysup.py`
+  moves `~/.config/sysup/config.toml` there once (`migrate_config`; `[last]`
+  dotfiles/repos → `[select]`), never over an existing new file; `vjsurface`
+  reads the old path until then. Saved atomically.
 - **Adding a friend:** `profiles/<name>.toml` for their hardware and/or
   `dotsets/<name>/` with their stow packages (+ `<profile>/` dirs for niri
   machine files). `.gitignore` secret rules use `dotsets/*/`, so they apply to
   every set.
 
-`niri` uses **file-level symlinks** — the `cfg/` and `dms/` directories are real, but individual `.kdl` files are symlinked. `scripts` is stowed `--no-folding`: `~/.local/bin` is a real directory with per-file links to the tracked scripts (incl. `vj`), so installers (npm -g, uv, codex, AppImages) write there and never into the repo. All other packages use directory-level symlinks.
+`niri` uses **file-level symlinks** — the `cfg/` and `dms/` directories are real, but individual `.kdl` files are symlinked. `scripts` is stowed `--no-folding`: `~/.local/bin` is a real directory with per-file links to the tracked scripts (incl. `sysup`), so installers (npm -g, uv, codex, AppImages) write there and never into the repo. All other packages use directory-level symlinks.
 
 Before 2026-09-25 `~/.local/bin` was a folded link into `scripts/.local/bin/`, so every installer wrote into the repo. One-time migration per machine (on the Surface: run it **before** `git pull`, since the pull deletes the tracked installer links it still serves from PATH):
 ```bash
 bash <<'EOF'
 set -eu
 B=~/Projects/dots/scripts/.local/bin
-KEEP=" vjupdate start-windows start-open-notebook start-keep "
+KEEP=" sysup start-windows start-open-notebook start-keep "
 [ -L ~/.local/bin ] || { echo "already unfolded"; exit 0; }
 T=$(mktemp -d ~/.local/bin-migrate.XXXX)
 for f in "$B"/* "$B"/.[!.]*; do
@@ -206,7 +204,7 @@ mv -n -- "$T"/* ~/.local/bin/ && rmdir "$T"
 EOF
 ```
 
-`claude` may need `vjupdate --adopt` on a fresh machine (absorbs existing real files, backing them up first).
+`claude` may need `sysup --adopt` on a fresh machine (absorbs existing real files, backing them up first).
 
 `desktop/`, `surface/` and `plancia/` inside a set are not stow packages: `_stow_niri_cfg` links the files of the dir named after the active profile.
 
@@ -230,7 +228,7 @@ niri/.config/niri/
     display.kdl         (NOT in niri pkg — comes from desktop/ or surface/; SOLE output source for DP-1)
     input.kdl           (NOT in niri pkg — comes from desktop/ or surface/; keyboard layout)
     surface-layout.kdl  (NOT in niri pkg — comes from desktop/ or surface/; machine-specific overrides)
-  dms/                ← DankMaterialShell overrides; NOT stow-symlinked (copied via vjupdate --dms-export/--dms-import)
+  dms/                ← DankMaterialShell overrides; NOT stow-symlinked (copied via sysup --dms-export/--dms-import)
     alttab.kdl        (recent-windows corner-radius — REGENERATED by DMS every start, don't hand-edit)
     binds.kdl         (keybinds — the live source; genuinely NOT regenerated, safe to hand-edit)
     colors.kdl        (Material You focus-ring/border colors — DMS regenerates live; the REPO copy is
@@ -241,7 +239,7 @@ niri/.config/niri/
                        start as a 0-BYTE EMPTY file — the old `output "DP-1"` block with unconditional
                        VRR does NOT return on its own. Real content is written only when display
                        settings are applied via DMS's Display panel. See the one-click trap below.)
-    windowrules.kdl   (0 bytes; imported by vjupdate but not included — harmless)
+    windowrules.kdl   (0 bytes; imported by sysup but not included — harmless)
     wpblur.kdl        (layer-rule for namespace `dms:blurwallpaper`; included since 2026-08-25.
                        Currently matches NOTHING live — DMS only creates that layer when
                        `blurredWallpaperLayer`/`blurEnabled` are true in DankMaterialShell/settings.json,
@@ -278,13 +276,13 @@ Both rows were proven empirically on 2026-08-25, not assumed:
 - `cfg/layout.kdl`, `cfg/animation.kdl` — real value conflicts with what's actually live via `dms/layout.kdl`/inline `config.kdl` (gaps 13px vs live 4px, focus-ring 4px vs live 2px, corner-radius 15px vs live 12px, snappier critically-damped springs vs live's bouncier ones). User chose to keep the current look/feel rather than restore these. **Deleted**.
 - machine-pkg `cfg/input.kdl` (`desktop/`/`surface/`) — set `layout "us" variant "intl"`, genuinely missing (inline `input{}`'s `xkb{}` was empty, silently falling back to system locale instead of the documented "us intl"). **Restored** — added `include "cfg/input.kdl"` to `config.kdl`.
 
-`niri/.config/niri/cfg/` is now empty (nothing left to symlink there); `_stow_niri_cfg` in vjupdate no longer has a loop for it — only the machine-pkg loop (`display`/`input`/`autostart-machine`/`surface-layout`) remains.
+`niri/.config/niri/cfg/` is now empty (nothing left to symlink there); `_stow_niri_cfg` in sysup no longer has a loop for it — only the machine-pkg loop (`display`/`input`/`autostart-machine`/`surface-layout`) remains.
 
 ### What to edit
 
 - **Output config** (resolution, refresh rate, VRR): edit `cfg/display.kdl` (desktop/surface pkg) directly — it is the **only** `output` block in the tree, because `dms/outputs.kdl` is no longer included. Do **not** re-add that include hoping "last wins": keyed nodes take the FIRST occurrence, so re-adding it before this file would silently make every edit here inert again (see Merge semantics above). Reload live without a relogin: `niri msg output <name> mode "<mode>"` / `niri msg output <name> vrr [--on-demand] on|off` — **temporary**, not saved to file, and it *outlives a config reload* (niri keeps the override until the file's output config actually changes), so it is easy to mistake a stale CLI override for a working config. A plain `niri msg action load-config-file` reloads the config but does **not** force a live modeset on an already-connected output. Validate first with `niri validate -c ~/.config/niri/config.kdl` and **check its exit code** — a parse error aborts the reload silently, leaving the last-good config running and making a broken test look like "nothing changed".
 - **Layout/animations/misc/screenshot-path**: edit inline in `config.kdl` directly (the `layout {}`, `animations {}`, `input {}`, `environment {}` blocks near the top, `screenshot-path` near the bottom). Nothing under `cfg/` handles these anymore — see "Resolved 2026-08-24" above for why.
-- **Keybinds**: edit `dms/binds.kdl` — the sole live source. Confirmed *not* regenerated by DMS (unlike `colors`/`layout`/`alttab`/`wpblur`/`outputs` — see the regeneration table below), so hand edits stick. But it's a live *copy* under `~/.config/niri/dms/`, not a symlink — edit the repo file then `cp` it live (or `vjupdate --dms-import`) to apply.
+- **Keybinds**: edit `dms/binds.kdl` — the sole live source. Confirmed *not* regenerated by DMS (unlike `colors`/`layout`/`alttab`/`wpblur`/`outputs` — see the regeneration table below), so hand edits stick. But it's a live *copy* under `~/.config/niri/dms/`, not a symlink — edit the repo file then `cp` it live (or `sysup --dms-import`) to apply.
 - **Workspaces** (2026-10-29): 1 social, 2 media (dgop, Steam/Bottles/Battle.net launchers),
   3 games (Spotify; games open unfocused; `steam_app_*`, Dota 2, Wine `*.exe`, `gamescope-media`,
   anything Quiver Launcher starts: `quiver-games` watcher, parent-pid match, X11 pid via xdotool), 4 main.
@@ -292,19 +290,19 @@ Both rows were proven empirically on 2026-08-25, not assumed:
   and excluded from the `^steam_app_` fullscreen rule, the rest → games.
   A workspace added by reload lands at index 1 live; `niri msg action move-workspace-to-index --reference <name> <n>`.
 - **Window rules**: edit the inline `window-rule {}` blocks in `config.kdl` (per-app column widths, workspace assignments, gaming fullscreen/VRR rules are all there together, in file order — later rules override earlier ones for the same property on a matching window).
-- **Machine-specific niri overrides**: both `desktop/` and `surface/` packages provide identically-named `.kdl` files under `cfg/`. `vjupdate` symlinks the active machine's version into `~/.config/niri/cfg/`. `config.kdl` includes them unconditionally — the machine-specific content differs, or one side is empty. Current files:
+- **Machine-specific niri overrides**: both `desktop/` and `surface/` packages provide identically-named `.kdl` files under `cfg/`. `sysup` symlinks the active machine's version into `~/.config/niri/cfg/`. `config.kdl` includes them unconditionally — the machine-specific content differs, or one side is empty. Current files:
   - `autostart-machine.kdl` — desktop has `spawn-at-startup` entries (thunderbird, whatsie, Telegram, steam, dgop monitor in alacritty (TMOG tried and dropped 2026-10-27), daemons) plus `flatpak run com.spotify.Client` for real Spotify, and a `niri msg output DP-1 vrr off` belt-and-suspenders line (2026-08-25); surface is empty (no autorun). Vesktop launches via XDG autostart (`~/.config/autostart/vesktop.desktop`), not here. Terminal for spawned TUIs is `alacritty`.
   - `input.kdl` — sets keyboard `layout "us" variant "intl"` (both machines); surface additionally tunes touchpad/touchscreen/stylus.
   - `surface-layout.kdl` — surface sets `proportion 0.8` **twice** (0.5 until 2026-11-01): once in a `layout { default-column-width }` (singleton — wins over `config.kdl`'s inline empty one, since later-wins) and once in a bare `window-rule { default-column-width }` (repeatable — included after the inline per-app width rules, so it overrides all of them). Desktop is a comment-only stub.
-  - To add a new machine-specific override: create the `.kdl` in both `desktop/` and `surface/` packages, add `include "cfg/<name>.kdl"` to `config.kdl`, and add `<name>` to the `for f in ...` loop in `vjupdate`'s `_stow_niri_cfg` (the machine-pkg loop — `display input autostart-machine surface-layout`).
+  - To add a new machine-specific override: create the `.kdl` in both `desktop/` and `surface/` packages, add `include "cfg/<name>.kdl"` to `config.kdl`, and add `<name>` to the `for f in ...` loop in `sysup`'s `_stow_niri_cfg` (the machine-pkg loop — `display input autostart-machine surface-layout`).
   - Content common to both machines but that needs to differ slightly: put shared parts in `config.kdl` inline, machine-specific delta in the per-machine file.
 - **DMS overrides** — direction depends on whether DMS regenerates the file:
-  - `DMS_MANUAL` (`alttab` `binds` `cursor` `layout` `windowrules` `wpblur`): edit **live** under `~/.config/niri/dms/`, then `vjupdate --dms-export` to copy into the repo and commit. Note the array name overstates things — only `binds`, `cursor` and `windowrules` are truly hand-editable; `layout`, `alttab` and `wpblur` get regenerated from `settings.json` at every DMS start, so hand edits there are lost (change the DMS setting instead). They stay in this list because regeneration is deterministic, so exporting them is a harmless no-op.
-  - `DMS_AUTO` (`colors.kdl`): edit the **repo** copy, then `vjupdate --dms-import` to push it live. Export skips it on purpose — see below.
+  - `DMS_MANUAL` (`alttab` `binds` `cursor` `layout` `windowrules` `wpblur`): edit **live** under `~/.config/niri/dms/`, then `sysup --dms-export` to copy into the repo and commit. Note the array name overstates things — only `binds`, `cursor` and `windowrules` are truly hand-editable; `layout`, `alttab` and `wpblur` get regenerated from `settings.json` at every DMS start, so hand edits there are lost (change the DMS setting instead). They stay in this list because regeneration is deterministic, so exporting them is a harmless no-op.
+  - `DMS_AUTO` (`colors.kdl`): edit the **repo** copy, then `sysup --dms-import` to push it live. Export skips it on purpose — see below.
   - Either way, reload with `niri msg action load-config-file`.
-- **Do not** hand-edit `dms/colors.kdl` *live* — DMS regenerates it and your edit is lost. To change colors, edit the **repo** copy and run `vjupdate --dms-import` (pushes repo→live) + `niri msg action load-config-file`. `--dms-export` deliberately skips `colors.kdl` so DMS's regenerated version can't overwrite your curated one.
+- **Do not** hand-edit `dms/colors.kdl` *live* — DMS regenerates it and your edit is lost. To change colors, edit the **repo** copy and run `sysup --dms-import` (pushes repo→live) + `niri msg action load-config-file`. `--dms-export` deliberately skips `colors.kdl` so DMS's regenerated version can't overwrite your curated one.
 
-  **Why that matters (2026-08-25 audit):** `dms_export` used to blanket-`cp` every live `*.kdl` into the repo, including auto-generated ones. That silently reverted the repo's green focus-ring (`#4caf50`) and forest shadow (`#0d3320CC`) to DMS defaults in commit `ff2cd4e` (2026-06-17) — a commit whose message was about unrelated vjupdate changes — and it went unnoticed for two months while this file kept documenting green as current. `dms_export` is now restricted to `DMS_MANUAL`, and `dms_import` additionally pushes `DMS_AUTO` (`colors.kdl`) back live. Current colors are DMS-default purple; that's the deliberate choice as of 2026-08-25, not drift.
+  **Why that matters (2026-08-25 audit):** `dms_export` used to blanket-`cp` every live `*.kdl` into the repo, including auto-generated ones. That silently reverted the repo's green focus-ring (`#4caf50`) and forest shadow (`#0d3320CC`) to DMS defaults in commit `ff2cd4e` (2026-06-17) — a commit whose message was about unrelated sysup changes — and it went unnoticed for two months while this file kept documenting green as current. `dms_export` is now restricted to `DMS_MANUAL`, and `dms_import` additionally pushes `DMS_AUTO` (`colors.kdl`) back live. Current colors are DMS-default purple; that's the deliberate choice as of 2026-08-25, not drift.
 
   **⚠ The one-click trap (verified 2026-08-25):** with `include "dms/outputs.kdl"` removed, `dms config resolve-include niri outputs.kdl` reports `included:false`, so DMS's **Settings → Display** shows a *"First Time Setup"* box: *"Click 'Setup' to create the outputs config and add include to your compositor config."* That button calls `fixOutputsInclude()`, which backs up `config.kdl`, **re-adds the include**, and regenerates a full `output` block. Since keyed nodes take the FIRST occurrence, the re-added include lands before `cfg/display.kdl` and silently makes it inert — **one click restores the flicker bug**. Don't press it; if pressed, delete the include line again. It is only ever triggered by that button, never automatically.
 
@@ -322,67 +320,67 @@ The repo lives at `~/Projects/dots`, so stow's default target (the parent dir) i
 
 ```bash
 # Full bootstrap or re-apply everything (idempotent)
-bash scripts/.local/bin/vjupdate
+bash scripts/.local/bin/sysup
 
 # Same, non-interactive (no prompts)
-vjupdate --yes
+sysup --yes
 
 # Update packages + clean caches
-vjupdate --update
+sysup --update
 
 # Audit installed software: orphans, rebuilds, pacnew, firmware
-vjupdate --check
+sysup --check
 
 # Interactively install/remove CachyOS kernels
-vjupdate --kernels
+sysup --kernels
 
 # Detect internal partitions and add to /etc/fstab interactively
-vjupdate --automount
+sysup --automount
 
 # Apply CachyOS tuning (idempotent): CPU governor, disable NM-wait-online,
 # mask lvm2-monitor, rate-mirrors 2h delay, AMD GPU performance udev rule
-vjupdate --optimize
+sysup --optimize
 
 # Add pam_gnome_keyring.so to /etc/pam.d/greetd (idempotent; fixes keyring unlock prompt)
-vjupdate --keyring-pam
+sysup --keyring-pam
 
 # Sync DMS overrides: live ~/.config/niri/dms/*.kdl → repo (then commit)
-vjupdate --dms-export
+sysup --dms-export
 
 # Sync DMS overrides: repo → live (skips auto-generated files)
-vjupdate --dms-import
+sysup --dms-import
 
 # Create .desktop launchers for all installed Steam games
-vjupdate --steam-launchers
+sysup --steam-launchers
 
 # Rebuild packages flagged by rebuild-detector
-vjupdate --rebuild
+sysup --rebuild
 
 # Interactively merge .pacnew files (pacdiff; overwrites keep a .bak)
-vjupdate --pacnew
+sysup --pacnew
 
 # Preview the resolved plan; changes nothing, takes no lock, fetches nothing
-vjupdate --dry-run          # combine with any bootstrap/update/check action
+sysup --dry-run          # combine with any bootstrap/update/check action
 
 # Let stow adopt conflicting files (backs them up to
 # ~/.local/state/dots/adopt-backup-<ts>/ first)
-vjupdate --adopt
+sysup --adopt
 
 # Also wipe ~/.cache/paru and ~/.cache/yay during cleanup
-vjupdate --clean-aggressive
+sysup --clean-aggressive
 
 # Remove stale non-Steam app launchers, report apps not mirrored locally
-vjupdate --app-launchers
+sysup --app-launchers
 
 # Skip specific bootstrap phases (space-separated).
 # ONLY these five names work — they are matched against the phase names passed
 # to _run_phase. `SKIP_PHASES="mirrors keyrings"` (documented here until
 # 2026-09-15) matched nothing and silently skipped no phases: mirrors/keyrings
 # are stamp names, throttled by _needs_run, not phases.
-SKIP_PHASES="sources install dotfiles configure audit" vjupdate
+SKIP_PHASES="sources install dotfiles configure audit" sysup
 
 # Re-apply all packages at once (scripts, the chosen set incl. niri links + /etc packages)
-vjupdate --actions stow-symlinks
+sysup --actions stow-symlinks
 
 # By hand
 cd ~/Projects/dots && stow --no-folding --restow -t ~ scripts   # keeps ~/.local/bin a real dir
@@ -393,7 +391,7 @@ sudo stow -d ~/Projects/dots/dotsets/viridjan --restow -t / ollama brave   # roo
 cd ~/Projects/dots/dotsets/viridjan && stow -D -t ~ <pkg>
 ```
 
-`niri` is not stowed — DMS owns `~/.config/niri/`. Re-run `vjupdate` to refresh symlinks.
+`niri` is not stowed — DMS owns `~/.config/niri/`. Re-run `sysup` to refresh symlinks.
 
 ### Adding a new config package
 
@@ -411,7 +409,7 @@ rm -rf ~/.config/<pkg>
 cd ~/Projects/dots/dotsets/viridjan && stow -t ~ <pkg>
 ```
 
-Result: `~/.config/<pkg>` becomes a directory symlink into the repo. App writes go directly into the repo from then on. vjupdate deploys every dir in the set unless unticked in vj → Dotfiles.
+Result: `~/.config/<pkg>` becomes a directory symlink into the repo. App writes go directly into the repo from then on. sysup deploys every dir in the set unless local `[select] dotfiles` lists a subset.
 
 ## Package lists and project cloning
 
@@ -423,7 +421,7 @@ uninstall attempt in this session required an interactive sudo password and
 did not run; do not assume the local package is already uninstalled.
 
 **Unused-app cleanup (2026-10-30).** Judged by DMS launcher `lastUsed` + newest
-mtime of each app's config/data dirs (`vj unused` idle verdicts need 60 days of
+mtime of each app's config/data dirs (the unused report's idle verdicts need 60 days of
 wellbeing, from 2026-12-22). Dropped from the lists and uninstalled: kicad +
 kicad-library (also in `[paru].remove`), goverlay, protonup-qt, meld, gwenview,
 zathura(-pdf-poppler), btop, unsloth, nicotine+ (re-added 2026-11-03), kolourpaint, firefox, geany,
@@ -432,7 +430,7 @@ protonmail-bridge/xclicker (+ unlisted OrcaSlicer). Kept on purpose: gparted,
 pavucontrol, emudeck-bin (`fuse2` now explicit — it was only a vial-appimage
 dep), the `*craft-bin` suite, Dolphin, PrimeHack.
 
-`projects.toml` — `[[repo]]` entries (name + SSH URL) cloned into `~/Projects/` during the `clone_projects` bootstrap phase (missing ones only; vj → Git repositories selects which).
+`projects.toml` — `[[repo]]` entries (name + SSH URL) cloned into `~/Projects/` during the `clone_projects` bootstrap phase (missing ones only; local `[select] repos` limits which).
 Optional `build = "<cmd>"` → plan `project-builds.list` (`name\tcmd`) →
 `update_projects` (install phase + `--update`): `git pull --ff-only`, then runs
 the command in the repo at lowest priority when HEAD differs from
@@ -463,7 +461,7 @@ Package lists are TOML (`#` comments inside the arrays are fine):
 | `packages.toml` / profile `[systemd].enable` / `.user` | Units enabled by "Enable system services"; dropping one disables it next time (state: `~/.local/state/dots/managed-units`; first run disables nothing) |
 | `packages.toml` / profile `[ufw].allow` | `sudo ufw allow <rule>` per entry (words split) in "Enable system services"; add-only, `ufw delete allow <rule>` to drop one |
 | `packages.toml` `[npm].install` / `[uv].install` | Global npm / uv tools, installed if missing (install phase) |
-| `~/.config/vjupdate/config.toml` | This machine's add/remove/declined (vj writes it) |
+| `~/.config/sysup/config.toml` | This machine's add/remove/declined/ignored (`sysup --pkg` or by hand) |
 | `.dms-plugins.list` | DankMaterialShell plugins |
 | `.install-scripts.list` | Scripts run during bootstrap |
 
@@ -493,7 +491,7 @@ If tracked bloat is ever found again, the two-step fix is `git rm -r --cached` +
 start-windows   # starts Windows 11 VM, opens noVNC at http://localhost:8006
 ```
 
-Opens Chromium `--app` at 75% of screen size (100% on Surface). Window size is machine-aware via `hostname` (start-windows, not the vj profile).
+Opens Chromium `--app` at 75% of screen size (100% on Surface). Window size is machine-aware via `hostname` (start-windows, not the sysup profile).
 
 **Windows storage**: VM disk lives at `/mnt/data/windows-vm-storage` (symlinked to `windows/storage`) — kept on the data partition to avoid filling root.
 
@@ -501,7 +499,7 @@ Opens Chromium `--app` at 75% of screen size (100% on Surface). Window size is m
 
 Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
 
-## vjupdate behaviour notes
+## sysup behaviour notes
 
 - **Input and failure handling.** Package lists and installed-package queries
   must be read successfully before installation. Malware package matching reads
@@ -548,9 +546,9 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
     `modified-configs.txt`), `check_dms_owner` (dms.service enabled AND a niri
     spawn), `check_logins` (gh token, SSH key, claude/codex/spotify_player/
     vesktop credentials — only for installed tools, local checks only).
-    `vjupdate --lostfiles` runs `pacreport --unowned-files` (~1 min, report).
+    `sysup --lostfiles` runs `pacreport --unowned-files` (~1 min, report).
   - *Preflight*: refuses to run as root; warns under 5 GiB free on `/`
-    (`VJ_MIN_FREE_GB`); keeps an existing sudo ticket alive (`sudo -n -v`
+    (`SYSUP_MIN_FREE_GB`); keeps an existing sudo ticket alive (`sudo -n -v`
     loop, terminal runs only, killed in `_cleanup`).
 - **Guards added 2026-11-01 (Surface incidents).** `_warn_unfolded` (after each
   home package stows): warns when a target is a real dir instead of a folded
@@ -561,8 +559,7 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   overwrite had removed the CachyOS repos). `check_surface_kernel` (audit,
   `linux-surface` feature) warns when the booted kernel isn't linux-surface.
 - **Post-install checklist removed (2026-11-01).** `print_manual_steps` /
-  `manual-steps` are gone; its steps 1–7 are one-time actions (vj → One-time
-  setup): `git-identity` (only if unset; defaults Viridjan / noreply),
+  `manual-steps` are gone; its steps 1–7 are one-time actions (`sysup --status`): `git-identity` (only if unset; defaults Viridjan / noreply),
   `ssh-key` (ssh-keygen if missing, `gh ssh-key add` if not on GitHub),
   `fingerprint`, `bitwarden` (logged in = `global_account_activeAccountId` in
   `~/.config/Bitwarden/data.json`; else opens the app), `yubikey-pin`,
@@ -572,7 +569,7 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   init step is covered by stow-symlinks + dms-import; Open Notebook,
   gamescope and maintenance hints were dropped.
 - **`vjsurface`** (2026-11-01, Surface only: profile `surface` or DMI "Surface"):
-  separate script, run before or after vjupdate (waits out vjupdate's flock).
+  separate script, run before or after sysup (waits out sysup's flock).
   Idempotent steps — pacman.conf/mirrorlists restored from `.bak` if they lost
   repos/servers; linux-surface + headers + iptsd installed; `GRUB_TOP_LEVEL`
   → linux-surface (CachyOS pins linux-cachyos) + `grub-mkconfig` only on
@@ -584,30 +581,46 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   queued (`_queue_fix kind payload`) and offered one by one after the recap by
   `_offer_fixes` (terminal stdin only; never `--yes`, `--dry-run`, timer, or an
   aborted run): stow conflict (identical → link; differs → diff, repo/live wins,
-  backups in `$STAMP_DIR/fix-backup-*`), unlisted package (`vj add
-  shared|profile|ignore`, or uninstall), install conflict (`_conflict_names`
+  backups in `$STAMP_DIR/fix-backup-*`), unlisted package (`sysup.py add`
+  shared|profile|local|ignore, or uninstall), install conflict (`_conflict_names`
   → `-Rdd` + retry), failed AUR build (log in `$STAMP_DIR/paru-fail.log`,
   retry), pending pacnew, orphans. Exit status is unchanged by fixes. New kind =
   `_fix_<kind>` + a `_queue_fix` call; prompts inside a `while read` loop must
   read the loop from another fd. Before any non-dry run with a terminal,
   `_check_repo_current` fetches; if behind upstream it offers pull (`--ff-only`)
-  + `exec` relaunch (before the lock; `VJ_SELF_UPDATED` stops loops).
+  + `exec` relaunch (before the lock; `SYSUP_SELF_UPDATED` stops loops).
 - **Held packages.** `[paru].hold` (packages.toml) excludes named packages from system
   upgrades (including retries) and both rebuild paths. First installation is
   unchanged. Audit and update runs warn about pending held AUR updates with
   review and manual upgrade commands; dry runs list the holds.
-- **No bash menu (removed 2026-10-27).** The ~340-line `_multiselect` menu
-  duplicated vj. Bare `vjupdate` / `-i` now `exec vj` (no terminal → dies with a
-  hint); vj calls back with `--actions`. `MENU_ORDER` (top-level array) is the
-  only ID list: `--actions` validates against it, fish completion reads it, and
-  `vj/state.py` MAINT/ONCE/DMS must use the same IDs.
+- **No menu at all.** The bash menu went 2026-10-27, the vj TUI 2026-11-08
+  (sysup rename). `MENU_ORDER` (top-level array) is the only action ID list:
+  `--actions` validates against it, fish completion reads it, and `ONCE` in
+  `sysup.py` must use the same IDs.
+- **Dotset backups (2026-11-08).** `_backup_dotset head|work|live-dms`: local
+  tags `backup/<set>/1` (newest) and `/2` on snapshot commits (temp
+  `GIT_INDEX_FILE` + `commit-tree`, so branch/index/tree are untouched;
+  ignored files excluded). `head` before git export (last saved commit),
+  `work` before deploy and restore, `live-dms` (working tree + live DMS kdl)
+  before dms-import. Rotates only when the set's subtree changed. Never
+  pushed (commit-tree skips the secret-scan hook). `--restore 1|2`:
+  `git restore --source` of the set, working tree only. Tests:
+  `tests/test_sysup_backup.py` (real temp git repo).
+- **DMS restart (2026-11-08).** `_upgrade_system` snapshots `pacman -Q
+  dux-shell dux-gop quickshell` before `_syuu` and restarts `dms.service`
+  (only if active) when any changed, also after a partial failure; new DMS
+  plugins restart it too.
+- **Claude plugins.** `setup_claude` installs caveman, superpowers, ponytail,
+  understand-anything (marketplace `Egonex-AI/Understand-Anything`);
+  `update_claude_plugins` (install phase + `--update`) refreshes marketplaces
+  and updates every user-scope plugin.
 - **Audit list.** `AUDIT_CHECKS` is the one list `phase_audit` and `--check`
   run (`_run_audit_checks`). `phase_audit` also runs `check_flatpak_orphans`
   (uninstalls runtimes); `--check` stays report-only. `--check` saves its
   results (`name\tstate` + `@warnings\tN`) to `$STAMP_DIR/last-check.tsv`;
-  vj's Maintenance row shows it (`state.last_check`).
+  `sysup --status` shows it (`last_check` in sysup.py).
 - **Weekly check timer.** Dotset package `systemd-user` ships
-  `vjupdate-check.{service,timer}` (weekly, Persistent, nice/idle);
+  `sysup-check.{service,timer}` (weekly, Persistent, nice/idle);
   `packages.toml` `[systemd].user` enables the timer. On failure it calls
   `notify-send`.
 - **Provider names (2026-10-31).** `pacman -Qq X` answers for a package that
@@ -620,9 +633,9 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
 - **Conflict swaps in `--update`.** `_remove_conflicts` (installed
   `[paru].remove` entries only) + `_demote_packages` run in both `install_all`
   and `system_update`; `--update` installs nothing, so it warns to run
-  `vjupdate --actions install` for replacements. The old hardcoded
+  `sysup --actions install` for replacements. The old hardcoded
   `_swap_pkg libreoffice` is gone.
-- **Automount lives in `scripts/.local/lib/vjupdate/automount.sh`**, sourced on
+- **Automount lives in `scripts/.local/lib/sysup/automount.sh`**, sourced on
   first call by the `automount_disks` stub (path `${BASH_SOURCE%/*}/../lib`, so
   it resolves in the repo and via the stowed `~/.local/lib` link). Tests that need
   `_fstab_escape` first `source "$_AUTOMOUNT_LIB"`.
@@ -657,7 +670,7 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   and `/etc/brave/policies` path were read from the `brave-origin-bin` binary.
   Confirmed on the desktop 2026-10-11: `brave://policy` shows the policy with
   status OK, and invite links now open the join dialog in Vesktop.
-- **Single instance.** An flock on `~/.local/state/dots/vjupdate.lock` is taken
+- **Single instance.** An flock on `~/.local/state/dots/sysup.lock` is taken
   *before* log rotation; a second run exits with a message. `--help` and
   `--dry-run` skip runtime init entirely (no lock, no log rotation, no stamps),
   so they are genuinely read-only. Main execution is guarded by a
@@ -708,8 +721,8 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   `aur:<pkg>` in the repo's `build-times.tsv`, including from failed runs.
   `_install_list` / the flatpak loop also record `@pacman-per-pkg` /
   `@flatpak-per-pkg` (one average per call). Commit the file to share history.
-- **Unlisted/unused apps** (`check_unused_apps` → `python3 -m vj unused PLANDIR [DAYS]`,
-  `vj/unused.py`) warns, never removes. Unlisted = every explicit package/flatpak
+- **Unlisted/unused apps** (`check_unused_apps` → `sysup.py unused PLANDIR [DAYS]`)
+  warns, never removes. Unlisted = every explicit package/flatpak
   in no plan list (incl. remove/demote/`ignore.list`); idle = only apps with a
   visible launcher. Usage = DMS's `~/.local/state/DankMaterialShell/appusage.json`
   (launcher) + `wellbeing/db` (focused seconds per window app_id, BoltDB read
@@ -728,11 +741,11 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   call tree, allowing failed keyring operations to be stamped successful.
   Recoverable failures must be handled and recorded at their call sites.
 
-New regressions should fail against the pre-fix script (`VJUPDATE_SCRIPT`
-pointing at `git show HEAD:scripts/.local/bin/vjupdate`). Keep system-changing
+New regressions should fail against the pre-fix script (`SYSUP_SCRIPT`
+pointing at `git show HEAD:scripts/.local/bin/sysup`). Keep system-changing
 commands mocked and fixtures temporary.
 
-## vjupdate bootstrap phases
+## sysup bootstrap phases
 
 Phases use stamps in `~/.local/state/dots/` — heavy phases skip automatically if run recently: keyrings within 48h, mirror ranking within 30 days. A mirror run that fails on both arch and CachyOS is not stamped, so it retries next run.
 
@@ -750,7 +763,7 @@ sources → install → dotfiles → configure → audit
 | `configure` | system services, snapper, keyboard, greeter, keyring-pam (user-prompted); DMS plugins, install scripts, fish, claude, VMs (first-run prompted) |
 | `audit` | (`AUDIT_CHECKS`) orphan packages, unlisted/unused apps (report only), flatpak cleanup, rebuild check, pacnew files, modified configs, DMS owner, logins, firmware updates |
 
-Bare `vjupdate` (or `-i`) opens `vj`; choices come back as `--actions`.
+Bare `sysup` (or `-i`) prints help.
 `--yes` runs the legacy full bootstrap, `--update` and `--check` stay direct.
 
 ## Shell script linting
@@ -759,8 +772,8 @@ Bare `vjupdate` (or `-i`) opens `vj`; choices come back as `--actions`.
 paths like `auth.json`, `.credentials.json`, `id_ed25519`; it scans the staged
 blob and prints only a 6-char prefix), then runs `shellcheck -S error` on staged
 shell scripts and blocks the commit on errors. `.github/workflows/test.yml` runs
-the unittest suite + shellcheck on every push. Fish completions for `vjupdate`
-(`--actions` IDs read live from `MENU_ORDER`) and `vj` live in the fish package. It selects files by **shebang, not path**, so non-shell files
+the unittest suite + shellcheck on every push. Fish completions for `sysup`
+(`--actions` IDs read live from `MENU_ORDER`) live in the fish package. It selects files by **shebang, not path**, so non-shell files
 (Python, KDL, binaries) are never scanned. It no-ops when shellcheck is absent, so a fresh clone can still commit.
 
 `deploy_dotfiles` runs `git config core.hooksPath .githooks`, so a clone self-registers.
@@ -769,9 +782,9 @@ To register by hand: `git -C ~/Projects/dots config core.hooksPath .githooks`
 Gotchas when linting these scripts:
 
 - **A comment line starting with `# shellcheck ` parses as a directive.** It caused
-  SC1072/SC1073 and made shellcheck skip all 1840 lines of `vjupdate` while still
+  SC1072/SC1073 and made shellcheck skip all 1840 lines of `sysup` while still
   looking like it ran. If output is only SC1072/SC1073, nothing was checked.
-- `vjupdate` carries a file-level `# shellcheck disable=SC2015` with justification: all
+- `sysup` carries a file-level `# shellcheck disable=SC2015` with justification: all
   ~28 sites are the `cmd && ok "..." || warn "..."` logging idiom where the middle
   command is a plain `echo`.
 - The scripts are `set -euo pipefail`, so `var=$(cmd)` **exits before** any `rc=$?` or
@@ -811,7 +824,7 @@ Set to `~/.local` so global installs don't require sudo:
 npm config set prefix ~/.local
 ```
 
-Binaries land in `~/.local/bin/` (already in PATH). Required for `caveman-code` and any other global npm tools installed by `vjupdate`.
+Binaries land in `~/.local/bin/` (already in PATH). Required for `caveman-code` and any other global npm tools installed by `sysup`.
 `_ensure_npm_prefix` sets it before any npm install (2026-10-31: the Surface was
 still on the `/usr` default, so `claude-auto-retry` failed EACCES behind hidden output).
 Failed npm/uv installs now print their output tail and put the last line in the recap.

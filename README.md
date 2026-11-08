@@ -4,7 +4,7 @@ GNU Stow dotfiles for CachyOS + niri.
 Supports two machines: **desktop** (tower, RX 6700 XT) and **surface** (Surface Pro 9).
 
 ```bash
-bash ~/Projects/dots/scripts/.local/bin/vjupdate
+bash ~/Projects/dots/scripts/.local/bin/sysup
 ```
 
 ---
@@ -28,20 +28,20 @@ cat ~/.ssh/id_ed25519.pub   # add this to github.com/settings/keys
 
 ```bash
 git clone git@github.com:Viridjan/dots.git ~/Projects/dots
-cd ~/Projects/dots && bash scripts/.local/bin/vjupdate
+cd ~/Projects/dots && bash scripts/.local/bin/sysup
 ```
 
-`vjupdate` does everything:
+`sysup` does everything:
 - installs the package lists for the machine's profile via paru / flatpak
 - installs missing npm or Flatpak prerequisites when their tools/apps are selected,
   and configures Flathub before installing Flatpak apps
 - deploys the chosen dotfile set via stow (profile auto-detected from hostname
-  until you pick one in `vj`)
+  until you pick one with `sysup --profile`)
 - installs Codex CLI with the official standalone installer (then run `codex login`)
 - enables systemd services
 - sets up Claude Code plugins
 
-Afterwards, use `vj` (see below) for day-to-day maintenance.
+Afterwards, use `sysup` (see below) for day-to-day maintenance.
 
 LibreOffice is excluded from installation. Both `libreoffice-fresh` and
 `libreoffice-still` are in `packages.toml`'s removal list, so the install and
@@ -50,7 +50,7 @@ window rule has also been removed.
 
 ### 4. Personal setup (after the script)
 
-The old printed checklist is now part of `vj` → **One-time setup**. Each
+The old printed checklist is now a set of one-time actions (`sysup --status`). Each
 entry checks first and does nothing when already done; one that needs you
 (a passphrase, a plugged-in device, a login) stays offered until it's done:
 
@@ -76,7 +76,7 @@ cd ~/Projects/dots/windows && docker compose up -d
 # Shared folder: ~/Shared on host → \\host.lan\Data inside Windows (map as network drive)
 ```
 
-**Surface only — `vjsurface`.** Run it before or after `vjupdate`, as often as
+**Surface only — `vjsurface`.** Run it before or after `sysup`, as often as
 you like. It restores `pacman.conf`/mirrorlists that lost repos to a pacnew
 overwrite, installs `linux-surface` + headers + `iptsd`, makes GRUB boot
 linux-surface (CachyOS pins `GRUB_TOP_LEVEL` to linux-cachyos), checks the
@@ -86,66 +86,60 @@ summary (log: `~/.local/state/dots/vjsurface.log`).
 
 ---
 
-## vj — terminal UI
+## sysup — command line
 
 ```bash
-vj        # needs python-textual (in packages.toml)
+sysup --update                  # upgrade packages, clean caches (the common one)
+sysup --check                   # audit only, report
+sysup --actions install,audit   # run exactly these action IDs
+sysup --status                  # profile, features, one-time actions + dates, backups
+sysup --help                    # everything else
 ```
 
-One screen. Each menu row shows what will happen, on the same line:
-
-```
-Maintenance actions     │ run 9 of 12 actions
-Packages                │ install 1 package < 10 s · 1 declined
-Git repositories        │ clone missing · 8 of 8 repos
-Dotfiles                │ link 21 of 21 from viridjan
-One-time setup          │ 18 never run
-DMS & Git               │ nothing
-Display                 │ text ×1.3
-Profile / dotfile set   │ desktop · viridjan
-▶ Run                   │ press r · install time < 10 s (upgrades/actions extra)
-```
-
-Enter opens a submenu below the menu (Space ticks, `/` filters, `a` all,
-`n` none, `d` repo defaults, `q` closes). `r` runs everything selected in an
-in-app progress view with live output, a phase completion bar and a current-task
-activity bar. Reply to prompts in the input field; password replies are masked.
-Ctrl+C interrupts the running command. For full-screen editors such as Vim,
-Ctrl+T opens terminal mode; Ctrl+] returns to the progress view. After completion,
-`q` returns to the menu. `q` quits from the main menu (or initial setup).
+Bare `sysup` prints the help. There is no menu: what used to be a vj screen is
+a flag or a line in the local config.
 
 - **Profiles** (`profiles/<name>.toml`): hardware + package lists + feature
   switches. `desktop`, `surface` and `plancia` (Ryzen 9 7900X + RTX 4070 SUPER
   tower; NVIDIA userspace only, the driver comes from CachyOS chwd) ship; add a
-  file for another machine. On `plancia`, vj's one-time tasks include
-  "Apply niri NVIDIA VRAM fix" (unticked): the niri wiki's driver profile that
-  keeps niri at ~100 MiB of VRAM instead of ~1 GiB; log out and back in after.
+  file for another machine. On `plancia` the one-time action `nvidia-niri`
+  applies the niri wiki's driver profile that keeps niri at ~100 MiB of VRAM
+  instead of ~1 GiB; log out and back in after.
+- **Choose this machine's profile:** `sysup --profile NAME [--dotset SET]`.
+  Without it, the profile whose `hostname` is part of the host name is used.
 - **Dotfile sets** (`dotsets/<name>/`): stow packages. `viridjan` is mine; a
-  friend adds `dotsets/<their-name>/` with the same shape and picks it in vj.
-  `none` = don't touch dotfiles.
-- **Local config** `~/.config/vjupdate/config.toml` (not in git): chosen
-  profile/set, your own extra packages (`+` in Packages) and removals (`x`:
-  marked as a dependency, removed only if nothing needs it), declined packages
-  (unticked once, never pre-ticked again), ignored unlisted installs, one-time
-  tasks done/skipped (`D` / `s`), last selections.
-- **Unlisted packages**: explicit installs (pacman + flatpak) that are in no
-  list. Sort them with `p` (add to `packages.toml`), `f` (add to the profile),
-  `m` (this machine only), `x` (remove) or `i` (ignore). Keys act on ticked
-  rows, else the highlighted one. `p`/`f` edit tracked files: commit afterwards.
-  Unticked packages remain known to the audit. `i` persists an ignore preference
-  on this machine; it leaves the package installed and receiving updates.
-- **One-time setup**: "never run" means no successful run was recorded by vj;
-  the feature may already be configured. Select only the actions you need.
-- **Display**: text scale for this machine (e.g. `1.3`; empty = system
-  default), applied by Dotfiles as the GTK/GNOME `text-scaling-factor`.
-- **Flatpak apps**: untick an app to exclude it from installation. Removal with `x`
-  is supported only for pacman packages; an app replaced for good goes in
-  `packages.toml` `[flatpak].remove` (uninstalled after the installs).
+  friend adds `dotsets/<their-name>/` with the same shape and picks it with
+  `--dotset`. `none` = don't touch dotfiles.
+- **Local config** `~/.config/sysup/config.toml` (not in git; moved there from
+  `~/.config/sysup/` on the first run): profile/set, `[paru]`/`[flatpak]`
+  `add` (this machine only) and `remove` (demoted to a dependency, removed only
+  if nothing needs it), `[declined]` (never install), `[ignored]` (unlisted
+  installs not to report), `[once]` (one-time action dates), `[select]`
+  `dotfiles`/`repos` (subsets; missing = all), `[display]` `text_scale`
+  (e.g. `1.3`, applied by the dotfiles deploy). `[declined]`, `[select]` and
+  `[display]` are edited by hand.
+- **Sorting packages:** `sysup --pkg WHERE NAME...` with WHERE `shared`
+  (`packages.toml`), `profile` (this machine's profile file), `local`, `remove`
+  or `ignore`. App IDs with two dots (`com.x.Y`) or installed flatpaks go to the
+  flatpak lists. `shared`/`profile` edit tracked files: commit afterwards.
+- **One-time setup:** `sysup --status` lists the one-time actions with the date
+  each last ran ok; run one with `sysup --actions ID`, hide one with
+  `sysup --skip-once ID`. "never run" means no successful run was recorded; the
+  feature may already be configured.
+- **Fixes after a run:** problems with a known fix (stow conflicts, unlisted
+  packages, install conflicts, failed AUR builds, pacnew files, orphans) are
+  offered one by one after the recap, in a terminal only. Enter skips.
+- **Update check:** before a run, sysup fetches the dots repo and offers to
+  pull and relaunch when it is behind.
+- **Dotset backups:** two local git tags per set, `backup/<set>/1` (newest) and
+  `/2`, taken before deploy, dms-import and git export; the oldest is dropped.
+  Only when the set changed. Never pushed. `sysup --restore 1|2` puts one back
+  (working tree only; the replaced state becomes backup 1, so it can be undone).
+- **Flatpak apps**: an app replaced for good goes in `packages.toml`
+  `[flatpak].remove` (uninstalled after the installs).
 - **Conflicting packages**: a listed package that conflicts with an installed
   one replaces it in the same pacman transaction, so a failed build removes
   nothing. Protected packages (kernels, glibc, pacman…) are never swapped.
-- **Times**: package estimates come from `build-times.tsv` (committed): green
-  < 10 s, yellow < 1 min, orange longer; `?` = no history yet.
 
 ---
 
@@ -210,7 +204,7 @@ To add a segment, add one line to `statusline.sh` — nothing else needs changin
 A `pre-commit` hook first blocks staged secrets (token/private-key patterns and
 paths like `auth.json`, `.credentials.json`, `id_ed25519`; it prints only a
 6-character prefix), then runs `shellcheck` on staged shell scripts and blocks
-the commit on errors. It is registered automatically by `vjupdate` (via
+the commit on errors. It is registered automatically by `sysup` (via
 `core.hooksPath`), or by hand:
 
 ```bash
@@ -222,10 +216,10 @@ installed that step does nothing, so commits still work on a fresh clone.
 
 GitHub Actions (`.github/workflows/test.yml`) runs the unittest suite and
 ShellCheck on every push. The CI runner has Stow 2.3, whose conflict messages
-are worded differently from Stow 2.4; `vjupdate` parses both.
+are worded differently from Stow 2.4; `sysup` parses both.
 
-Fish completions for `vjupdate` (flags, and `--actions` IDs read live from the
-script) and `vj` ship in the `fish` package.
+Fish completions for `sysup` (flags, and `--actions` IDs read live from the
+script) ship in the `fish` package.
 
 ---
 
@@ -234,7 +228,7 @@ script) and `vj` ship in the `fish` package.
 After pulling new changes from this repo:
 
 ```bash
-vjupdate --actions stow-symlinks     # or tick "Refresh configuration links" in vj
+sysup --actions stow-symlinks
 ```
 
 By hand (packages live in the dotfile set, `scripts` at the repo root):
@@ -246,17 +240,17 @@ stow --restow -t ~ alacritty DankMaterialShell fish fonts gtk-3.0 gtk-4.0 \
      micro mimeapps mpd paru qt5ct qt6ct spotify-player vesktop VSCodium claude \
      cave caveman
 # niri is NOT stowed — it uses file-level symlinks (DMS owns ~/.config/niri/),
-# including the machine files from dotsets/viridjan/<profile>/. Re-run vjupdate.
+# including the machine files from dotsets/viridjan/<profile>/. Re-run sysup.
 ```
 
 `-t ~` is required: the repo lives at `~/Projects/dots`, so stow's default target
 (the parent dir) would be `~/Projects`, not `~`. Always pass `-t ~`.
 
-Or just re-run `bash scripts/.local/bin/vjupdate` — it's idempotent.
+Or just re-run `bash scripts/.local/bin/sysup` — it's idempotent.
 
 ### Preview first
 
-`vjupdate --dry-run` (`-n`) previews the requested action and changes nothing.
+`sysup --dry-run` (`-n`) previews the requested action and changes nothing.
 `--update` and `--check` show their own operations. Bootstrap previews honor
 `SKIP_PHASES` and show missing packages, Stow simulations and cleanup. Interactive
 choices are not known yet, so that preview explicitly shows the `--yes` baseline;
@@ -266,7 +260,7 @@ that would need network or root are shown as `[unknown]` rather than guessed.
 
 ### Stow conflicts are no longer adopted automatically
 
-**Behaviour change.** `vjupdate` used to deploy every package with
+**Behaviour change.** `sysup` used to deploy every package with
 `stow --adopt`. When a real file already sat at a target path, `--adopt` moved
 that file *into the repo* — overwriting the tracked copy with whatever was live
 — and then symlinked to it. On a machine whose config had drifted this silently
@@ -276,7 +270,7 @@ Now a conflict is reported and left alone. Nothing is overwritten and no user
 file is deleted. To take the live files over deliberately:
 
 ```bash
-vjupdate --adopt      # backs up every conflicting file first
+sysup --adopt      # backs up every conflicting file first
 ```
 
 Backups go to unique `~/.local/state/dots/adopt-backup-<timestamp>-<suffix>/`
@@ -290,8 +284,7 @@ already-working symlinks.
 
 ### Review and upload changes
 
-Running `vjupdate` with no arguments opens `vj`, which is the only menu;
-it hands your choices back as `vjupdate --actions …`.
+There is no menu: run actions by ID, e.g. `sysup --actions dms-export,dotfiles-export`.
 
 **Refresh configuration links** starts checked so new tracked settings get linked.
 It does not copy DMS overrides; conflicts remain untouched unless `--adopt` was
@@ -322,7 +315,7 @@ never built under this feature show as "no history" until their first upgrade.
 
 ### Only one run at a time
 
-`vjupdate` takes an flock on `~/.local/state/dots/vjupdate.lock` before it
+`sysup` takes an flock on `~/.local/state/dots/sysup.lock` before it
 rotates the log or touches anything. A second invocation exits immediately with
 a clear message. The lock is held on an open file descriptor, so the kernel
 releases it however the process ends. `--help` and `--dry-run` never take it.
@@ -357,7 +350,7 @@ script. Tests use a temporary home and restricted PATH with mocked system tools.
 Borrowed from aconfmgr, decman, metapac, dotbot and other dotfile repos (2026-10-27):
 
 - **Preflight:** refuses to run as root, warns under 5 GiB free on `/`
-  (`VJ_MIN_FREE_GB`), keeps an existing sudo ticket alive during long runs.
+  (`SYSUP_MIN_FREE_GB`), keeps an existing sudo ticket alive during long runs.
 - **Protected packages:** kernels, firmware, microcode, limine, base, glibc,
   pacman and keyrings are never removed by any path.
 - **AUR update review:** before each upgrade, every pending AUR update's
@@ -368,7 +361,7 @@ Borrowed from aconfmgr, decman, metapac, dotbot and other dotfile repos (2026-10
   your user keyring, which is what makepkg checks.
 - **niri validation:** new niri links are tested with `niri validate` in a
   temporary copy first; an invalid config leaves the live links unchanged.
-- **Link cleanup:** packages unticked in vj → Dotfiles are unstowed, and broken
+- **Link cleanup:** packages left out of `[select] dotfiles` are unstowed, and broken
   links into the repo are removed from `~/.config`, `~/.local/bin` and
   `~/.local/share/applications`.
 - **Pinned installers:** `@sh <url>` lines in `.install-scripts.list` run only
@@ -396,7 +389,7 @@ cd ~/Projects/dots/dotsets/viridjan && stow -t ~ <pkg>
 ```
 
 Result: `~/.config/<pkg>` becomes a directory-level symlink to `~/Projects/dots/dotsets/viridjan/<pkg>/.config/<pkg>`.
-vjupdate picks up every folder in the set automatically (untick it in vj → Dotfiles to skip).
+sysup picks up every folder in the set automatically (leave it out of `[select] dotfiles` to skip).
 Any file the app writes inside it will land directly in the repo.
 
 ### Add files to an existing package (e.g. a new subdir)
@@ -433,9 +426,9 @@ rm -rf ~/Projects/dots/dotsets/viridjan/<pkg>          # optionally delete from 
 ls -la ~/.config/ | grep '^l'
 
 # Re-apply all packages (safe to run repeatedly; won't overwrite existing symlinks).
-# Use vjupdate, not `stow */` — the latter would fold ~/.config/niri into a
+# Use sysup, not `stow */` — the latter would fold ~/.config/niri into a
 # symlink and break DMS, and would target ~/Projects instead of ~.
-bash scripts/.local/bin/vjupdate
+bash scripts/.local/bin/sysup
 ```
 
 ---
@@ -449,7 +442,7 @@ disables it on the next run), `[npm]` / `[uv]` global tools, and `[ufw] allow`
 firewall rules (one `ufw allow <rule>` each, applied with the services; add-only).
 
 Your own software: give its `projects.toml` entry a `build` command. Install and
-`vjupdate --update` pull it (fast-forward only) and rerun the build when the
+`sysup --update` pull it (fast-forward only) and rerun the build when the
 commit changed; a repo with uncommitted changes is skipped. Example (7000bar):
 
 ```toml
@@ -484,7 +477,7 @@ build = "cargo build --release && install -Dm755 target/release/7000bar ~/.local
 | `fonts` | `~/.local/share/fonts/` — user fonts (Luminari) |
 | `mpd` | `~/.config/mpd/mpd.conf` |
 | `spotify-player` | `~/.config/spotify-player/keymap.toml` |
-| `scripts` | `~/.local/bin/{vjupdate,vj,start-windows,start-open-notebook,start-battlenet,gamescope-media}` + `.desktop` launchers — stowed `--no-folding`, so installers own the rest of `~/.local/bin` |
+| `scripts` | `~/.local/bin/{sysup,vjsurface,start-windows,start-open-notebook,start-battlenet,gamescope-media}` + `.desktop` launchers — stowed `--no-folding`, so installers own the rest of `~/.local/bin` |
 
 **niri note:** `cfg/display.kdl`, `cfg/input.kdl`, and `cfg/surface-layout.kdl` are NOT in the `niri` package —
 they come from `dotsets/viridjan/desktop/`, `…/surface/` or `…/plancia/`, matching the profile name.
@@ -519,11 +512,11 @@ Create `.desktop` entries for all installed Steam games (shows up in app menus).
 Also removes launchers for games that were uninstalled:
 
 ```bash
-vjupdate --steam-launchers
+sysup --steam-launchers
 ```
 
 Re-run after installing new games. Launchers land in `~/.local/share/applications/`.
-Ticked by default in vj → Maintenance actions.
+Action ID `steam-launchers`.
 
 ### App launcher cleanup
 
@@ -533,39 +526,39 @@ app, deleted script), and reports installed apps not mirrored into
 `/usr/share/applications/`):
 
 ```bash
-vjupdate --app-launchers
+sysup --app-launchers
 ```
 
-Also ticked by default in vj → Maintenance actions.
+Action ID `app-launchers`.
 
 ### Weekly health check
 
-The `systemd-user` package installs `vjupdate-check.timer`: once a week it runs
-`vjupdate --check` (report only, lowest priority) and shows a desktop
-notification if anything failed. vj's Maintenance row shows the last result,
+The `systemd-user` package installs `sysup-check.timer`: once a week it runs
+`sysup --check` (report only, lowest priority) and shows a desktop
+notification if anything failed. `sysup --status` shows the last result,
 e.g. `check 2d ago: 1 failed (pacman-db)`. Run it now with
-`systemctl --user start vjupdate-check.service`.
+`systemctl --user start sysup-check.service`.
 
 ### Unlisted and unused apps
 
-The audit (`vjupdate --check`, or "Check system health" in vj) reports, never removes:
+The audit (`sysup --check`, or action `audit`) reports, never removes:
 
 - explicitly installed packages and flatpaks that are in no package list
-  (`packages.toml`, profile, local config, ignored). Sort them in vj → Unlisted packages.
-  The run plan includes `known-packages.list`, so unticked packages declared in
+  (`packages.toml`, profile, local config, ignored). Sort them with `sysup --pkg` or the fix offered after the run.
+  The run plan includes `known-packages.list`, so declined packages declared in
   the shared, profile, or local lists are not falsely reported as unlisted.
 - apps with a launcher and no recorded use in 60 days
 
 The audit also reports package config files you changed in `/etc` (only ones
 new since the last audit), DMS started twice (service plus niri spawn), and
 missing logins for installed tools (gh, SSH key, Claude, Codex,
-spotify_player, Vesktop). `vjupdate --lostfiles` lists files no package owns
+spotify_player, Vesktop). `sysup --lostfiles` lists files no package owns
 (takes about a minute).
 
 Usage comes from DankMaterialShell (launcher history + per-window focus time in
 `~/.local/state/DankMaterialShell/`). Focus tracking began 2026-10-24, so the
 unused check prints its start date until 60 days of history exist. Terminal apps
-are never flagged. Standalone: `python3 -m vj unused PLANDIR [DAYS]`.
+are never flagged. Standalone: `python3 scripts/.local/lib/sysup/sysup.py unused PLANDIR [DAYS]`.
 
 ### EmuDeck
 
@@ -597,7 +590,7 @@ log. Point its **Settings → Logs** at:
 Arena also needs **Options → Account → Detailed Logs (Plugin Support)** enabled, or
 the tool sees almost nothing. Launch with `mtgatool` or from the app menu.
 
-Note: `vjupdate --app-launchers` deletes any `.desktop` whose target binary is
+Note: `sysup --app-launchers` deletes any `.desktop` whose target binary is
 missing — on a fresh clone, download the AppImage before running it, or the
 launcher symlink gets removed (`stow --no-folding --restow -t ~ scripts` brings it back).
 
@@ -644,7 +637,7 @@ gamescope -f -W 3440 -H 1440 -w 1920 -h 1080 -r 165 -- %command%
 
 ## Local AI (ollama)
 
-Desktop only (`ollama-model` feature). vjupdate enables `ollama.service`,
+Desktop only (`ollama-model` feature). sysup enables `ollama.service`,
 pulls `qwen3.5` (6.6 GB), then rebuilds each
 `scripts/.local/share/ollama/<name>.Modelfile` as model `<name>`; install and
 `--update` runs do both, so revised tags arrive automatically. Add a model to
@@ -670,13 +663,13 @@ ollama stop qwen3.5                        # free VRAM now (idle unload is 1 min
 
 The drop-in directory is a link into the repo, so an edit lands immediately but
 applies only after `sudo systemctl daemon-reload && sudo systemctl restart ollama`.
-vjupdate's dotfiles step does that when systemd reports the unit changed.
+sysup's dotfiles step does that when systemd reports the unit changed.
 
 ---
 
 ## Btrfs snapshots
 
-Handled automatically by `vjupdate`:
+Handled automatically by `sysup`:
 
 | Component | Role |
 |---|---|
@@ -686,7 +679,7 @@ Handled automatically by `vjupdate`:
 | `snapper-timeline.timer` | Systemd timer — takes periodic timeline snapshots |
 | `snapper-cleanup.timer` | Systemd timer — prunes old snapshots per retention config |
 
-`vjupdate` creates the snapper root config (`snapper -c root create-config /`) on first run and enables both timers.
+`sysup` creates the snapper root config (`snapper -c root create-config /`) on first run and enables both timers.
 
 To browse and restore snapshots:
 
@@ -707,8 +700,7 @@ cp /.snapshots/<N>/snapshot/path/to/file ~/restored-file
 
 ## System optimisations (CachyOS / Arch)
 
-Most of these are automated — run `vjupdate --optimize` (or tick **Apply system
-tuning** in vj → One-time setup). It applies steps 1–5 below idempotently: CPU governor,
+Most of these are automated — run `sysup --optimize` (or `sysup --actions optimize`). It applies steps 1–5 below idempotently: CPU governor,
 disabling NetworkManager-wait-online, masking lvm2-monitor, the rate-mirrors 2h
 delay, and the AMD GPU performance udev rule. Steps 7 (EFI cleanup) and 8 (greetd
 autologin) stay manual — EFI needs review, autologin conflicts with the DMS

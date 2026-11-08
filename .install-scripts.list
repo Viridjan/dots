@@ -1,5 +1,5 @@
 # Shell-based installers — each line is executed verbatim via bash -c
-# Feed to vjupdate: run_install_scripts()
+# Feed to sysup: run_install_scripts()
 
 # Codex itself is installed by the normal package install action.
 # @sh URL entries run only if unchanged since the last run (else show a diff).
