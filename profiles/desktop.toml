@@ -32,8 +32,9 @@ install = [
 [systemd]
 # limine-snapper-sync: limine machines only (the Surface boots via GRUB)
 enable = ["ollama", "limine-snapper-sync.service"]
-# LightRAG server (rag-stack; unit in the systemd-user dotset, settings in ~/.local/share/lightrag/summit/.env)
-user = ["lightrag"]
+# LightRAG servers, one per document set (rag-stack; template unit lightrag@.service in the
+# systemd-user dotset, settings in ~/.local/share/lightrag/<set>/.env): summit :9621, dots :9622
+user = ["lightrag@summit", "lightrag@dots"]
 
 # rag-stack (docs/rag-tools.md): MCP servers registered by setup_claude (_setup_rag)
 [npm]

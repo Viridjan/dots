@@ -1,0 +1,14 @@
+[Unit]
+Description=LightRAG server for the %i document set (graph + vector RAG over docs)
+After=network-online.target
+
+[Service]
+# One instance per document set: ~/.local/share/lightrag/<set>/.env holds HOST/PORT
+# and the Ollama models (HOST=127.0.0.1: no auth by default). summit 9621, dots 9622.
+WorkingDirectory=%h/.local/share/lightrag/%i
+ExecStart=%h/.local/bin/lightrag-server
+Restart=on-failure
+Nice=10
+
+[Install]
+WantedBy=default.target

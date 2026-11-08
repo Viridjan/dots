@@ -9,7 +9,7 @@ useful for any repo. Everything runs locally through Ollama: no cloud API keys.
 | Claude Context | Code search by meaning (hybrid keyword + vector) | `@zilliz/claude-context-mcp` (npm) | MCP server (stdio) |
 | Milvus | Vector database Claude Context stores its index in | `milvusdb/milvus:v3.0.5` (Docker) | container, 127.0.0.1:19530 |
 | Godot MCP | Agent runs the Godot project, reads errors, inspects scenes | `@coding-solo/godot-mcp` (npm) | MCP server (stdio) |
-| LightRAG | Graph + vector RAG over design docs, incremental updates | `lightrag-hku[api]` (uv) | HTTP server, 127.0.0.1:9621 |
+| LightRAG | Graph + vector RAG over design docs, incremental updates | `lightrag-hku[api]` (uv) | HTTP server per document set: summit 127.0.0.1:9621, dots :9622 |
 | nomic-embed-text | Embedding model shared by Claude Context and LightRAG (768 dim) | Ollama model | ollama |
 
 ## How to add them to dots (follow the existing patterns)
@@ -31,10 +31,14 @@ useful for any repo. Everything runs locally through Ollama: no cloud API keys.
    `embedEtcd.yaml` / `user.yaml` (from upstream `scripts/standalone_embed.sh`). First start needs the volume
    chowned to the image's `milvus` user (upstream does it with a one-shot root container). A `setup_rag` action
    runs `docker compose up -d` (Docker is already enabled in `[systemd].enable`).
-5. **LightRAG service.** User unit `lightrag.service` in the `systemd-user` dotset: `ExecStart=lightrag-server`,
-   `WorkingDirectory=%h/.local/share/lightrag/summit` (its `.env` holds the settings below); add `"lightrag"` to the
-   desktop profile's `[systemd].user`. Example `.env` (already on the desktop at
-   `~/.local/share/lightrag/summit/.env`):
+5. **LightRAG service.** Template user unit `lightrag@.service` in the `systemd-user` dotset, one instance per
+   document set (2026-11-08): `ExecStart=lightrag-server`, `WorkingDirectory=%h/.local/share/lightrag/%i` (its `.env`
+   holds the settings below). The desktop profile's `[systemd].user` lists `lightrag@summit` (port 9621, Summit game
+   docs, kept up to date by `~/Projects/videogame/tools/lightrag_update.py`) and `lightrag@dots` (port 9622, this
+   repo's docs + Claude memory notes, `python3 rag/lightrag_update.py`). One server can't switch data sets per
+   request in 1.5.7, hence one instance each. A new set: `<set>/.env` with its own PORT and paths, add
+   `lightrag@<set>` to the profile. The `.env` files are untracked. Example (summit's,
+   `~/.local/share/lightrag/summit/.env`; dots differs only in PORT and paths):
    ```
    HOST=127.0.0.1
    PORT=9621
@@ -68,6 +72,6 @@ useful for any repo. Everything runs locally through Ollama: no cloud API keys.
 ## Checks
 - `claude mcp list` shows `godot` and `claude-context` connected; `codex mcp list` likewise.
 - `docker ps` shows `milvus` healthy; `curl -s 127.0.0.1:9091/healthz` → `OK`.
-- `systemctl --user is-active lightrag` → `active`; `curl -s 127.0.0.1:9621/health`.
+- `systemctl --user is-active lightrag@summit lightrag@dots` → `active`; `curl -s 127.0.0.1:9621/health` (dots: 9622).
 - `ollama list` includes `nomic-embed-text`.
-- Ports 19530 / 9091 / 9621 are not reachable from the LAN (`ss -tlnp` shows `127.0.0.1`).
+- Ports 19530 / 9091 / 9621 / 9622 are not reachable from the LAN (`ss -tlnp` shows `127.0.0.1`).
