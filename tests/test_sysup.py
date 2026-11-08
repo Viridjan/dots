@@ -998,7 +998,8 @@ class ReviewFollowupTests(FixtureCase):
         # Mode picker (--no-multi) answers $MODE; action list answers the IDs in $PICK.
         self.mock("fzf", 'echo "fzf $*" >> "$CALLS"\n[ -n "${ESC:-}" ] && exit 130\n'
                          'if [[ " $* " == *" --no-multi "* ]]; then grep "^$MODE\t"; exit 0; fi\n'
-                         'in=$(cat); for id in $PICK; do grep "^$id\t" <<< "$in"; done')
+                         'in=$(cat); [ -n "${HDR:-}" ] && grep -e "^\t" -e "^RUN\t" <<< "$in"\n'
+                         'for id in $PICK; do grep "^$id\t" <<< "$in"; done')
 
     MENU_PY = ('_py() { [ "$1" = menu ] || return 1\n'
                "  printf 'sources\\troutine\\tRefresh\\t\\tdesc\\nfish\\ttools\\tFish\\tnever run\\tdesc2\\n'"
@@ -1006,7 +1007,7 @@ class ReviewFollowupTests(FixtureCase):
 
     def test_menu_actions_builds_actions_args(self):
         self._menu_fzf()
-        self.env.update(MODE="actions", PICK="sources fish")
+        self.env.update(MODE="actions", PICK="sources fish", HDR="1")  # RUN/header rows are dropped
         r = self.shell(self.MENU_PY + '_menu\necho "A=$ACTION S=$SYSUP_ACTIONS O=${_ORIG_ARGS[*]}"')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("A=--actions S=sources,fish O=--actions sources,fish", r.stdout)

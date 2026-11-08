@@ -42,44 +42,46 @@ DEFAULTS = {
     "display": {},  # text_scale (applied by the dotfiles deploy)
 }
 
+# Menu groups, in display order.
+GROUPS = ["packages", "health", "dotfiles", "launchers", "system", "apps", "accounts"]
 # Every ID in sysup's MENU_ORDER: (group, label, description) for the menu and --status.
 ACTIONS = {
-    "sources": ("routine", "Refresh package sources", "Prepare paru, keys, mirrors, Flathub and projects; recent work is skipped."),
-    "install": ("routine", "Upgrade and install packages", "Upgrade packages, install configured lists, then clean package caches."),
+    "sources": ("packages", "Refresh package sources", "Prepare paru, keys, mirrors, Flathub and projects; recent work is skipped."),
+    "install": ("packages", "Upgrade and install packages", "Upgrade packages, install configured lists, then clean package caches."),
     "services": ("system", "Enable system services", "Enable configured system/user services and ufw rules; may ask for sudo."),
     "snapper": ("system", "Configure filesystem snapshots", "Create the root Snapper configuration if absent."),
     "automount": ("system", "Configure disk automounting", "Choose partitions and confirm /etc/fstab changes; a backup is kept."),
     "optimize": ("system", "Apply system tuning", "Tune CPU/GPU performance, system services and the mirror timer."),
     "keyboard": ("system", "Configure keyboard layout", "Set the X11/XWayland keyboard to US international."),
-    "kernels": ("system", "Manage kernels", "Interactively install or remove kernels; the running kernel is protected."),
+    "kernels": ("packages", "Manage kernels", "Interactively install or remove kernels; the running kernel is protected."),
     "greeter": ("system", "Configure login screen", "Install and synchronize the DMS greeter configuration."),
     "keyring-pam": ("system", "Configure login keyring", "Add gnome-keyring integration to the greetd PAM configuration."),
     "nvidia-niri": ("system", "Apply niri NVIDIA VRAM fix", "Install the GLVidHeapReuseRatio=0 NVIDIA application profile for niri."),
-    "install-scripts": ("tools", "Run custom installers", "Execute commands in .install-scripts.list; installers may download and run code."),
-    "fish": ("tools", "Configure fish and tide", "Install tide and apply the configured shell theme."),
-    "dms-plugins": ("dms", "Install DMS plugins", "Install plugins from the repository plugin list."),
-    "dms-export": ("dms", "Save live DMS settings to repository", "Copy live DMS overrides except colors into the repo. Changes repository files."),
-    "claude": ("tools", "Install Claude Code plugins", "Install Claude Code plugins, skills and MCP setup."),
-    "caveman-code": ("tools", "Install caveman-code", "Install the npm command and refresh its local links."),
-    "ollama": ("ai", "Download Ollama model", "Pull qwen3.5 and rebuild the Modelfile models (ollama-model feature)."),
-    "vms": ("ai", "Prepare Windows virtual machine", "Create VM storage directories and download the Windows container image."),
-    "steam-launchers": ("routine", "Refresh Steam game launchers", "Create game launchers and remove entries for uninstalled Steam games."),
-    "app-launchers": ("routine", "Maintain application launchers", "Remove stale app launchers; report apps without local launcher copies."),
-    "lostfiles": ("routine", "Report files owned by no package", "Run pacreport --unowned-files (about a minute, report only)."),
-    "dotfiles-export": ("dms", "Review and upload Git changes", "Review, stage, commit and push repo changes; each step asks for confirmation."),
-    "stow-symlinks": ("routine", "Refresh configuration links", "Refresh Stow/niri links. Conflicts stay unless --adopt was passed."),
-    "dms-import": ("dms", "Apply repository DMS settings", "Overwrite the live DMS overrides, including colors. No Git pull."),
-    "audit": ("routine", "Check system health", "Inspect packages, firmware, malware and database integrity."),
-    "orphan-removal": ("routine", "Remove orphan packages", "Remove unused dependencies. Also runs the system health check."),
-    "rebuild": ("routine", "Rebuild affected packages", "Reinstall packages flagged by rebuild-detector; holds excluded. Runs the health check."),
-    "python-rebuild": ("routine", "Rebuild outdated Python packages", "Rebuild packages built for an old Python; holds excluded. Runs the health check."),
-    "pacnew-merge": ("routine", "Merge pending configuration files", "Review .pacnew files interactively with pacdiff. Runs the health check."),
-    "git-identity": ("one-time", "Set Git name and email", "Set git user.name/email if unset."),
-    "ssh-key": ("one-time", "Create SSH key and add it to GitHub", "ssh-keygen if missing, then gh ssh-key add if GitHub lacks it."),
-    "fingerprint": ("one-time", "Enroll fingerprint", "Enroll a fingerprint with fprintd (needs the device)."),
-    "bitwarden": ("one-time", "Log in to Bitwarden", "Open Bitwarden if no account is logged in."),
-    "yubikey-pin": ("one-time", "Set YubiKey FIDO PIN", "Set the YubiKey FIDO2 PIN (needs the key)."),
-    "surface-secureboot": ("one-time", "Enroll linux-surface Secure Boot key", "Install linux-surface-secureboot-mok when Secure Boot is on."),
+    "install-scripts": ("apps", "Run custom installers", "Execute commands in .install-scripts.list; installers may download and run code."),
+    "fish": ("apps", "Configure fish and tide", "Install tide and apply the configured shell theme."),
+    "dms-plugins": ("apps", "Install DMS plugins", "Install plugins from the repository plugin list."),
+    "dms-export": ("dotfiles", "Save live DMS settings to repository", "Copy live DMS overrides except colors into the repo. Changes repository files."),
+    "claude": ("apps", "Install Claude Code plugins", "Install Claude Code plugins, skills and MCP setup."),
+    "caveman-code": ("apps", "Install caveman-code", "Install the npm command and refresh its local links."),
+    "ollama": ("apps", "Download Ollama model", "Pull qwen3.5 and rebuild the Modelfile models (ollama-model feature)."),
+    "vms": ("apps", "Prepare Windows virtual machine", "Create VM storage directories and download the Windows container image."),
+    "steam-launchers": ("launchers", "Refresh Steam game launchers", "Create game launchers and remove entries for uninstalled Steam games."),
+    "app-launchers": ("launchers", "Maintain application launchers", "Remove stale app launchers; report apps without local launcher copies."),
+    "lostfiles": ("health", "Report files owned by no package", "Run pacreport --unowned-files (about a minute, report only)."),
+    "dotfiles-export": ("dotfiles", "Review and upload Git changes", "Review, stage, commit and push repo changes; each step asks for confirmation."),
+    "stow-symlinks": ("dotfiles", "Refresh configuration links", "Refresh Stow/niri links. Conflicts stay unless --adopt was passed."),
+    "dms-import": ("dotfiles", "Apply repository DMS settings", "Overwrite the live DMS overrides, including colors. No Git pull."),
+    "audit": ("health", "Check system health", "Inspect packages, firmware, malware and database integrity."),
+    "orphan-removal": ("packages", "Remove orphan packages", "Remove unused dependencies. Also runs the system health check."),
+    "rebuild": ("packages", "Rebuild affected packages", "Reinstall packages flagged by rebuild-detector; holds excluded. Runs the health check."),
+    "python-rebuild": ("packages", "Rebuild outdated Python packages", "Rebuild packages built for an old Python; holds excluded. Runs the health check."),
+    "pacnew-merge": ("health", "Merge pending configuration files", "Review .pacnew files interactively with pacdiff. Runs the health check."),
+    "git-identity": ("accounts", "Set Git name and email", "Set git user.name/email if unset."),
+    "ssh-key": ("accounts", "Create SSH key and add it to GitHub", "ssh-keygen if missing, then gh ssh-key add if GitHub lacks it."),
+    "fingerprint": ("accounts", "Enroll fingerprint", "Enroll a fingerprint with fprintd (needs the device)."),
+    "bitwarden": ("accounts", "Log in to Bitwarden", "Open Bitwarden if no account is logged in."),
+    "yubikey-pin": ("accounts", "Set YubiKey FIDO PIN", "Set the YubiKey FIDO2 PIN (needs the key)."),
+    "surface-secureboot": ("accounts", "Enroll linux-surface Secure Boot key", "Install linux-surface-secureboot-mok when Secure Boot is on."),
 }
 # One-time setup actions, stamped in [once].
 ONCE = ["services", "snapper", "automount", "optimize", "keyboard", "greeter", "keyring-pam",
@@ -504,13 +506,14 @@ def once_state(cfg: dict, i: str) -> str:
 
 
 def menu_rows(repo: Repo, cfg: dict, ids) -> list:
-    """TSV rows id, group, label, state, description for the sysup menu (MENU_ORDER order)."""
+    """TSV rows id, group, label, state, description for the sysup menu, by GROUPS then MENU_ORDER."""
     unknown = [i for i in ids if i not in ACTIONS]
     if unknown:
         raise ConfigError(f"no menu entry for: {' '.join(unknown)}")
     have = set(features(repo, cfg))
     return ["\t".join((i, *ACTIONS[i][:2], once_state(cfg, i) if i in ONCE else "", ACTIONS[i][2]))
-            for i in ids if ONCE_FEATURE.get(i) in (None, *have)]
+            for i in sorted(ids, key=lambda i: GROUPS.index(ACTIONS[i][0]))
+            if ONCE_FEATURE.get(i) in (None, *have)]
 
 
 def status_lines(repo: Repo, cfg: dict) -> list:

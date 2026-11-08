@@ -596,7 +596,7 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   review and manual upgrade commands; dry runs list the holds.
 - **Menu (2026-11-08).** Bare `sysup` with stdin+stdout on a TTY and `fzf`
   installed runs `_menu`; otherwise help (timer, pipes, tests). Step 1 picks
-  update / check / actions / status; step 2 is `fzf --multi` over rows from
+  update / check / actions / status; step 2 is `fzf --multi` (grouped by `GROUPS`; Enter marks, the top `▶ Run` row or Ctrl-R runs) over rows from
   `sysup.py menu "${MENU_ORDER[@]}"` (feature-gated one-time actions hidden,
   `[once]` state shown). It only sets `ACTION`/`SYSUP_ACTIONS` and
   `_ORIG_ARGS` (so the self-update relaunch runs the choice), then main runs
