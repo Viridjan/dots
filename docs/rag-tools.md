@@ -54,6 +54,8 @@ useful for any repo. Everything runs locally through Ollama: no cloud API keys.
    EMBEDDING_MODEL=nomic-embed-text
    EMBEDDING_DIM=768
    OLLAMA_EMBEDDING_NUM_CTX=8192
+   # embeddings queue behind slow capped qwen calls (NUM_PARALLEL=1); the 30 s default failed 39/42 docs
+   EMBEDDING_TIMEOUT=600
    ```
    Keep `HOST=127.0.0.1` (the server binds every interface otherwise and has no auth by default).
 6. **MCP registration** (untracked `~/.claude.json` / `~/.codex/config.toml`, like `_setup_rea`): a
