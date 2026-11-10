@@ -687,6 +687,15 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   and `/etc/brave/policies` path were read from the `brave-origin-bin` binary.
   Confirmed on the desktop 2026-10-11: `brave://policy` shows the policy with
   status OK, and invite links now open the join dialog in Vesktop.
+  The same file (`discord-loopback.json`) also forces spell check on with
+  `SpellcheckLanguage: ["en-GB", "it"]` (2026-11-10).
+- **Italian spell check (2026-11-10).** `hunspell-it/en_gb/en_us` in `[paru].install`
+  (wordcraft, Thunderbird, enchant/GTK apps read `/usr/share/hunspell`; qt6-webengine's pacman
+  hook converts them to `.bdic` in `/usr/share/qt6/qtwebengine_dictionaries` for Whatsie).
+  Per-app language lists: Brave policy and Vesktop `spellCheckLanguages` (tracked); Joplin
+  `spellChecker.languages`, Whatsie `[spellcheck] languages=en_GB, it_IT` in
+  `~/.config/org.keshavnrj.ubuntu/WhatSie.conf` and Telegram (Settings → Advanced → Manage
+  dictionaries; encrypted `tdata`, not scriptable) are per machine.
 - **Single instance.** An flock on `~/.local/state/dots/sysup.lock` is taken
   *before* log rotation; a second run exits with a message. `--help` and
   `--dry-run` skip runtime init entirely (no lock, no log rotation, no stamps),

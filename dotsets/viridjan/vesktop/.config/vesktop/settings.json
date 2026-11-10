@@ -26,6 +26,7 @@
     "transparencyOption": "none",
     "spellCheckLanguages": [
         "en-GB",
-        "en"
+        "en",
+        "it"
     ]
 }

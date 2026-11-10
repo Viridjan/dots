@@ -1,3 +1,5 @@
 {
-    "LoopbackNetworkAllowedForUrls": ["https://discord.com"]
+    "LoopbackNetworkAllowedForUrls": ["https://discord.com"],
+    "SpellcheckEnabled": true,
+    "SpellcheckLanguage": ["en-GB", "it"]
 }

@@ -26,6 +26,14 @@ deleted files. Run by full path once:
 - [ ] Both: `pacman -Q python-textual` — no longer listed; remove with
       `sudo pacman -Rns python-textual` if nothing else needs it.
 
+## Italian spell check (2026-11-10) — Surface and Plancia, once each
+
+- [ ] `sysup --actions install` (installs `hunspell-it`, `hunspell-en_gb`, `hunspell-en_us`).
+- [ ] Joplin: add `"it"` to `spellChecker.languages` in `~/.config/joplin-desktop/settings.json` (Joplin closed).
+- [ ] Whatsie: append `[spellcheck]` / `enabled=true` / `languages=en_GB, it_IT` to
+      `~/.config/org.keshavnrj.ubuntu/WhatSie.conf` (Whatsie closed).
+- [ ] Telegram: Settings → Advanced → Spell checker → Manage dictionaries → Italiano.
+
 ## Ollama model for Surface Pro 9
 
 RX 6700 XT (desktop) uses `qwen3.5` (VRAM-capped in its Modelfile). Surface has no discrete GPU — need to pick
