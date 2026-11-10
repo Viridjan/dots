@@ -80,7 +80,10 @@ install = [
 
     # Display manager
     "dux-shell",  # DMS renamed by CachyOS 2026-10-30; still ships dms + dms.service
-    "dux-greeter-git",  # Dux rename of the greeter; still ships dms-greeter (install/sync/--command)
+    "dux-greeter-bin",  # Dux greeter (-git until 2026-11-10); still ships dms-greeter (install/sync/--command)
+    "dux-files-bin",  # Dux file manager (2026-11-10)
+    "dux-calendar-bin",  # Dux calendar: local, Google, Microsoft, CalDAV
+    "dux-shell-plugins-git",  # first-party plugins in /usr/share/quickshell/dux-shell/plugins; link the ones to enable into ~/.config/dms/plugins
 
     # Btrfs snapshots
     "snapper",
@@ -116,7 +119,7 @@ install = [
     # AUR
     "quickshell",
     "dux-gop",  # dgop renamed by CachyOS 2026-10-30
-    "dsearch-bin",
+    "dux-search-bin",  # dsearch-bin renamed (2026-11-10)
     "whatsie",
     "telegram-desktop",
     "claude-code",

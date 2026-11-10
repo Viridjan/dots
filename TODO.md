@@ -2,7 +2,6 @@
 
 - [ ] Switch `vectorcraft-bin` to Flathub once `ai.storyteller.vectorcraft` is published (pacman > flatpak > AUR; Flatpak adds a sandbox).
 - [ ] Once desktop and Surface both run the `*craft-bin` packages (`pacman -Q vectorcraft-bin`), delete the 9 source `*craft` names from `packages.toml` [paru].remove (2026-10-25 swap).
-- [ ] Greeter swap on the desktop (Surface done 2026-11-01): `sysup --actions install` now replaces `greetd-dms-greeter-git` with `dux-greeter-git` in one transaction (`--ask=4`; a failed build keeps the old greeter). Confirm with `pacman -Q dux-greeter-git`, then `sysup --actions greeter`. If the conflict isn't auto-accepted, fall back to `paru -S dux-greeter-git` by hand.
 - [ ] Desktop: remove the unused uncapped Ollama model (LightRAG moved to the capped `qwen3.5`, 2026-11-08):
       `ollama rm qwen3.5-full && rm ~/.local/share/lightrag/qwen3.5-full.Modelfile`. Confirm `ollama list` no longer shows it.
 - [ ] Desktop: `sysup --actions install` builds `alvr-bin` (in `profiles/desktop.toml`, PKGBUILD reviewed 2026-11-01). Then install the matching ALVR client APK on the Pico 4 Ultra.
