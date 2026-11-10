@@ -78,6 +78,14 @@ cd ~/Projects/dots/windows && docker compose up -d
 # Shared folder: ~/Shared on host → \\host.lan\Data inside Windows (map as network drive)
 ```
 
+**Calendar: Dux Calendar, not Thunderbird.** Dux Files is the file manager and Dux
+Calendar the calendar (both set as defaults in `mimeapps`; `dsearch` and `dcal`
+user services are enabled by sysup). Per machine, by hand: sign in with
+`dcal account add google`, check `dcal account list`, then stop Thunderbird's
+duplicate reminders with a `user.js` in its profile that sets
+`calendar.alarms.show`/`playsound`/`showmissed` to `false` and every
+`calendar.registry.<id>.disabled` to `true` (applies at Thunderbird's next start).
+
 **SuiteCRM.** The local installation runs SuiteCRM 8.10.2 with PHP/Apache,
 MariaDB, a scheduler and a background worker in Docker. Open
 http://localhost:8088 and log in as `admin`; the generated password is

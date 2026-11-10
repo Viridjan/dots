@@ -5,6 +5,8 @@
 - [ ] Desktop: remove the unused uncapped Ollama model (LightRAG moved to the capped `qwen3.5`, 2026-11-08):
       `ollama rm qwen3.5-full && rm ~/.local/share/lightrag/qwen3.5-full.Modelfile`. Confirm `ollama list` no longer shows it.
 - [ ] Desktop: `sysup --actions install` builds `alvr-bin` (in `profiles/desktop.toml`, PKGBUILD reviewed 2026-11-01). Then install the matching ALVR client APK on the Pico 4 Ultra.
+- [ ] Surface/Plancia: Dux Calendar replaces Thunderbird's calendar (2026-11-10). After `git pull` + `sysup --actions install,stow-symlinks,services`:
+      `dcal account add google` (browser sign-in), confirm `dcal account list` shows `ok`, then add the Thunderbird `user.js` from README "Calendar" (calendars + alarms off). Confirm `xdg-mime query default text/calendar` = `dev.duxlabs.calendar.desktop`.
 
 
 ## sysup rename (2026-11-08) — Surface and Plancia, once each
