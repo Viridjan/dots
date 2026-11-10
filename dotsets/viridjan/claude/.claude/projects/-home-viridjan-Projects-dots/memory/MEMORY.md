@@ -24,7 +24,7 @@
 - [vjupdate 2026-10-27 cleanup](vjupdate-2026-10-27-cleanup.md) — bash menu gone (vjupdate → vj), AUDIT_CHECKS, weekly check timer, last-check in vj
 - [graphify on dots](graphify-dots-ids.md) — AST id format vs subagent ids; ignore list; incremental runs
 - [Battle.net under Wine](battlenet-wine.md) — ~/Games/battlenet via start-battlenet (umu+GE-Proton); stale prefix sessions → wineserver -k
-- [ollama limits](ollama-limits.md) — qwen3.5 only, DeepSeek removed 2026-10-30; qwen VRAM-capped num_gpu 26 (no prompt; user flip-flopped on speed, ask before changing); CPU/RAM soft caps
+- [ollama limits](ollama-limits.md) — desktop only, no Ollama on Surface; qwen3.5 only, DeepSeek removed 2026-10-30; qwen VRAM-capped num_gpu 26 (no prompt; user flip-flopped on speed, ask before changing); CPU/RAM soft caps
 - [claude-auto-retry](claude-auto-retry.md) — fish `claude` wrapper + tmux + StopFailure hook; npm 0.7.3 since npm 12 blocks git/tarball
 - [Scripts never abort](scripts-never-abort.md) — idempotent steps, warn and continue, exit 0 with summary
 - [Push after changes](push-after-changes.md) — desktop/Surface sync via GitHub; commit + push finished work
@@ -32,3 +32,4 @@
 - [vjupdate own builds + ufw](vjupdate-2026-11-own-builds-ufw.md) — projects.toml `build` (7000bar), [ufw].allow, --useask AUR swaps; 7000bar edited live by other agents
 - [Vesktop Vencord patch](vesktop-vencord-patch.md) — blank window = Vencord wreq.d vs 3-arg d(); local patch, lost on Vencord update
 - [LightRAG instances](lightrag-instances.md) — lightrag@summit :9621 / lightrag@dots :9622, `lightrag-index <project>` indexer, EMBEDDING_TIMEOUT=600
+- [Linux_Hacks upstream](linux-hacks-upstream.md) — sysup origin; reviewed to 3c5109a on 2026-11-10, ported/skipped list

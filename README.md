@@ -116,8 +116,8 @@ sysup --help                    # everything else
 
 Bare `sysup` in a terminal opens a menu (needs `fzf`): update, check, actions
 (grouped, Enter marks, Ctrl-R or the top Run row runs them), options
-(`--dry-run`, `--adopt`, `--clean-aggressive`), status. Esc goes back; after a
-run a keypress returns to the menu. Outside a terminal it prints the help.
+(`--dry-run`, `--adopt`, `--clean-aggressive`), status. Esc goes back; a run
+ends sysup with that run's exit status. Outside a terminal it prints the help.
 
 - **Profiles** (`profiles/<name>.toml`): hardware + package lists + feature
   switches. `desktop`, `surface` and `plancia` (Ryzen 9 7900X + RTX 4070 SUPER
@@ -575,6 +575,18 @@ new since the last audit), DMS started twice (service plus niri spawn), and
 missing logins for installed tools (gh, SSH key, Claude, Codex,
 spotify_player, Vesktop). `sysup --actions lostfiles` lists files no package owns
 (takes about a minute).
+
+Supply-chain checks (after the June 2026 "Atomic Arch" AUR attack):
+
+- AUR packages whose maintainer changed since you built them, maintained by a
+  known-malicious account, or gone from the AUR. A maintainer change also holds
+  the pending update back; it clears once you upgrade by hand (`paru -S <pkg>`).
+- AUR updates whose diff adds `npm`/`bun`/`pnpm`/`yarn` installs or `npx` are held
+  for review like `curl | sh` lines.
+- Package files vs. their sha256 sums (`paccheck`), every 60 days, needs sudo
+  (report: `~/.local/state/dots/paccheck.txt`).
+- Surface with Secure Boot on: firmware missing the 2023 Microsoft certificates.
+- CPU vulnerabilities the kernel reports as unmitigated.
 
 Usage comes from DankMaterialShell (launcher history + per-window focus time in
 `~/.local/state/DankMaterialShell/`). Focus tracking began 2026-10-24, so the
