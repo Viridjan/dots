@@ -1,0 +1,6 @@
+# Overrides nautilus' copy in /usr/share (pulled in by xdg-desktop-portal-gnome):
+# both claim this name, so "show in folder" (whatsie, browsers) opened Nautilus.
+[D-BUS Service]
+Name=org.freedesktop.FileManager1
+Exec=/usr/bin/dolphin --daemon
+SystemdService=plasma-dolphin.service

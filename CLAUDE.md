@@ -58,6 +58,8 @@ dots/
       brave/          → /etc/brave/policies/managed/  (Brave managed policy; stow -t /)
       claude/         → ~/.claude/  (settings.json, keybindings.json, statusline.sh + segment scripts)
       DankMaterialShell/ → ~/.config/DankMaterialShell/
+      dbus/           → ~/.local/share/dbus-1/services/  (org.freedesktop.FileManager1 → Dolphin; nautilus, a
+                        dep of xdg-desktop-portal-gnome, claims the same name, so "show in folder" opened it)
       desktop/        → ~/.config/niri/cfg/{display,input,autostart-machine,surface-layout}.kdl (profile desktop; ln, not stow)
       fish/           → ~/.config/fish/  (Arch logo override for fastfetch — see fish_greeting in config.fish;
                         functions/claude.fish launches the Claude binary directly; the old tmux retry wrapper
