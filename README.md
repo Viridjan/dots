@@ -517,7 +517,6 @@ except `Mod+.` (expel, to undo a drag-and-drop stack). Helpers from
 
 - **nirius** — `Mod+Alt+E/B/S/D/W/T/M` focus Dolphin/Brave/Spotify/Vesktop/WhatSie/Telegram/Thunderbird, launching it if not open.
 - **nirinit** — saves the window layout every 5 min and restores it at login; apps the autostart already opens are in `dotsets/viridjan/nirinit/` skip list.
-- **niri-autoselect-portal** — screen sharing skips the picker: choose the target first with `Mod+Ctrl+S` (window) / `Mod+Ctrl+Shift+S` (monitor), clear with `Mod+Ctrl+X`.
 - **iio-niri** (Surface) — rotates the screen with the accelerometer.
 
 ## Gaming

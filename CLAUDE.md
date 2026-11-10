@@ -80,7 +80,6 @@ dots/
                         .githooks/nicotine-clean blanks `passw` + drops [statistics] on commit — the live file
                         keeps both; registered by deploy_dotfiles. A pull that changes it blanks the local password)
       nirinit/        → ~/.config/nirinit/  (skip list: apps the niri autostart already opens)
-      xdg-desktop-portal/ → ~/.config/xdg-desktop-portal/  (niri-portals.conf: copy of /usr/share's + ScreenCast=niri-autoselect)
   scripts/        → ~/.local/bin/ + ~/.local/lib/sysup/ (sysup.py, automount.sh)  (sysup, vjsurface, start-windows, start-open-notebook, start-battlenet, gamescope-media; stowed --no-folding,
                     always from the repo root — tooling, not part of a dotfile set)
                   + ~/.local/share/applications/  (.desktop launchers)
@@ -215,9 +214,9 @@ EOF
 `niriusd` and `nirinit` (oniri, which auto-maximized a lone window, was dropped
 2026-10-31 at user request and is in `[paru].remove`). No vertical stacking: niri_tilemod (auto-stack) was
 dropped and the `consume-or-expel` binds removed; `Mod+Period` still expels. Surface
-also runs `iio-niri listen --monitor eDP-1`. `niri-autoselect-portal` removes the
-screencast picker: pick the target with `Mod+Ctrl+S` (window) /
-`Mod+Ctrl+Shift+S` (monitor), clear with `Mod+Ctrl+X`. nirinit 0.1.x relaunches
+also runs `iio-niri listen --monitor eDP-1`. Screencast uses the GNOME portal picker
+(niri-autoselect-portal dropped 2026-11-10: it closed Vesktop streams); `Mod+Ctrl+S` /
+`Mod+Ctrl+Shift+S` set niri's dynamic cast target, a picker entry. nirinit 0.1.x relaunches
 saved windows by app_id; add autostarted apps to its skip list.
 
 ```

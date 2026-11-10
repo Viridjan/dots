@@ -216,7 +216,7 @@ binds {
     Print { screenshot; }
     Ctrl+Print { screenshot-screen; }
     Alt+Print { screenshot-window; }
-    // Screencast target: niri-autoselect-portal shares it without a picker
+    // Dynamic cast target: shareable via the portal picker's niri dynamic-cast entry
     Mod+Ctrl+S hotkey-overlay-title="Cast this window" { set-dynamic-cast-window; }
     Mod+Ctrl+Shift+S hotkey-overlay-title="Cast this monitor" { set-dynamic-cast-monitor; }
     Mod+Ctrl+X hotkey-overlay-title="Stop casting target" { clear-dynamic-cast-target; }

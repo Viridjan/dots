@@ -43,7 +43,6 @@ install = [
     # niri IPC helpers (from awesome-niri; started in config.kdl)
     "nirius",                      # niriusd + focus-or-spawn/scratchpad/follow commands
     "nirinit",                     # save/restore window layout (skip list: dotset nirinit)
-    "niri-autoselect-portal-git",  # screencast without picker (dotset xdg-desktop-portal)
 
     # System tools
     "fwupd",
@@ -201,6 +200,8 @@ install = [
 # here only what must go first (e.g. tlp) or has no direct conflict.
 remove = [
     "deadbeef",  # removed: use the existing media players
+    # broke Vesktop streams: two pending casts, wrong-stream signal closes the session (2026-11-10)
+    "niri-autoselect-portal-git",
     # tlp: power-profiles-daemon.service has Conflicts=tlp.service (2026-11-01)
     "tlp",
     "tlp-rdw",
