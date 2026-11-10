@@ -69,6 +69,8 @@ dotsets/*/fonts/.local/share/fonts/.uuid
 # history also hold pasted content). Config, skills, CLAUDE.md, plans and
 # projects/*/memory/ stay tracked. plugins/ is re-downloaded by setup_claude.
 dotsets/*/claude/.claude/.caveman-active
+dotsets/*/claude/.claude/.caveman-mode-log.jsonl
+dotsets/*/claude/.claude/.caveman-sessions/
 dotsets/*/claude/.claude/.ponytail-active
 dotsets/*/claude/.claude/.ponytail-statusline-nudged
 dotsets/*/claude/.claude/.last-cleanup
