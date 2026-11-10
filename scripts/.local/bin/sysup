@@ -393,6 +393,18 @@ _sudo_prime() {
     fi
 }
 
+# Long-lived children must not inherit the run lock: an orphaned one (the
+# keep-alive's sleep, a log tee, a launched app) holds it after sysup exits.
+# Call only in a subshell or child; in the main shell it releases the lock.
+_drop_lock() { [[ -z "${_LOCK_FD:-}" ]] || exec {_LOCK_FD}>&-; }
+
+# Refresh the sudo ticket while process $1 lives; run it in the background.
+_sudo_keepalive() {
+    _drop_lock
+    trap - ERR
+    while kill -0 "$1" 2>/dev/null; do sudo -n -v 2>/dev/null || true; sleep 60 || true; done
+}
+
 _init_runtime() {
     $_RUNTIME_READY && return 0
     mkdir -p "$STAMP_DIR"
@@ -409,7 +421,7 @@ _init_runtime() {
         [[ -f "${LOG_FILE}.$_i" ]] && mv "${LOG_FILE}.$_i" "${LOG_FILE}.$((_i+1))"
     done
     [[ -f "$LOG_FILE" ]] && mv "$LOG_FILE" "${LOG_FILE}.1"
-    exec > >(tee "$LOG_FILE") 2>&1
+    exec > >(_drop_lock; exec tee "$LOG_FILE") 2>&1
     _TEE_PID=$!
     _RUNTIME_READY=true
     set -E
@@ -419,8 +431,7 @@ _init_runtime() {
     # the loop holds no stdout so the log tee can still finish on exit.
     if [[ -t 0 ]] && command -v sudo &>/dev/null; then
         _sudo_prime
-        ( trap - ERR; while kill -0 "$$" 2>/dev/null; do sudo -n -v 2>/dev/null || true; sleep 60 || true; done ) \
-            </dev/null >/dev/null 2>&1 &
+        _sudo_keepalive "$$" </dev/null >/dev/null 2>&1 &
         _SUDO_PID=$!
     fi
     echo "=== sysup $(date '+%Y-%m-%d %H:%M:%S') args: ${_ARGS:-<none>} ==="
@@ -432,7 +443,7 @@ _tui_start() {
     wait "$_TEE_PID" 2>/dev/null || true
 }
 _tui_end() {
-    exec > >(tee -a "$LOG_FILE") 2>&1
+    exec > >(_drop_lock; exec tee -a "$LOG_FILE") 2>&1
     _TEE_PID=$!
 }
 _skipped() { [[ " ${SKIP_PHASES:-} " == *" $1 "* ]]; }
@@ -1937,7 +1948,7 @@ setup_bitwarden() {
         return 0
     fi
     if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
-        setsid -f bitwarden-desktop >/dev/null 2>&1 || true
+        ( _drop_lock; setsid -f bitwarden-desktop >/dev/null 2>&1 ) || true
         warn "Bitwarden opened — log in there; this step is marked done once you have"
     else
         warn "Bitwarden: not logged in — open the app (or browser extension) and log in"

@@ -510,6 +510,34 @@ print_recap
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual((state / "sysup.log.1").read_text(), "original log")
 
+    # Children that outlive a run must not hold the lock: an orphaned `sleep 60`
+    # from the sudo loop blocked the next menu run for up to a minute.
+    FD_DUMP = 'for f in /proc/$$/fd/*; do readlink "$f"; done >> "$CALLS.fds"\n'
+
+    def assert_lock_dropped(self):
+        fds = Path(self.env["CALLS"] + ".fds").read_text()
+        self.assertTrue(fds)
+        self.assertNotIn("sysup.lock", fds)
+
+    def test_log_tee_does_not_hold_lock(self):
+        (self.home / "Projects/dots").mkdir(parents=True, exist_ok=True)
+        self.mock("tee", self.FD_DUMP + 'exec /usr/bin/tee "$@"')
+        r = self.cli("--actions", "app-launchers")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assert_lock_dropped()
+
+    def test_sudo_keepalive_does_not_hold_lock(self):
+        self.mock("sleep", self.FD_DUMP + 'kill "$PPID"')
+        r = self.shell('exec {_LOCK_FD}>"$HOME/sysup.lock"\n( _sudo_keepalive "$$" ) || true')
+        self.assert_lock_dropped()
+
+    def test_bitwarden_launch_does_not_hold_lock(self):
+        self.mock("bitwarden-desktop", "exit 0")
+        self.mock("setsid", self.FD_DUMP)
+        r = self.shell('exec {_LOCK_FD}>"$HOME/sysup.lock"\nWAYLAND_DISPLAY=w setup_bitwarden')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assert_lock_dropped()
+
     def test_stow_23_conflict_format(self):
         # Ubuntu (CI) ships Stow 2.3, which words the conflict line differently.
         repo = self.fixture_repo()
