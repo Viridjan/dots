@@ -1207,7 +1207,9 @@ _check_disk_space() {
 # lines download or execute code are left out of this upgrade (like a hold)
 # unless an interactive run confirms. Upgrading one by hand moves HEAD, which
 # clears the flag. Also imports missing source-signing keys (see below).
-_AUR_REVIEW_RE='curl|wget|base64|eval |/dev/tcp|python[0-9.]* -c|(ba)?sh -c|\| *(ba)?sh\b|chmod +[ugo]*\+?s|nc -'
+# JS package installs were the Atomic Arch vector (June 2026): the poisoned
+# PKGBUILDs pulled malicious npm/bun packages at build time.
+_AUR_REVIEW_RE='curl|wget|base64|eval |/dev/tcp|python[0-9.]* -c|(ba)?sh -c|\| *(ba)?sh\b|chmod +[ugo]*\+?s|nc -|\b(npm|pnpm|yarn|bun) +(install|add|ci|i)\b|\bnpx '
 _AUR_FLAGGED=()
 _review_aur_updates() {
     local clones="$HOME/.cache/paru/clone" dir="$STAMP_DIR/aur-review" pending held line pkg base hits
@@ -1216,11 +1218,12 @@ _review_aur_updates() {
     [[ -n "$pending" ]] || return 0
     held=$(_held_packages)
     mkdir -p "$dir"
-    local flagged=()
+    local flagged=() names=() old new
     while IFS= read -r line; do
         pkg=${line%% *}
         [[ -n "$pkg" ]] || continue
         grep -qxF "$pkg" <<< "$held" && continue
+        names+=("$pkg")
         base=$(pacman -Qi "$pkg" 2>/dev/null | sed -n 's/^Base *: //p' || true)
         base=${base:-$pkg}
         [[ -d "$clones/$base/.git" ]] || continue
@@ -1237,12 +1240,58 @@ _review_aur_updates() {
             warn "AUR review: $pkg update adds download/exec lines: ${hits:0:200}(diff: $dir/$base.diff)"
         fi
     done <<< "$pending"
+    if (( ${#names[@]} )); then
+        while IFS=$'\t' read -r pkg old new; do
+            [[ -n "$pkg" ]] || continue
+            [[ " ${flagged[*]} " == *" $pkg "* ]] || flagged+=("$pkg")
+            warn "AUR review: $pkg changed maintainer since it was built ($old -> $new) — check the AUR page and diff before upgrading"
+        done < <(_aur_maint_changes "$(_aur_info "${names[@]}")")
+    fi
     (( ${#flagged[@]} )) || return 0
     if $INTERACTIVE && [[ -t 0 ]] && _confirm "Upgrade flagged AUR packages (${flagged[*]}) anyway? [y/N]"; then
         return 0
     fi
     _AUR_FLAGGED+=("${flagged[@]}")
     warn "left out of this upgrade: ${flagged[*]} (after reading the diff: paru -S ${flagged[*]})"
+}
+
+# _aur_info PKG... → "name<TAB>maintainer<TAB>out-of-date" per package the AUR
+# has ("None" = orphan, "No" = not flagged), "-<TAB>name" per one it lacks.
+# One paru -Sai = one RPC call. Empty output = no answer (offline).
+_aur_info() {
+    paru -Sai "$@" 2>&1 | awk -F' *: ' '
+        /^Name /        { n = $2 }
+        /^Maintainer /  { m = $2 }
+        /^Out Of Date / { print n "\t" m "\t" $2 }
+        /^error: package .* was not found/ {
+            s = $0; sub(/^error: package \047/, "", s); sub(/\047 was not found.*/, "", s); print "-\t" s }' || true
+}
+
+# _aur_maint_changes INFO (from _aur_info) → "pkg<TAB>old<TAB>new" for each
+# package whose AUR maintainer changed since it was last built. Atomic Arch
+# adopted orphaned packages and then poisoned them, so a change is the signal.
+# The snapshot ($STAMP_DIR/aur-maintainers.tsv: pkg, maintainer, installed
+# version) takes the current maintainer for new packages and ones rebuilt
+# since (a new installed version = the user upgraded it, i.e. reviewed it).
+_aur_maint_changes() {
+    local f="$STAMP_DIR/aur-maintainers.tsv" pkg maint ood ver
+    local -A old_m=() old_v=() cur_v=()
+    while read -r pkg ver; do [[ -z "$pkg" ]] || cur_v[$pkg]=$ver; done < <(pacman -Qm 2>/dev/null || true)
+    if [[ -f "$f" ]]; then
+        while IFS=$'\t' read -r pkg maint ver; do old_m[$pkg]=$maint; old_v[$pkg]=$ver; done < "$f"
+    fi
+    while IFS=$'\t' read -r pkg maint ood; do
+        [[ -n "$pkg" && "$pkg" != - && -n "${cur_v[$pkg]+x}" ]] || continue
+        if [[ -n "${old_m[$pkg]+x}" && "${old_v[$pkg]}" == "${cur_v[$pkg]}" ]]; then
+            [[ "${old_m[$pkg]}" == "$maint" ]] || printf '%s\t%s\t%s\n' "$pkg" "${old_m[$pkg]}" "$maint"
+        else
+            old_m[$pkg]=$maint; old_v[$pkg]=${cur_v[$pkg]}
+        fi
+    done <<< "$1"
+    mkdir -p "$STAMP_DIR"
+    for pkg in "${!old_m[@]}"; do
+        [[ -z "${cur_v[$pkg]+x}" ]] || printf '%s\t%s\t%s\n' "$pkg" "${old_m[$pkg]}" "${old_v[$pkg]}"
+    done | sort > "$f.tmp" && mv "$f.tmp" "$f"
 }
 
 # makepkg verifies source signatures with the USER's keyring, not pacman-key,
@@ -3145,6 +3194,113 @@ check_pacman_db() {
     fi
 }
 
+# Known-malicious AUR accounts from the aur-malware-check campaigns
+# (aur_check itself never reads accounts.json).
+_bad_aur_accounts() {
+    local f
+    for f in "$HOME/.local/share/aur-malware-check"/data/campaigns/*/accounts.json; do
+        [[ -f "$f" ]] || continue
+        jq -r '.accounts // {} | keys[]' "$f" 2>/dev/null || true
+    done | sort -u
+}
+
+# AUR state of installed foreign packages: maintainer changes since the last
+# build, known-malicious maintainers, packages gone from the AUR, orphans and
+# out-of-date flags (the last two are info only, not warnings).
+check_aur_health() {
+    local foreign aur accounts p m o
+    foreign=$(pacman -Qmq 2>/dev/null || true)
+    [[ -n "$foreign" ]] || return 0
+    info "Checking AUR package health (maintainers, removals)..."
+    # shellcheck disable=SC2086  # one package per word
+    aur=$(_aur_info $foreign)
+    if [[ -z "$aur" ]]; then warn "AUR health: no answer from the AUR (offline?) — skipped"; return 0; fi
+    accounts=$(_bad_aur_accounts)
+    local gone=() orphan=() ood=() n=0
+    while IFS=$'\t' read -r p m o; do
+        [[ -n "$p" ]] || continue
+        if [[ "$p" == - ]]; then gone+=("$m"); continue; fi
+        [[ "$m" != None ]] || orphan+=("$p")
+        [[ "$o" == No* ]] || ood+=("$p")
+        if [[ -n "$accounts" && "$m" != None ]] && grep -qixF -- "$m" <<< "$accounts"; then
+            warn "AUR: $p is maintained by known-malicious account '$m' — treat as compromised, remove and investigate"; n=$((n + 1))
+        fi
+    done <<< "$aur"
+    while IFS=$'\t' read -r p o m; do
+        [[ -n "$p" ]] || continue
+        warn "AUR: $p changed maintainer since it was built ($o -> $m) — review the AUR page and diff before upgrading"; n=$((n + 1))
+    done < <(_aur_maint_changes "$aur")
+    if (( ${#gone[@]} )); then
+        warn "AUR: installed but no longer on the AUR (deleted or renamed — investigate): ${gone[*]}"; n=$((n + 1))
+    fi
+    (( ${#orphan[@]} == 0 )) || echo "    orphaned on the AUR: ${orphan[*]}"
+    (( ${#ood[@]} == 0 )) || echo "    flagged out-of-date on the AUR: ${ood[*]}"
+    (( n )) || ok "AUR health: no maintainer changes, bad accounts or removed packages"
+}
+
+# File contents of every package vs. its sha256 in MTREE (backup/config files
+# excluded). Takes minutes, so at most every 60 days; needs root to read all
+# files, so a run without a terminal or sudo ticket waits for the next one.
+check_package_files() {
+    command -v paccheck &>/dev/null || return 0
+    _needs_run paccheck $((60 * 86400)) || return 0
+    if [[ ! -t 0 ]] && ! sudo -n true 2>/dev/null; then
+        info "package file check due — needs sudo, runs in the next terminal audit"
+        return 0
+    fi
+    local out="$STAMP_DIR/paccheck.txt" n
+    mkdir -p "$STAMP_DIR"
+    info "Verifying package files against their sha256 sums (a few minutes, every 60 days)..."
+    # shellcheck disable=SC2024  # the report belongs to the user, not root
+    sudo paccheck --sha256sum --quiet > "$out" 2>&1 || true
+    n=$(grep -c . "$out" || true)
+    if (( n )); then
+        warn "package files: $n changed or unreadable — see $out (reinstall: sudo pacman -S <pkg>)"
+    else
+        ok "package files match their sha256 sums"
+    fi
+    _mark_done paccheck
+}
+
+# Microsoft's 2011 Secure Boot CAs expired in 2026 (KEK + UEFI CA in June,
+# Windows PCA in October). Shims and option ROMs signed only with the 2023
+# CAs fail to boot until the firmware db/KEK carry them. linux-surface
+# machines boot with Secure Boot on; report only.
+check_secureboot_certs() {
+    _has_feature linux-surface || return 0
+    command -v mokutil &>/dev/null || return 0
+    mokutil --sb-state 2>/dev/null | grep -q 'SecureBoot enabled' || return 0
+    local kek db need=()
+    kek=$(mokutil --kek 2>/dev/null || true)
+    db=$(mokutil --db 2>/dev/null || true)
+    if [[ -z "$kek$db" ]]; then warn "Secure Boot: could not read KEK/db"; return 0; fi
+    grep -qF 'Microsoft Corporation KEK CA 2023' <<< "$kek" || need+=("KEK CA 2023")
+    grep -qF 'Microsoft UEFI CA 2023' <<< "$db" || need+=("UEFI CA 2023")
+    grep -qF 'Windows UEFI CA 2023' <<< "$db" || need+=("Windows UEFI CA 2023")
+    if (( ${#need[@]} )); then
+        warn "Secure Boot: firmware lacks the 2023 Microsoft certificates (${need[*]}); the 2011 ones expired in 2026 — apply UEFI updates (fwupdmgr, or Windows Update / Surface firmware)"
+    else
+        ok "Secure Boot: 2023 Microsoft certificates present"
+    fi
+}
+
+# CPU vulnerabilities the running kernel reports as unmitigated.
+_CPU_VULN_DIR=/sys/devices/system/cpu/vulnerabilities
+check_cpu_vulns() {
+    local f s bad=()
+    for f in "$_CPU_VULN_DIR"/*; do
+        [[ -r "$f" ]] || continue
+        s=$(< "$f")
+        [[ "$s" != Vulnerable* ]] || bad+=("${f##*/}: $s")
+    done
+    if (( ${#bad[@]} )); then
+        local b
+        for b in "${bad[@]}"; do warn "CPU vulnerable — $b (update microcode/kernel/firmware)"; done
+    else
+        ok "CPU vulnerabilities: none unmitigated"
+    fi
+}
+
 # ─── Warnings recap ──────────────────────────────────────
 print_recap() {
     if [[ ${#_RESULT_NAMES[@]} -gt 0 ]]; then
@@ -3342,7 +3498,8 @@ phase_update()   { system_update; flatpak_update; clean_caches; }
 # only reports unless its AUDIT_ACTIONS flag was set (orphans, rebuilds, pacnew).
 AUDIT_CHECKS=(check_held_updates check_foreign_orphans check_unused_apps check_rebuilds
               check_python_rebuilds check_pacnew check_modified_configs check_dms_owner check_surface_kernel
-              check_logins check_firmware check_aur_malware check_pacman_db)
+              check_logins check_firmware check_aur_malware check_aur_health check_pacman_db
+              check_secureboot_certs check_cpu_vulns check_package_files)
 _run_audit_checks() { local c; for c in "${AUDIT_CHECKS[@]}"; do "$c"; done; }
 # The audit phase also removes unused flatpak runtimes; --check stays report-only.
 # sysup --status shows this (the weekly timer runs --check too).

@@ -598,6 +598,120 @@ class AuditTests(ExtrasCase):
         self.assertNotIn("free", r.stdout)
 
 
+class SupplyChainTests(ExtrasCase):
+    """AUR health, maintainer-change flags, paccheck, Secure Boot certs, CPU vulns."""
+
+    def aur(self, a_maint="alice", a_ver="1-1"):
+        self.mock("pacman", f'''
+case "$*" in
+  -Qmq) printf "a\\nb\\nc\\n" ;;
+  -Qm)  printf "a {a_ver}\\nb 1-1\\nc 1-1\\n" ;;
+esac''')
+        self.mock("paru", f'''#si
+printf "%s\\n" "paru $*" >> "$CALLS"
+[[ "$1" == -Sai ]] || exit 0
+shift
+for p in "$@"; do case $p in
+  a) printf "Name            : a\\nMaintainer      : {a_maint}\\nOut Of Date     : No\\n\\n" ;;
+  b) printf "Name            : b\\nMaintainer      : None\\nOut Of Date     : Yes [1]\\n\\n" ;;
+  c) echo "error: package 'c' was not found" ;;
+esac; done''')
+
+    def setUp(self):
+        super().setUp()
+        camp = self.home / ".local/share/aur-malware-check/data/campaigns/x"
+        camp.mkdir(parents=True)
+        (camp / "accounts.json").write_text('{"accounts": {"mallory": {}}}')
+
+    def test_aur_health_baseline_change_and_rebuild(self):
+        self.aur()
+        r = self.shell("check_aur_health")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("no longer on the AUR (deleted or renamed — investigate): c", r.stdout)
+        self.assertIn("orphaned on the AUR: b", r.stdout)
+        self.assertIn("flagged out-of-date on the AUR: b", r.stdout)
+        self.assertNotIn("changed maintainer", r.stdout)
+        self.aur(a_maint="mallory")
+        r = self.shell("check_aur_health")
+        self.assertIn("a changed maintainer since it was built (alice -> mallory)", r.stdout, r.stderr)
+        self.assertIn("known-malicious account 'mallory'", r.stdout)
+        r = self.shell("check_aur_health")  # still unbuilt: warns again
+        self.assertIn("alice -> mallory", r.stdout)
+        self.aur(a_maint="mallory", a_ver="2-1")  # rebuilt = accepted
+        r = self.shell("check_aur_health")
+        self.assertNotIn("changed maintainer", r.stdout)
+        self.assertIn("known-malicious", r.stdout)
+
+    def test_offline_aur_skips(self):
+        self.aur()
+        self.mock("paru", "#si\nexit 1")
+        r = self.shell("check_aur_health")
+        self.assertIn("no answer from the AUR", r.stdout, r.stderr)
+        self.assertFalse((self.home / ".state/dots/aur-maintainers.tsv").exists())
+
+    def test_review_flags_pending_maintainer_change(self):
+        self.aur(a_maint="mallory")
+        (self.home / ".cache/paru/clone").mkdir(parents=True)
+        state = self.home / ".state/dots"
+        state.mkdir(parents=True)
+        (state / "aur-maintainers.tsv").write_text("a\talice\t1-1\n")
+        self.mock("paru", self.bin.joinpath("paru").read_text().split("\n", 1)[1]
+                  .replace('[[ "$1" == -Sai ]] || exit 0', '[[ "$*" == -Qua ]] && echo "a 1-1 -> 2-1"\n[[ "$1" == -Sai ]] || exit 0'))
+        r = self.shell('INTERACTIVE=false; _review_aur_updates; echo "FLAGGED=[${_AUR_FLAGGED[*]}]"')
+        self.assertIn("FLAGGED=[a]", r.stdout, r.stderr)
+        self.assertIn("changed maintainer since it was built (alice -> mallory)", r.stdout)
+
+    def test_review_regex_catches_js_installs(self):
+        r = self.shell('for l in "npm install" "  bun add x" "pnpm i" "npx foo" "# uses npm" "yarnpkg"; do '
+                       'grep -qE -- "$_AUR_REVIEW_RE" <<< "$l" && echo "HIT[$l]"; done; true')
+        self.assertEqual(r.stdout.count("HIT["), 4, r.stdout + r.stderr)
+        self.assertNotIn("HIT[# uses npm]", r.stdout)
+
+    def test_paccheck_every_60_days_and_needs_sudo(self):
+        self.link("touch")
+        self.mock("paccheck", "echo \"x: '/usr/bin/x' sha256 digest mismatch\"")
+        self.mock("sudo", 'exit 1')
+        r = self.shell("check_package_files")
+        self.assertIn("needs sudo", r.stdout, r.stderr)
+        self.mock("sudo", '[ "$1" = -n ] && shift; "$@"')
+        r = self.shell("check_package_files")
+        self.assertIn("package files: 1 changed or unreadable", r.stdout, r.stderr)
+        r = self.shell("check_package_files")
+        self.assertNotIn("package files", r.stdout)
+        r = self.shell('touch -d "61 days ago" "$STAMP_DIR/paccheck"; check_package_files')
+        self.assertIn("package files: 1", r.stdout, r.stderr)
+
+    def test_secureboot_certs_surface_only(self):
+        self.mock("mokutil", '''case $1 in
+  --sb-state) echo "SecureBoot enabled" ;;
+  --kek) echo "Subject: CN=Microsoft Corporation KEK CA 2011" ;;
+  --db) echo "Subject: CN=Microsoft Corporation UEFI CA 2011" ;;
+esac''')
+        r = self.shell("SYSUP_FEATURES=; check_secureboot_certs")
+        self.assertEqual(r.stdout, "")
+        r = self.shell("SYSUP_FEATURES=linux-surface; check_secureboot_certs")
+        self.assertIn("lacks the 2023 Microsoft certificates (KEK CA 2023 UEFI CA 2023 Windows UEFI CA 2023)",
+                      r.stdout, r.stderr)
+        self.mock("mokutil", '''case $1 in
+  --sb-state) echo "SecureBoot enabled" ;;
+  --kek) echo "CN=Microsoft Corporation KEK CA 2023" ;;
+  --db) printf "CN=Microsoft UEFI CA 2023\\nCN=Windows UEFI CA 2023\\n" ;;
+esac''')
+        r = self.shell("SYSUP_FEATURES=linux-surface; check_secureboot_certs")
+        self.assertIn("2023 Microsoft certificates present", r.stdout)
+
+    def test_cpu_vulns(self):
+        d = self.root / "vulns"
+        d.mkdir()
+        (d / "meltdown").write_text("Not affected\n")
+        (d / "spectre_v2").write_text("Mitigation: IBRS\n")
+        r = self.shell(f'_CPU_VULN_DIR="{d}"; check_cpu_vulns')
+        self.assertIn("none unmitigated", r.stdout, r.stderr)
+        (d / "mds").write_text("Vulnerable: Clear CPU buffers attempted, no microcode\n")
+        r = self.shell(f'_CPU_VULN_DIR="{d}"; check_cpu_vulns')
+        self.assertIn("CPU vulnerable — mds: Vulnerable: Clear CPU buffers", r.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
 

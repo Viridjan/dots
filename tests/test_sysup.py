@@ -848,7 +848,11 @@ check_dms_owner() { :; }
 check_logins() { :; }
 check_firmware() { :; }
 check_aur_malware() { :; }
+check_aur_health() { :; }
 check_pacman_db() { :; }
+check_secureboot_certs() { :; }
+check_cpu_vulns() { :; }
+check_package_files() { :; }
 phase_audit
 echo RECAP_START
 print_recap

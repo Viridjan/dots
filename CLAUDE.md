@@ -561,6 +561,19 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
     out and failed the upgrade and paccache (2026-11-08). Sudo failures are named in
     the recap: `_syuu_fail_detail` reports paru's `sudo:` line, paccache warnings append
     `_sudo_cause` (`sudo -n true` fails = no ticket).
+- **Supply chain, from pasadoorian/Linux_Hacks (2026-11-10).** `check_aur_health`:
+  one `paru -Sai` over `pacman -Qmq` (`_aur_info`); warns on maintainers in the
+  aur-malware-check `accounts.json` files (aur_check ignores them), packages gone
+  from the AUR, and maintainer changes (`_aur_maint_changes`, snapshot
+  `$STAMP_DIR/aur-maintainers.tsv`: pkg, maintainer, installed version; a change
+  warns until the package is rebuilt). Orphan/out-of-date = info lines.
+  `_review_aur_updates` also flags pending updates whose maintainer changed.
+  `_AUR_REVIEW_RE` includes `npm|pnpm|yarn|bun install/add/ci/i` + `npx` (the
+  Atomic Arch vector). `check_package_files`: `sudo paccheck --sha256sum` at most
+  every 60 days (stamp `paccheck`, report `$STAMP_DIR/paccheck.txt`; without a
+  terminal or sudo ticket it waits). `check_secureboot_certs` (`linux-surface`,
+  Secure Boot on): mokutil KEK/db lack the 2023 Microsoft CAs → warn.
+  `check_cpu_vulns`: `/sys/devices/system/cpu/vulnerabilities/*` saying `Vulnerable`.
 - **Guards added 2026-11-01 (Surface incidents).** `_warn_unfolded` (after each
   home package stows): warns when a target is a real dir instead of a folded
   link (stow then links file by file and new files never reach git; skips
@@ -795,7 +808,7 @@ sources → install → dotfiles → configure → audit
 | `install` | conflict removal, demotions, disk check, AUR review, full upgrade, install pacman/flatpak/AUR packages, flatpak update, npm/uv tools, cache cleanup |
 | `dotfiles` | stow symlinks, DMS config import |
 | `configure` | system services, snapper, keyboard, greeter, keyring-pam (user-prompted); DMS plugins, install scripts, fish, claude, VMs (first-run prompted) |
-| `audit` | (`AUDIT_CHECKS`) orphan packages, unlisted/unused apps (report only), flatpak cleanup, rebuild check, pacnew files, modified configs, DMS owner, logins, firmware updates |
+| `audit` | (`AUDIT_CHECKS`) orphan packages, unlisted/unused apps (report only), flatpak cleanup, rebuild check, pacnew files, modified configs, DMS owner, logins, firmware updates, AUR malware + health, pacman db, Secure Boot certs (surface), CPU vulns, package files (60 days) |
 
 Bare `sysup` opens the menu in a terminal (help otherwise); `--help` lists the action IDs.
 `--yes` runs the legacy full bootstrap, `--update` and `--check` stay direct.
