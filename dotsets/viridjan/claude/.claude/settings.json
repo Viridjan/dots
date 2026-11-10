@@ -1,5 +1,5 @@
 {
-  "model": "fable",
+  "model": "opus",
   "statusLine": {
     "type": "command",
     "command": "bash \"$HOME/.claude/statusline.sh\""
