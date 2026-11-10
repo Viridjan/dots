@@ -429,7 +429,9 @@ vial-appimage, flatpaks xemu/Supermodel/melonDS/RetroArch/PPSSPP/ScummVM/
 protonmail-bridge/xclicker (+ unlisted OrcaSlicer). Kept on purpose: gparted,
 pavucontrol, emudeck-bin (`fuse2` now explicit — it was only a vial-appimage
 dep), the `*craft-bin` suite, PrimeHack. (Dolphin dropped
-2026-11-10: Nautilus is the file manager.)
+2026-11-10; Nautilus dropped from the lists the same day: Dux Files
+(`dux-files-bin`, `dfiles`) is the file manager and `inode/directory` default.
+Nautilus stays installed as a hard dependency of `xdg-desktop-portal-gnome`.)
 
 `projects.toml` — `[[repo]]` entries (name + SSH URL) cloned into `~/Projects/` during the `clone_projects` bootstrap phase (missing ones only; local `[select] repos` limits which).
 Optional `build = "<cmd>"` → plan `project-builds.list` (`name\tcmd`) →

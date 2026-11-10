@@ -143,9 +143,6 @@ install = [
     "docker",
     "docker-compose",
 
-    # File manager (Dolphin dropped 2026-11-10)
-    "nautilus",
-
     # Spell-check dictionaries (wordcraft, enchant/GTK apps read /usr/share/hunspell)
     "hunspell-it",
     "hunspell-en_gb",
@@ -207,7 +204,7 @@ install = [
 # here only what must go first (e.g. tlp) or has no direct conflict.
 remove = [
     "deadbeef",  # removed: use the existing media players
-    # unused file managers; Nautilus is the file manager (2026-11-10)
+    # unused file managers; Dux Files (dux-files-bin) is the file manager (2026-11-10)
     "yazi",
     "dolphin",
     # broke Vesktop streams: two pending casts, wrong-stream signal closes the session (2026-11-10)

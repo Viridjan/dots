@@ -14,4 +14,4 @@ apps = [
 ]
 
 [launch]
-"org.gnome.Nautilus" = "nautilus"
+"dev.duxlabs.files" = "dfiles"

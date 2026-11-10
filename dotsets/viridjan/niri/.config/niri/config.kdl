@@ -237,7 +237,7 @@ window-rule {
     open-floating true
 }
 window-rule {
-    match app-id=r#"^org\.gnome\.Nautilus$"#
+    match app-id=r#"^dev\.duxlabs\.files$"#
     open-floating false
 }
 window-rule {
