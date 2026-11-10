@@ -3918,10 +3918,11 @@ _menu() {
             | fzf --delimiter='\t' --with-nth=2 --height=~12 --reverse --no-multi \
                   --prompt='sysup> ' --header='Enter: choose   Esc: quit') || return 0
         case "${mode%%$'\t'*}" in
-            first)   ids=$(_first_run_ids) && _menu_run "$self" --actions "$ids" "${opts[@]}" ;;
-            update)  _menu_run "$self" --update "${opts[@]}" ;;
-            check)   _menu_run "$self" --check "${opts[@]}" ;;
-            actions) ids=$(_menu_actions) && _menu_run "$self" --actions "$ids" "${opts[@]}" ;;
+            # A run ends the menu: return its exit status.
+            first)   ids=$(_first_run_ids) || continue; _menu_run "$self" --actions "$ids" "${opts[@]}" || return; return 0 ;;
+            update)  _menu_run "$self" --update "${opts[@]}" || return; return 0 ;;
+            check)   _menu_run "$self" --check "${opts[@]}" || return; return 0 ;;
+            actions) ids=$(_menu_actions) || continue; _menu_run "$self" --actions "$ids" "${opts[@]}" || return; return 0 ;;
             options) _menu_options opts ;;
             status)  _status; _menu_pause ;;
             *)       return 0 ;;
@@ -3987,7 +3988,7 @@ _menu_run() {
     echo; info "sysup ${*:2}"
     bash "$@" || rc=$?
     (( rc == 0 )) && ok "done" || echo -e "${YEL}[!] sysup exited with status $rc${NC}"
-    _menu_pause
+    return "$rc"
 }
 
 _menu_pause() { read -rsn1 -p $'\nPress any key to return to the menu ' _ < /dev/tty || true; echo; }
@@ -4106,7 +4107,7 @@ if [[ "$ACTION" == help ]]; then usage; exit 0; fi
 if ! $DRY_RUN && [[ -z "$ACTION" ]]; then
     if [[ -t 0 && -t 1 ]] && command -v fzf &>/dev/null; then
         (( EUID != 0 )) || die "run sysup as your user, not root — it calls sudo itself"
-        _menu; exit 0
+        _menu || exit; exit 0
     else
         [[ -t 0 && -t 1 ]] && warn "fzf is not installed; showing help instead of the menu"
         usage; exit 0

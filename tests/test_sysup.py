@@ -1065,10 +1065,16 @@ class ReviewFollowupTests(FixtureCase):
         self.assertIn("MENU_RETURNED", r.stdout)
         return [l for l in Path(self.env["CALLS"]).read_text().splitlines() if not l.startswith("fzf ")]
 
-    def test_menu_runs_actions_then_comes_back(self):
+    def test_menu_runs_actions_then_exits(self):
         calls = self.menu("actions check quit", pick="sources fish")
         self.assertIn("py menu sources install", calls[0])  # whole MENU_ORDER
-        self.assertEqual(calls[1:], ["run --actions sources,fish", "run --check"])
+        self.assertEqual(calls[1:], ["run --actions sources,fish"])  # no return to the menu
+
+    def test_menu_returns_the_run_status(self):
+        self._menu_fzf()
+        self.env.update(KEYS="check quit")
+        r = self.shell(self.MENU_PY + '_menu_run() { return 3; }\n_menu || echo "RC=$?"')
+        self.assertIn("RC=3", r.stdout, r.stderr)
 
     def test_menu_first_run_adds_never_run_once_actions(self):
         # fish is "never run" in MENU_PY; sources has no state

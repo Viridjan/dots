@@ -623,7 +623,8 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   first run (`_first_run_ids`) = `--actions sources,install,stow-symlinks,dms-import,services`
   + every one-time action whose `[once]` state is "never run" (feature-gated);
   each choice runs as a child `bash sysup <args>` (`_menu_run`: own lock, recap,
-  self-update), then a keypress returns to the menu. Sub-screens: Esc = back.
+  self-update); sysup then exits with that run's status (no return to the menu,
+  2026-11-10). Status waits for a keypress, then back. Sub-screens: Esc = back.
   `_menu_actions` is `fzf --multi` (grouped by `GROUPS`; Enter marks, the top
   `▶ Run` row or Ctrl-R runs) over `sysup.py menu "${MENU_ORDER[@]}"`
   (feature-gated one-time actions hidden, `[once]` state shown).
