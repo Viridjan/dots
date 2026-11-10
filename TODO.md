@@ -2,9 +2,7 @@
 
 - [ ] Switch `vectorcraft-bin` to Flathub once `ai.storyteller.vectorcraft` is published (pacman > flatpak > AUR; Flatpak adds a sandbox).
 - [ ] Once desktop and Surface both run the `*craft-bin` packages (`pacman -Q vectorcraft-bin`), delete the 9 source `*craft` names from `packages.toml` [paru].remove (2026-10-25 swap).
-- [ ] Desktop: remove the unused uncapped Ollama model (LightRAG moved to the capped `qwen3.5`, 2026-11-08):
-      `ollama rm qwen3.5-full && rm ~/.local/share/lightrag/qwen3.5-full.Modelfile`. Confirm `ollama list` no longer shows it.
-- [ ] Desktop: `sysup --actions install` builds `alvr-bin` (in `profiles/desktop.toml`, PKGBUILD reviewed 2026-11-01). Then install the matching ALVR client APK on the Pico 4 Ultra.
+- [ ] Desktop: install the ALVR client APK matching `alvr-bin` 20.14.1 on the Pico 4 Ultra (`alvr-bin` installed).
 - [ ] Surface/Plancia: Dux Calendar replaces Thunderbird's calendar (2026-11-10). After `git pull` + `sysup --actions install,stow-symlinks,services`:
       `dcal account add google` (browser sign-in), confirm `dcal account list` shows `ok`, then add the Thunderbird `user.js` from README "Calendar" (calendars + alarms off). Confirm `xdg-mime query default text/calendar` = `dev.duxlabs.calendar.desktop`.
 
