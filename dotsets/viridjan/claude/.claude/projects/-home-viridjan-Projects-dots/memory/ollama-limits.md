@@ -12,3 +12,5 @@ Limits (current): `limits.conf` drop-in (CPUQuota=800% = 8 threads, MemoryHigh=6
 **Why:** user wants ollama limited (first 40%, later the caps above), and rejected `MemoryMax` because it kills the process when exceeded. ollama 0.40 silently ignored OLLAMA_GPU_OVERHEAD and OLLAMA_MAX_LOADED_MODELS: two models loaded, VRAM 11.7/12 GB, qwen warm-up hung.
 
 **How to apply:** prefer soft limits (MemoryHigh, throttling) over hard kill limits. Per-model `num_gpu` works (check `ollama ps` CPU/GPU split); it trades speed for VRAM. GPU compute is capped only via HSA_CU_MASK (unverified). With OLLAMA_NUM_PARALLEL=1 a request queues behind an open chat and looks hung. Related: [[claude-auto-retry]].
+
+Surface: no Ollama at all (user decision 2026-11-10). Never propose a Surface model; desktop only.
