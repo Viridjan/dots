@@ -374,10 +374,10 @@ class CommandTests(Tmp):
     def test_menu_rows_carry_label_state_and_hide_gated(self):
         self.cli("choose", "desktop")
         self.cli("once-done", "services")
-        r = self.cli("menu", "sources", "services", "fish", "surface-secureboot")
+        r = self.cli("menu", "sources", "services", "fish", "surface-secureboot", "ollama")
         self.assertEqual(r.returncode, 0, r.stderr)
         rows = [line.split("\t") for line in r.stdout.splitlines()]
-        self.assertEqual([row[0] for row in rows], ["sources", "services", "fish"])  # gated one hidden
+        self.assertEqual([row[0] for row in rows], ["sources", "services", "fish"])  # gated ones hidden
         self.assertTrue(all(len(row) == 5 for row in rows))
         self.assertEqual(rows[0][1:4], ["packages", "Refresh package sources", ""])  # repeatable: no state
         self.assertEqual(rows[1][3], f"done {datetime.date.today()}")

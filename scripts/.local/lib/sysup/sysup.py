@@ -88,7 +88,7 @@ ONCE = ["services", "snapper", "automount", "optimize", "keyboard", "greeter", "
         "nvidia-niri", "install-scripts", "fish", "claude", "caveman-code", "dms-plugins", "ollama",
         "vms", "git-identity", "ssh-key", "fingerprint", "bitwarden", "yubikey-pin", "surface-secureboot"]
 # Offered only when the profile has this feature.
-ONCE_FEATURE = {"nvidia-niri": "nvidia", "vms": "windows-vm", "surface-secureboot": "linux-surface"}
+ONCE_FEATURE = {"nvidia-niri": "nvidia", "ollama": "ollama-model", "vms": "windows-vm", "surface-secureboot": "linux-surface"}
 
 
 class ConfigError(Exception):

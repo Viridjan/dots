@@ -3740,8 +3740,8 @@ _menu() {
     local self="${BASH_SOURCE[0]}" mode ids opts=()
     while :; do
         mode=$(printf '%s\t%s\n' \
-                first   "First run: new-machine setup" \
                 update  "Update packages + clean caches" \
+                first   "First run: new-machine setup" \
                 check   "Audit, report only" \
                 actions "Choose actions…" \
                 options "Options… [${opts[*]:-none}]" \
