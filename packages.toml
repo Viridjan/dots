@@ -140,9 +140,8 @@ install = [
     "docker",
     "docker-compose",
 
-    # Optional — file manager
+    # File manager
     "dolphin",
-    "yazi",
 
     # Theme extras
     "satty",
@@ -200,6 +199,7 @@ install = [
 # here only what must go first (e.g. tlp) or has no direct conflict.
 remove = [
     "deadbeef",  # removed: use the existing media players
+    "yazi",  # unused TUI file manager; Dolphin is the file manager (2026-11-10)
     # broke Vesktop streams: two pending casts, wrong-stream signal closes the session (2026-11-10)
     "niri-autoselect-portal-git",
     # tlp: power-profiles-daemon.service has Conflicts=tlp.service (2026-11-01)
