@@ -670,7 +670,7 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   push failures. Nothing commits or pushes without that confirmation. Configuration-link
   deployment starts selected; adoption requires explicit `--adopt`. Noninteractive
   `--yes` retains the legacy dotfiles phase (deploy and DMS import).
-- **Ollama (2026-10-30).** `setup_ollama` pulls `qwen3.5` (`models=` array; DeepSeek
+- **Ollama (2026-10-30).** Desktop only (`ollama-model` feature); the Surface runs no Ollama (decided 2026-11-10). `setup_ollama` pulls `qwen3.5` (`models=` array; DeepSeek
   and the `dsh` harness were removed the same day at user request). `limits.conf`: `CPUQuota=800%` (8 of 16 threads), `MemoryHigh=60%` — user
   rejected `MemoryMax` because it OOM-kills — `HSA_CU_MASK=0:0-23` (24 of 40 CUs = 60% GPU
   compute, unverified with ollama's bundled ROCm), `OLLAMA_KEEP_ALIVE=1m`).
