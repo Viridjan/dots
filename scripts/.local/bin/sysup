@@ -3740,6 +3740,7 @@ _menu() {
     local self="${BASH_SOURCE[0]}" mode ids opts=()
     while :; do
         mode=$(printf '%s\t%s\n' \
+                first   "First run: new-machine setup" \
                 update  "Update packages + clean caches" \
                 check   "Audit, report only" \
                 actions "Choose actions…" \
@@ -3749,6 +3750,7 @@ _menu() {
             | fzf --delimiter='\t' --with-nth=2 --height=~12 --reverse --no-multi \
                   --prompt='sysup> ' --header='Enter: choose   Esc: quit') || return 0
         case "${mode%%$'\t'*}" in
+            first)   ids=$(_first_run_ids) && _menu_run "$self" --actions "$ids" "${opts[@]}" ;;
             update)  _menu_run "$self" --update "${opts[@]}" ;;
             check)   _menu_run "$self" --check "${opts[@]}" ;;
             actions) ids=$(_menu_actions) && _menu_run "$self" --actions "$ids" "${opts[@]}" ;;
@@ -3757,6 +3759,14 @@ _menu() {
             *)       return 0 ;;
         esac
     done
+}
+
+# New-machine set: packages, links, services, plus every one-time action never run.
+_first_run_ids() {
+    local rows
+    rows=$(_py menu "${MENU_ORDER[@]}") || return 1
+    awk -F'\t' 'BEGIN { printf "sources,install,stow-symlinks,dms-import,services" }
+        $4 == "never run" && $1 != "services" { printf ",%s", $1 } END { print "" }' <<< "$rows"
 }
 
 # Action picker. Prints the marked IDs comma-separated; fails on Esc or no marks.

@@ -600,7 +600,9 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   review and manual upgrade commands; dry runs list the holds.
 - **Menu (2026-11-08).** Bare `sysup` with stdin+stdout on a TTY and `fzf`
   installed runs `_menu`; otherwise help (timer, pipes, tests). `_menu` loops:
-  main screen update / check / actions / options / status / quit (Esc quits);
+  main screen first run / update / check / actions / options / status / quit (Esc quits);
+  first run (`_first_run_ids`) = `--actions sources,install,stow-symlinks,dms-import,services`
+  + every one-time action whose `[once]` state is "never run" (feature-gated);
   each choice runs as a child `bash sysup <args>` (`_menu_run`: own lock, recap,
   self-update), then a keypress returns to the menu. Sub-screens: Esc = back.
   `_menu_actions` is `fzf --multi` (grouped by `GROUPS`; Enter marks, the top

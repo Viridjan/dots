@@ -1038,6 +1038,11 @@ class ReviewFollowupTests(FixtureCase):
         self.assertIn("py menu sources install", calls[0])  # whole MENU_ORDER
         self.assertEqual(calls[1:], ["run --actions sources,fish", "run --check"])
 
+    def test_menu_first_run_adds_never_run_once_actions(self):
+        # fish is "never run" in MENU_PY; sources has no state
+        calls = self.menu("first quit")
+        self.assertEqual(calls[1:], ["run --actions sources,install,stow-symlinks,dms-import,services,fish"])
+
     def test_menu_options_toggle_and_pass_through(self):
         # adopt on, dry-run on, adopt off again, back, update
         calls = self.menu("options --adopt --dry-run --adopt ESC update quit")
