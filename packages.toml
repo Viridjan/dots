@@ -143,6 +143,11 @@ install = [
     # File manager (Dolphin dropped 2026-11-10)
     "nautilus",
 
+    # Spell-check dictionaries (wordcraft, enchant/GTK apps read /usr/share/hunspell)
+    "hunspell-it",
+    "hunspell-en_gb",
+    "hunspell-en_us",
+
     # Theme extras
     "satty",
     "chafa",
