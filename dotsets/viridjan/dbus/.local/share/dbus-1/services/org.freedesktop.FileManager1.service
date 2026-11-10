@@ -1,5 +1,0 @@
-# nautilus and dolphin both ship this name in /usr/share, so the pick is arbitrary;
-# this user copy wins and pins "show in folder" (whatsie, browsers) to Nautilus.
-[D-BUS Service]
-Name=org.freedesktop.FileManager1
-Exec=/usr/bin/nautilus --gapplication-service

@@ -140,9 +140,8 @@ install = [
     "docker",
     "docker-compose",
 
-    # File manager: Nautilus is the default (2026-11-10); Dolphin kept installed
+    # File manager (Dolphin dropped 2026-11-10)
     "nautilus",
-    "dolphin",
 
     # Theme extras
     "satty",
@@ -200,7 +199,9 @@ install = [
 # here only what must go first (e.g. tlp) or has no direct conflict.
 remove = [
     "deadbeef",  # removed: use the existing media players
-    "yazi",  # unused TUI file manager; Nautilus is the file manager (2026-11-10)
+    # unused file managers; Nautilus is the file manager (2026-11-10)
+    "yazi",
+    "dolphin",
     # broke Vesktop streams: two pending casts, wrong-stream signal closes the session (2026-11-10)
     "niri-autoselect-portal-git",
     # tlp: power-profiles-daemon.service has Conflicts=tlp.service (2026-11-01)
