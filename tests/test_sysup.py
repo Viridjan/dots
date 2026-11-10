@@ -400,6 +400,18 @@ phase_configure
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertLess(r.stdout.index('EXPORTED'), r.stdout.index('UPLOADED'))
 
+    def test_services_run_after_stow(self):
+        # user units (sysup-check.timer) are stow links: enabling before stow fails
+        r = self.shell('''
+CONFIGURE_PROMPTED=true
+CONFIGURE_ITEMS=$'services — svc\\nstow-symlinks — stow'
+enable_services() { echo SERVICES; }
+deploy_dotfiles() { echo STOWED; }
+phase_configure
+''')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertLess(r.stdout.index('STOWED'), r.stdout.index('SERVICES'))
+
     def test_noninteractive_upload_is_skipped(self):
         r = self.shell('INTERACTIVE=false\nexport_dotfiles\nprint_recap')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)

@@ -3286,6 +3286,16 @@ phase_configure() {
 
     _sel() { _selected_action "$1" "$_selected"; }
 
+    _sel "dms-export"      && _act dms-export dms_export
+    # Save/export first, then deploy links and copy DMS overrides,
+    # before services: it enables user units that are stow links.
+    # The old import alias remains accepted in programmatic payloads.
+    _sel "dotfiles-export" && _act dotfiles-export export_dotfiles
+    _sel "stow-symlinks"   && _act stow-symlinks deploy_dotfiles
+    if _sel "dotfiles-import" || _sel "dms-import"; then
+        dms_import
+    fi
+
     _sel "services"        && _act services enable_services
     _sel "snapper"         && _act snapper setup_snapper
     _sel "automount"       && _act automount automount_disks
@@ -3298,7 +3308,6 @@ phase_configure() {
     _sel "install-scripts" && _act install-scripts run_install_scripts
     _sel "fish"            && _act fish setup_fish
     _sel "dms-plugins"     && _act dms-plugins install_dms_plugins
-    _sel "dms-export"      && _act dms-export dms_export
     _sel "claude"          && _act claude setup_claude
     _sel "caveman-code"    && _act caveman-code setup_caveman_code
     _sel "ollama"          && _act ollama setup_ollama
@@ -3314,13 +3323,6 @@ phase_configure() {
     _sel "steam-launchers" && _act steam-launchers setup_steam_launchers
     _sel "app-launchers"   && _act app-launchers check_app_launchers
     _sel "lostfiles"       && _act lostfiles report_unowned_files
-    # Save/export first, then deploy links and copy DMS overrides.
-    # The old import alias remains accepted in programmatic payloads.
-    _sel "dotfiles-export" && _act dotfiles-export export_dotfiles
-    _sel "stow-symlinks"   && _act stow-symlinks deploy_dotfiles
-    if _sel "dotfiles-import" || _sel "dms-import"; then
-        dms_import
-    fi
 
     return 0
 }
