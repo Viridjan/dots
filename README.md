@@ -515,7 +515,7 @@ except `Mod+.` (expel, to undo a drag-and-drop stack). Helpers from
 [awesome-niri](https://github.com/niri-wm/awesome-niri), installed via
 `packages.toml` and started in `config.kdl`:
 
-- **nirius** — `Mod+Alt+E/B/S/D/W/T/M` focus Dolphin/Brave/Spotify/Vesktop/WhatSie/Telegram/Thunderbird, launching it if not open.
+- **nirius** — `Mod+Alt+E/B/S/D/W/T/M` focus Nautilus/Brave/Spotify/Vesktop/WhatSie/Telegram/Thunderbird, launching it if not open.
 - **nirinit** — saves the window layout every 5 min and restores it at login; apps the autostart already opens are in `dotsets/viridjan/nirinit/` skip list.
 - **iio-niri** (Surface) — rotates the screen with the accelerometer.
 

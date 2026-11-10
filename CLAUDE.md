@@ -58,8 +58,8 @@ dots/
       brave/          → /etc/brave/policies/managed/  (Brave managed policy; stow -t /)
       claude/         → ~/.claude/  (settings.json, keybindings.json, statusline.sh + segment scripts)
       DankMaterialShell/ → ~/.config/DankMaterialShell/
-      dbus/           → ~/.local/share/dbus-1/services/  (org.freedesktop.FileManager1 → Dolphin; nautilus, a
-                        dep of xdg-desktop-portal-gnome, claims the same name, so "show in folder" opened it)
+      dbus/           → ~/.local/share/dbus-1/services/  (org.freedesktop.FileManager1 → Nautilus; nautilus and
+                        dolphin both claim the name, the user copy pins it; Nautilus = default file manager 2026-11-10)
       desktop/        → ~/.config/niri/cfg/{display,input,autostart-machine,surface-layout}.kdl (profile desktop; ln, not stow)
       fish/           → ~/.config/fish/  (Arch logo override for fastfetch — see fish_greeting in config.fish;
                         functions/claude.fish launches the Claude binary directly; the old tmux retry wrapper
@@ -67,7 +67,7 @@ dots/
       fonts/          → ~/.local/share/fonts/  (user fonts)
       gtk-3.0/ gtk-4.0/ micro/ paru/ qt5ct/ qt6ct/ VSCodium/ → ~/.config/<same>/
       mpd/            → ~/.config/mpd/  (deployed since 2026-10-21; was never in the old stow list)
-      mimeapps/       → ~/.config/mimeapps.list  (set via `xdg-mime default`; then `kbuildsycoca6` or Dolphin keeps old handler)
+      mimeapps/       → ~/.config/mimeapps.list  (set via `xdg-mime default`; then `kbuildsycoca6` or KDE apps keep the old handler)
       niri/           → ~/.config/niri/  (file-level links, see below)
       spotify-player/ → ~/.config/spotify-player/  (app.toml + keymap.toml)
       surface/        → same files as desktop/, for profile surface
@@ -862,7 +862,7 @@ Failed npm/uv installs now print their output tail and put the last line in the 
 | Keyboard layout | us intl | cfg/input.kdl (desktop/surface pkg; restored 2026-08-24 — was silently inert before) |
 | Screenshot path | ~/Pictures/Screenshots/ | config.kdl (inline `screenshot-path`) |
 | Terminal keybind | ⌘⏎ | dms/binds.kdl |
-| App keybinds (Dolphin / Brave / Spotify / Vesktop / Whatsie / Telegram / Thunderbird) | ⌘⌥E / ⌘⌥B / ⌘⌥S / ⌘⌥D / ⌘⌥W / ⌘⌥T / ⌘⌥M — `nirius focus-or-spawn` (jump to open window, else launch; 2026-10-28) | dms/binds.kdl |
+| App keybinds (Nautilus / Brave / Spotify / Vesktop / Whatsie / Telegram / Thunderbird) | ⌘⌥E / ⌘⌥B / ⌘⌥S / ⌘⌥D / ⌘⌥W / ⌘⌥T / ⌘⌥M — `nirius focus-or-spawn` (jump to open window, else launch; 2026-10-28) | dms/binds.kdl |
 | Overview keybind | ⌘D | dms/binds.kdl |
 | Power menu keybind | ⌘X | dms/binds.kdl |
 | Lock screen keybind | ⌘⌥L | dms/binds.kdl |

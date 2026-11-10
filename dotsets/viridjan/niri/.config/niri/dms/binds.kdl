@@ -7,7 +7,7 @@ binds {
     // === Application Launchers ===
     Mod+Return hotkey-overlay-title="Open Terminal" { spawn "alacritty"; }
     // nirius: jump to the open window, launch only if none (niriusd in config.kdl)
-    Mod+Alt+E hotkey-overlay-title="File Manager" { spawn "nirius" "focus-or-spawn" "--app-id" "^org\\.kde\\.dolphin$" "dolphin"; }
+    Mod+Alt+E hotkey-overlay-title="File Manager" { spawn "nirius" "focus-or-spawn" "--app-id" "^org\\.gnome\\.Nautilus$" "nautilus" "--new-window"; }
     Mod+Alt+B hotkey-overlay-title="Browser" { spawn "nirius" "focus-or-spawn" "--app-id" "^brave-origin$" "brave-origin"; }
     Mod+Alt+S hotkey-overlay-title="Spotify" { spawn "nirius" "focus-or-spawn" "--app-id" "^spotify$" "flatpak" "run" "com.spotify.Client"; }
     Mod+Alt+D hotkey-overlay-title="Vesktop" { spawn "nirius" "focus-or-spawn" "--app-id" "^vesktop$" "vesktop"; }
