@@ -306,7 +306,8 @@ enable = [
 ]
 # User units (systemctl --user). sysup-check.timer: weekly report-only
 # health check, unit files in dotset package systemd-user.
-user = ["psd", "mpd", "sysup-check.timer"]
+# dsearch: DMS file search backend; dcal: Dux Calendar sync + reminders (2026-11-10)
+user = ["psd", "mpd", "sysup-check.timer", "dsearch", "dcal"]
 
 [npm]
 # Global npm tools (prefix ~/.local, see CLAUDE.md). Installed if missing.
