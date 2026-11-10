@@ -169,7 +169,7 @@ Claude Code and Codex. The ollama action pulls `nomic-embed-text`; LightRAG runs
 server per document set from the template `lightrag@.service`: `lightrag@summit`
 (127.0.0.1:9621) and `lightrag@dots` (127.0.0.1:9622), settings in
 `~/.local/share/lightrag/<set>/.env`. It uses the capped `qwen3.5`, so set
-`EMBEDDING_TIMEOUT=600`. Index this repo's docs with `python3 rag/lightrag_update.py`.
+`EMBEDDING_TIMEOUT=600`. Index a project's docs with `lightrag-index <project-dir>` (starts the set's server, syncs, waits, stops; `--dry-run`, `--keep-running`).
 First index per repo, by hand: ask the agent to `index_codebase` the repo (Claude
 Context); for LightRAG upload docs at http://127.0.0.1:9621 or drop them in
 `~/.local/share/lightrag/summit/inputs/` and scan.

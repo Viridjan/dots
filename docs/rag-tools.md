@@ -1,6 +1,6 @@
 # RAG tools for agent coding (Claude Code + Codex)
 
-Status: integrated 2026-11-07 (`rag-stack` feature, desktop profile; steps below as implemented). Chosen for the Summit game project (`~/Projects/videogame`) but
+Status: integrated 2026-11-07 (`rag-stack` feature, desktop profile; steps below as implemented). Chosen for the Summit game project (now Bethe Knight, `~/Projects/bethe-knight`) but
 useful for any repo. Everything runs locally through Ollama: no cloud API keys.
 
 | Tool | What it does | Package | Runs as |
@@ -34,10 +34,16 @@ useful for any repo. Everything runs locally through Ollama: no cloud API keys.
 5. **LightRAG service.** Template user unit `lightrag@.service` in the `systemd-user` dotset, one instance per
    document set (2026-11-08): `ExecStart=lightrag-server`, `WorkingDirectory=%h/.local/share/lightrag/%i` (its `.env`
    holds the settings below). The desktop profile's `[systemd].user` lists `lightrag@summit` (port 9621, Summit game
-   docs, kept up to date by `~/Projects/videogame/tools/lightrag_update.py`) and `lightrag@dots` (port 9622, this
-   repo's docs + Claude memory notes, `python3 rag/lightrag_update.py`). One server can't switch data sets per
-   request in 1.5.7, hence one instance each. A new set: `<set>/.env` with its own PORT and paths, add
-   `lightrag@<set>` to the profile. The `.env` files are untracked. Example (summit's,
+   docs from `~/Projects/bethe-knight`) and `lightrag@dots` (port 9622, this repo's docs + Claude memory notes).
+   One server can't switch data sets per request in 1.5.7, hence one instance each. Both are indexed by
+   `lightrag-index <project-dir>` (`scripts/.local/bin`, 2026-11-10): it reads the project's `.lightrag.json`
+   (`{"set": ..., "sources": [globs]}`; default: folder name, every git-tracked `.md`/`.txt`), starts
+   `lightrag@<set>` if needed, uploads new/edited/failed docs (upload name = path with `/` → `_`), deletes removed
+   ones, waits until every doc is `processed`/`failed`, clears the answer cache and stops the server it started.
+   A set without `.env` gets one copied from an existing set with the next free port, so it needs no profile entry
+   unless it should run at boot. The `.env` files are untracked. The unit sets `TIKTOKEN_CACHE_DIR=~/.cache/tiktoken`:
+   tiktoken's default cache is in `/tmp`, so every boot re-downloaded `o200k_base` before DNS was up and both sets
+   hit the start limit (2026-11-09). Example (summit's,
    `~/.local/share/lightrag/summit/.env`; dots differs only in PORT and paths):
    ```
    HOST=127.0.0.1

@@ -1,0 +1,2 @@
+{"set": "dots", "sources": ["CLAUDE.md", "README.md", "TODO.md", "docs/*.md", "docs/*/*/*.md",
+    "dotsets/*/claude/.claude/projects/*/memory/*.md"]}

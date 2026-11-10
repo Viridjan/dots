@@ -1,0 +1,217 @@
+#!/usr/bin/env python3
+"""Index one project's docs into its own LightRAG server, re-indexing only what changed, then stop the server.
+
+  lightrag-index [project-dir]                 # start, sync, wait for indexing, stop (default: current dir)
+  lightrag-index [project-dir] --dry-run       # only list what would change
+  lightrag-index [project-dir] --keep-running  # leave the server running at the end
+
+Each document set runs as the systemd user unit lightrag@<set>, configured by ~/.local/share/lightrag/<set>/.env
+(HOST/PORT, models, storage paths). The project may hold a .lightrag.json:
+  {"set": "summit", "sources": ["README.md", "docs/*.md"]}
+Without it, the set is the folder name (lowercase) and the sources are every git-tracked .md/.txt file.
+A set with no .env yet gets one copied from an existing set, with the next free port and its own storage paths.
+
+A doc counts as edited when its file is newer than its upload; uploads are named after their path with "/" replaced
+by "_" (docs/STORY_DESIGN.md -> docs_STORY_DESIGN.md). Failed docs are retried. The answer cache is cleared after
+changes. The server is stopped at the end (also on error or Ctrl+C) only if this script started it.
+"""
+import glob
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+import uuid
+from datetime import datetime
+
+SETS = os.path.expanduser("~/.local/share/lightrag")
+UNFINISHED_GRACE = 30  # seconds the pipeline may look idle right after uploads before the counts are trusted
+
+
+def call(server, method, path, body=None, content_type="application/json"):
+    data = json.dumps(body).encode() if isinstance(body, (dict, list)) else body
+    request = urllib.request.Request(server + path, data=data, method=method, headers={"Content-Type": content_type})
+    with urllib.request.urlopen(request, timeout=120) as response:
+        return json.loads(response.read() or b"{}")
+
+
+def systemctl(*args):
+    return subprocess.run(["systemctl", "--user", *args], capture_output=True, text=True)
+
+
+def read_env(path):
+    env = {}
+    with open(path) as f:
+        for line in f:
+            key, sep, value = line.strip().partition("=")
+            if sep and not key.startswith("#"):
+                env[key.strip()] = value.strip()
+    return env
+
+
+def ensure_set(name):
+    """Return the set's port, creating its .env from another set's if it has none."""
+    env_path = os.path.join(SETS, name, ".env")
+    if os.path.exists(env_path):
+        return int(read_env(env_path).get("PORT", 9621))
+    others = sorted(glob.glob(os.path.join(SETS, "*", ".env")))
+    if not others:
+        sys.exit(f"No LightRAG set to copy settings from in {SETS}; create {env_path} first.")
+    ports = [int(read_env(p).get("PORT", 9621)) for p in others]
+    port = max(ports) + 1
+    base = os.path.join(SETS, name)
+    with open(others[0]) as f:
+        text = f.read()
+    text = re.sub(r"(?m)^PORT=.*$", f"PORT={port}", text)
+    text = re.sub(r"(?m)^WORKING_DIR=.*$", f"WORKING_DIR={base}/rag_storage", text)
+    text = re.sub(r"(?m)^INPUT_DIR=.*$", f"INPUT_DIR={base}/inputs", text)
+    os.makedirs(os.path.join(base, "rag_storage"), exist_ok=True)
+    os.makedirs(os.path.join(base, "inputs"), exist_ok=True)
+    with open(env_path, "w") as f:
+        f.write(text)
+    print(f"Created set '{name}' on port {port} ({env_path}, settings copied from {others[0]}).")
+    return port
+
+
+def project_config(root):
+    path = os.path.join(root, ".lightrag.json")
+    config = {}
+    if os.path.exists(path):
+        with open(path) as f:
+            config = json.load(f)
+    name = config.get("set") or os.path.basename(os.path.abspath(root)).lower()
+    if config.get("sources"):
+        files = {p for pattern in config["sources"] for p in glob.glob(pattern, root_dir=root, recursive=True)}
+    else:
+        out = subprocess.run(["git", "-C", root, "ls-files", "*.md", "*.txt"], capture_output=True, text=True)
+        if out.returncode:
+            sys.exit(f"{root} is not a git repository; add a .lightrag.json with \"sources\".")
+        files = set(out.stdout.split("\n")) - {""}
+    return name, sorted(p for p in files if os.path.isfile(os.path.join(root, p)))
+
+
+def indexed_docs(server):
+    docs, page = {}, 1
+    while True:
+        reply = call(server, "POST", "/documents/paginated", {"page": page, "page_size": 100})
+        for doc in reply["documents"]:
+            docs[doc["file_path"]] = doc
+        if page >= reply.get("pagination", {}).get("total_pages", 1):
+            return docs
+        page += 1
+
+
+def busy(server):
+    return call(server, "GET", "/documents/pipeline_status").get("busy")
+
+
+def wait_idle(server):
+    while busy(server):
+        time.sleep(3)
+
+
+def upload(server, root, path, name):
+    boundary = uuid.uuid4().hex
+    with open(os.path.join(root, path), "rb") as f:
+        body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{name}\"\r\n"
+                f"Content-Type: text/plain\r\n\r\n").encode() + f.read() + f"\r\n--{boundary}--\r\n".encode()
+    return call(server, "POST", "/documents/upload", body, f"multipart/form-data; boundary={boundary}")
+
+
+def sync(server, root, files, dry):
+    """Upload new/edited/failed docs and delete removed ones. Returns whether anything changed."""
+    names = {p.replace("/", "_"): p for p in files}
+    docs = indexed_docs(server)
+    new = [n for n in names if n not in docs]
+    edited = [n for n in names if n in docs and os.path.getmtime(os.path.join(root, names[n]))
+              > datetime.fromisoformat(docs[n]["created_at"]).timestamp()]
+    removed = [n for n in docs if n not in names]
+    failed = [n for n in names if n in docs and docs[n]["status"] == "failed" and n not in edited]
+    for label, group in [("new", new), ("edited", edited), ("removed", removed), ("failed before, retried", failed)]:
+        for n in group:
+            print(f"{label:24} {names.get(n, n)}")
+    if not (new or edited or removed or failed):
+        print(f"{len(names)} docs, nothing changed.")
+        return False
+    if dry:
+        return False
+    stale = [docs[n]["id"] for n in edited + removed + failed]
+    if stale:
+        wait_idle(server)
+        call(server, "DELETE", "/documents/delete_document", {"doc_ids": stale, "delete_file": True})
+        wait_idle(server)
+    for n in new + edited + failed:
+        upload(server, root, names[n], n)
+    print(f"Queued {len(new) + len(edited) + len(failed)} upload(s), removed {len(removed)}.")
+    return True
+
+
+def wait_indexed(server, grace):
+    """Wait until every doc is processed or failed and the pipeline is idle; return the failed count."""
+    start, last = time.time(), None
+    while True:
+        counts = {k.lower(): v for k, v in call(server, "GET", "/documents/status_counts")["status_counts"].items()}
+        finished = counts.get("processed", 0) + counts.get("failed", 0)
+        left = counts.get("all", finished) - finished  # pending, parsing, analyzing, processing, preprocessed...
+        if left == 0 and not busy(server) and time.time() - start >= grace:
+            return counts.get("failed", 0)
+        if left != last:
+            print(f"  {left} doc(s) left to index")
+            last = left
+        time.sleep(10)
+
+
+def main():
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    dry, keep = "--dry-run" in sys.argv, "--keep-running" in sys.argv
+    if len(args) > 1 or not os.path.isdir((args or ["."])[0]):
+        sys.exit(__doc__)
+    root = os.path.abspath((args or ["."])[0])
+    name, files = project_config(root)
+    if not files:
+        sys.exit(f"No docs found in {root}.")
+    port = ensure_set(name)
+    server, unit = f"http://127.0.0.1:{port}", f"lightrag@{name}"
+    print(f"Project {root} -> set '{name}' ({unit}, {server}), {len(files)} docs.")
+
+    started = systemctl("is-active", "-q", unit).returncode != 0
+    if started:
+        systemctl("reset-failed", unit)
+        if systemctl("start", unit).returncode:
+            sys.exit(f"Could not start {unit}. Log: journalctl --user -u {unit} -n 50")
+    try:
+        for _ in range(90):  # up to 3 minutes for the server to answer
+            try:
+                call(server, "GET", "/health")
+                break
+            except OSError:
+                if systemctl("is-active", "-q", unit).returncode:
+                    sys.exit(f"{unit} stopped while starting. Log: journalctl --user -u {unit} -n 50")
+                time.sleep(2)
+        else:
+            sys.exit(f"{unit} did not answer at {server}. Log: journalctl --user -u {unit} -n 50")
+        changed = sync(server, root, files, dry)
+        if dry:
+            return
+        print("Waiting for indexing to finish...")
+        failed = wait_indexed(server, UNFINISHED_GRACE if changed else 0)
+        if changed:
+            call(server, "POST", "/documents/clear_cache", {})
+        print(f"Done, but {failed} doc(s) failed; the next run retries them." if failed else "Done: LightRAG is up to date.")
+    except KeyboardInterrupt:
+        sys.exit(130)
+    except urllib.error.HTTPError as error:  # the server answered with an error (e.g. 409 name clash on upload)
+        sys.exit(f"LightRAG refused {error.url}: HTTP {error.code} {error.read().decode(errors='replace')[:500]}")
+    except OSError as error:
+        sys.exit(f"Lost contact with LightRAG at {server} ({error}).")
+    finally:
+        if started and not keep:
+            print(f"Stopping {unit}.")
+            systemctl("stop", unit)
+
+
+if __name__ == "__main__":
+    main()

@@ -31,4 +31,4 @@
 - [fix scripts systematically](feedback-fix-script-systematically.md) — script fix = root cause + whole bug class + regression test, not a data patch
 - [vjupdate own builds + ufw](vjupdate-2026-11-own-builds-ufw.md) — projects.toml `build` (7000bar), [ufw].allow, --useask AUR swaps; 7000bar edited live by other agents
 - [Vesktop Vencord patch](vesktop-vencord-patch.md) — blank window = Vencord wreq.d vs 3-arg d(); local patch, lost on Vencord update
-- [LightRAG instances](lightrag-instances.md) — lightrag@summit :9621 / lightrag@dots :9622, EMBEDDING_TIMEOUT=600 with capped qwen3.5
+- [LightRAG instances](lightrag-instances.md) — lightrag@summit :9621 / lightrag@dots :9622, `lightrag-index <project>` indexer, EMBEDDING_TIMEOUT=600

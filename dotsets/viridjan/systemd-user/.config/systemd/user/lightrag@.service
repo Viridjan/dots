@@ -7,7 +7,10 @@ After=network-online.target
 # and the Ollama models (HOST=127.0.0.1: no auth by default). summit 9621, dots 9622.
 WorkingDirectory=%h/.local/share/lightrag/%i
 ExecStart=%h/.local/bin/lightrag-server
+# tiktoken's default cache is /tmp (wiped each boot): at boot it re-downloaded before DNS was up and failed.
+Environment=TIKTOKEN_CACHE_DIR=%h/.cache/tiktoken
 Restart=on-failure
+RestartSec=15
 Nice=10
 
 [Install]
