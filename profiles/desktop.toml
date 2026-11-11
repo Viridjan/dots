@@ -27,6 +27,7 @@ install = [
     # VR: Pico 4 Ultra streaming (alvr/alvr-git are on the malware blocklist; -bin reviewed 2026-11-01).
     # Headset client APK must match `pacman -Q alvr-bin`.
     "alvr-bin",
+    "dux-shell-plugin-hass-git",
 ]
 
 [systemd]
