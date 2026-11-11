@@ -108,6 +108,7 @@ install = [
     "vlc-plugins-all",
     "qbittorrent",
     "vesktop",
+    "stoat-desktop-bin",  # Stoat (ex-Revolt) chat; Flathub only has the old Revolt 1.0.8
     "udiskie",
     "joplin-desktop",
     "poppler-glib",
