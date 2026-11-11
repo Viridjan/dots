@@ -121,7 +121,6 @@
       "clickThrough": false,
       "barInsetPadding": 10,
       "useOverlayLayer": false,
-      "island": true,
       "followInterfaceStyle": false,
       "widgetFollowInterfaceStyle": true,
       "dot": false,
@@ -187,7 +186,8 @@
       "islandInteractionMode": "click",
       "islandDashTabs": true,
       "islandMediaLyrics": true,
-      "islandNotificationBadgeClearOnOpen": true
+      "islandNotificationBadgeClearOnOpen": true,
+      "island": true
     },
     {
       "id": "dot1792883797400",
@@ -254,7 +254,6 @@
       "clickThrough": false,
       "barInsetPadding": 10,
       "useOverlayLayer": false,
-      "island": false,
       "followInterfaceStyle": false,
       "widgetFollowInterfaceStyle": true,
       "dot": true,

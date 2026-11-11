@@ -158,6 +158,10 @@ def wait_indexed(server, grace):
         left = counts.get("all", finished) - finished  # pending, parsing, analyzing, processing, preprocessed...
         if left == 0 and not busy(server) and time.time() - start >= grace:
             return counts.get("failed", 0)
+        if left and not busy(server) and time.time() - start >= grace:
+            # Docs left half-done by a server restart are never resumed on their own.
+            print(f"  pipeline idle with {left} doc(s) unfinished: resuming")
+            call(server, "POST", "/documents/reprocess_failed", {})
         if left != last:
             print(f"  {left} doc(s) left to index")
             last = left
