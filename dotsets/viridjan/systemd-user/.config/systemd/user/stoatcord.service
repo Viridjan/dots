@@ -1,0 +1,20 @@
+[Unit]
+Description=Stoatcord: Discord <-> Stoat message bridge (~/Projects/stoatcord-bot)
+After=network-online.target
+# Tokens live here (chmod 600, not in git); without it the unit is skipped, not failed.
+ConditionPathExists=%h/.config/stoatcord/env
+
+[Service]
+WorkingDirectory=%h/Projects/stoatcord-bot
+EnvironmentFile=%h/.config/stoatcord/env
+Environment=DB_PATH=%h/.local/share/stoatcord/stoatcord.db
+ExecStartPre=/usr/bin/mkdir -p %h/.local/share/stoatcord
+# Deps from the pinned lockfile; '-' so a boot without network still starts with the installed ones.
+ExecStartPre=-/usr/bin/bun install --frozen-lockfile --production
+ExecStart=/usr/bin/bun src/index.ts
+Restart=on-failure
+RestartSec=30
+Nice=10
+
+[Install]
+WantedBy=default.target

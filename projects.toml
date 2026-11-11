@@ -43,3 +43,9 @@ url = "git@github.com:Viridjan/webapp_detective.git"
 name = "7000bar"
 url = "git@github.com:Viridjan/7000bar.git"
 build = "cargo build --release && install -Dm755 target/release/7000bar ~/.local/bin/7000bar"
+
+# Discord <-> Stoat bridge (stoatcord.service, desktop). Third-party code holding bot
+# tokens: no `build`, so sysup never pulls it; review and pull updates by hand.
+[[repo]]
+name = "stoatcord-bot"
+url = "https://github.com/tribixbite/stoatcord-bot.git"

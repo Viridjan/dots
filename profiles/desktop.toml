@@ -9,6 +9,7 @@ features = ["desktop-services", "cpu-performance", "amd-gpu-tuning", "ollama-mod
 [paru]
 install = [
     # Desktop-specific packages — AMD RX 6700 XT + i5-13400F tower
+    "bun",  # runs stoatcord-bot (stoatcord.service)
 
     # AMD GPU drivers (Wayland — xf86-video-amdgpu not needed)
     "vulkan-radeon",
@@ -34,7 +35,8 @@ install = [
 enable = ["ollama", "limine-snapper-sync.service"]
 # LightRAG servers, one per document set (rag-stack; template unit lightrag@.service in the
 # systemd-user dotset, settings in ~/.local/share/lightrag/<set>/.env): summit :9621, dots :9622
-user = ["lightrag@summit", "lightrag@dots"]
+# stoatcord: Discord <-> Stoat bridge; tokens in ~/.config/stoatcord/env (skipped until it exists)
+user = ["lightrag@summit", "lightrag@dots", "stoatcord"]
 
 # rag-stack (docs/rag-tools.md): MCP servers registered by setup_claude (_setup_rag)
 [npm]
