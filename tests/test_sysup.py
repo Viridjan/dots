@@ -1492,7 +1492,7 @@ class MpdServiceTests(FixtureCase):
 
 class InstallFailureDetailTests(FixtureCase):
     def run_install(self, error):
-        self.plan("paru-install.list", "dms-shell\n")
+        self.plan("paru-install.list", "dux-shell\n")
         self.plan("flatpak-install.list", "")
         self.mock("pacman", "exit 0")
         self.mock("flatpak", "exit 0")
@@ -1526,7 +1526,7 @@ print_recap
     def test_recorded_package_failure_does_not_abort_the_run(self):
         # A failure already recorded in the recap must not trip errexit/the ERR
         # trap and skip later phases ("remaining work aborted").
-        self.plan("paru-install.list", "dms-shell\n")
+        self.plan("paru-install.list", "dux-shell\n")
         self.plan("flatpak-install.list", "")
         self.mock("pacman", "exit 0")
         self.mock("flatpak", "exit 0")
