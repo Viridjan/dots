@@ -561,6 +561,10 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
     out and failed the upgrade and paccache (2026-11-08). Sudo failures are named in
     the recap: `_syuu_fail_detail` reports paru's `sudo:` line, paccache warnings append
     `_sudo_cause` (`sudo -n true` fails = no ticket).
+- **Steam Big Picture off (2026-11-13).** `steam-launchers` first runs
+  `_steam_no_bigpicture`: `_vdf_set` writes `StartupMode "7"` (desktop UI) in
+  `~/.steam/registry.vdf` HKCU and `Controller_CheckGuideButton "0"` in each
+  `localconfig.vdf`. Skipped while Steam runs (it rewrites both on exit).
 - **Supply chain, from pasadoorian/Linux_Hacks (2026-11-10).** `check_aur_health`:
   one `paru -Sai` over `pacman -Qmq` (`_aur_info`); warns on maintainers in the
   aur-malware-check `accounts.json` files (aur_check ignores them), packages gone
