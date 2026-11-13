@@ -268,6 +268,12 @@ hold = [
     # Upgrade by hand after reviewing the PKGBUILD and upstream release.
 ]
 
+# "repo/name": always installed and upgraded from that repo (held from -Syu,
+# then pacman -S --needed repo/name, which also swaps a build from another repo).
+pin = [
+    "extra/go",  # cachyos-v3 go 1.27.4-2 (2026-11-13) is an x86-64-v4 binary: dies on this v3 CPU
+]
+
 # Skipped by install and audit even if listed above.
 skip = [
     # Packages to skip during sysup install phases.

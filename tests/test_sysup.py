@@ -804,6 +804,20 @@ fi
                 self.assertEqual(r.returncode, 0, r.stderr)
                 self.assertEqual(self.calls(), ["-Syuu --noconfirm"])
 
+    def test_pins_are_held_from_upgrade_then_synced_from_their_repo(self):
+        self.holds()
+        self.plan("paru-pin.list", "# swap\nextra/go\nbad-entry\n")
+        self.mock("paru", 'printf "%s\\n" "paru $*" >> "$CALLS"')
+        self.mock("sudo", 'printf "%s\\n" "sudo $*" >> "$CALLS"')
+        stubs = "".join(f"{n}() {{ :; }}\n" for n in (
+            "_remove_conflicts", "_demote_packages", "_check_disk_space", "_review_aur_updates",
+            "_estimate_aur_builds", "_restart_dms_if_changed", "_dms_versions"))
+        r = self.shell(stubs + '_upgrade_system up prog; printf "%s\\n" "${WARNINGS[@]}"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.calls(), ["paru -Syuu --noconfirm --ignore vectorcraft-bin,go",
+                                        "sudo pacman -S --needed --noconfirm extra/go"])
+        self.assertIn("pin 'bad-entry' is not repo/name", r.stdout)
+
     def test_rebuild_filters_holds_and_avoids_empty_install(self):
         self.holds()
         self.mock("checkrebuild", "printf 'foreign\\tvectorcraft-bin\\nforeign\\tsafe-pkg\\n'")

@@ -747,6 +747,28 @@ _held_packages() {
     if [[ -f "$SYSUP_PLAN_DIR/paru-hold.list" ]]; then
         _pkg_list "$SYSUP_PLAN_DIR/paru-hold.list"
     fi
+    # Pinned packages are held from -Syu too; _sync_pinned upgrades them.
+    _pinned_packages | awk -F/ 'NF == 2 { print $2 }'
+}
+
+_pinned_packages() {
+    if [[ -f "$SYSUP_PLAN_DIR/paru-pin.list" ]]; then
+        _pkg_list "$SYSUP_PLAN_DIR/paru-pin.list"
+    fi
+}
+
+# Install/upgrade each "repo/name" from its repo. --needed skips an up-to-date
+# one; a build from another repo (e.g. a higher cachyos pkgrel) is replaced.
+_sync_pinned() {
+    local pin out
+    while IFS= read -r pin; do
+        [[ "$pin" == */* ]] || { _failw "pin:$pin" "pin '$pin' is not repo/name — skipped"; continue; }
+        if out=$(_mutate sudo pacman -S --needed --noconfirm "$pin" 2>&1); then
+            _record "pin:${pin#*/}" ok
+        else
+            _failw "pin:${pin#*/}" "pinned $pin failed: $(tail -n1 <<<"$out")"
+        fi
+    done < <(_pinned_packages)
 }
 
 # Read package names from stdin, excluding exact hold-list matches.
@@ -1055,6 +1077,7 @@ _upgrade_system() {
     else
         _record_upgrade_failure
     fi
+    _sync_pinned
     # Also after a partial failure: DMS may have upgraded before it.
     _restart_dms_if_changed "$_dms_before"
 }

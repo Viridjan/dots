@@ -621,6 +621,13 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   upgrades (including retries) and both rebuild paths. First installation is
   unchanged. Audit and update runs warn about pending held AUR updates with
   review and manual upgrade commands; dry runs list the holds.
+- **Pinned repo packages (2026-11-13).** `[paru].pin` entries are `repo/name` →
+  plan `paru-pin.list`. The name joins the holds (`--ignore` on `-Syuu`, rebuilds),
+  then `_sync_pinned` (end of `_upgrade_system`) runs `sudo pacman -S --needed
+  --noconfirm repo/name`, replacing a build from another repo. `extra/go` is pinned:
+  cachyos-v3 `go 1.27.4-2` shipped an x86-64-v4 binary ("can only be run on AMD64
+  processors with v4 microarchitecture support"), which broke the dux-player build.
+  Drop the pin once CachyOS fixes it.
 - **Menu (2026-11-08).** Bare `sysup` with stdin+stdout on a TTY and `fzf`
   installed runs `_menu`; otherwise help (timer, pipes, tests). `_menu` loops:
   main screen update / first run / check / actions / options / status / quit (Esc quits);

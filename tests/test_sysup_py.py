@@ -23,7 +23,7 @@ def fixture_repo(root: Path) -> Path:
     d = root / "dots"
     (d / "profiles").mkdir(parents=True)
     (d / "packages.toml").write_text(
-        '[paru]\ninstall = ["fish", "git", "steam"]\nremove = ["wine"]\nhold = ["vectorcraft"]\nskip = ["git"]\n'
+        '[paru]\ninstall = ["fish", "git", "steam"]\nremove = ["wine"]\nhold = ["vectorcraft"]\npin = ["extra/go"]\nskip = ["git"]\n'
         '[flatpak]\ninstall = ["com.spotify.Client"]\nremove = ["org.old.App"]\n'
         '[systemd]\nenable = ["cups", "bluetooth"]\nuser = ["mpd"]\n[npm]\ninstall = ["@x/dsh"]\n[uv]\ninstall = ["graphifyy"]\n[ufw]\nallow = ["2234/tcp"]\n')
     (d / "profiles/desktop.toml").write_text(
@@ -161,6 +161,7 @@ class ResolveTests(Tmp):
         read = lambda n: (out / n).read_text().split()
         self.assertEqual(read("paru-install.list"), ["fish", "steam", "vulkan-radeon"])
         self.assertEqual(read("paru-remove.list"), ["wine"])
+        self.assertEqual(read("paru-pin.list"), ["extra/go"])
         self.assertEqual(read("flatpak-remove.list"), ["org.old.App"])
         self.assertEqual(read("projects.list"), ["git@x:dots.git", "git@x:app.git"])
         self.assertEqual((out / "project-builds.list").read_text(), "app\tmake install\n")
