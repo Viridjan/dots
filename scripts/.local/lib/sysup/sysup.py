@@ -65,7 +65,7 @@ ACTIONS = {
     "caveman-code": ("apps", "Install caveman-code", "Install the npm command and refresh its local links."),
     "ollama": ("apps", "Download Ollama model", "Pull qwen3.5 and rebuild the Modelfile models (ollama-model feature)."),
     "vms": ("apps", "Prepare Windows virtual machine", "Create VM storage directories and download the Windows container image."),
-    "steam-launchers": ("launchers", "Refresh Steam game launchers", "Create game launchers and remove entries for uninstalled Steam games."),
+    "steam-launchers": ("launchers", "Refresh Steam game launchers", "Create game launchers, remove entries for uninstalled Steam games, keep Big Picture off."),
     "app-launchers": ("launchers", "Maintain application launchers", "Remove stale app launchers; report apps without local launcher copies."),
     "lostfiles": ("health", "Report files owned by no package", "Run pacreport --unowned-files (about a minute, report only)."),
     "dotfiles-export": ("dotfiles", "Review and upload Git changes", "Review, stage, commit and push repo changes; each step asks for confirmation."),

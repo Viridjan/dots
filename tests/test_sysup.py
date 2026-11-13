@@ -1443,6 +1443,49 @@ class BuildPriorityTests(FixtureCase):
         self.assertTrue(self.calls()[0].startswith("paru NICE=19 LC=C -Syuu"), self.calls())
 
 
+class SteamBigPictureTests(FixtureCase):
+    """Big Picture stays off: StartupMode 7 + Controller_CheckGuideButton 0, only with Steam stopped."""
+
+    REG = ('"Registry"\n{\n\t"HKLM"\n\t{\n\t\t"Software"\n\t\t{\n\t\t\t"Valve"\n\t\t\t{\n'
+           '\t\t\t\t"Steam"\n\t\t\t\t{\n\t\t\t\t\t"SteamPID"\t\t"1"\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n'
+           '\t"HKCU"\n\t{\n\t\t"Software"\n\t\t{\n\t\t\t"Valve"\n\t\t\t{\n'
+           '\t\t\t\t"Steam"\n\t\t\t\t{\n\t\t\t\t\t"StartupMode"\t\t"4"\n\t\t\t\t\t"language"\t\t"english"\n'
+           '\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n')
+    LOCAL = ('"UserLocalConfigStore"\n{\n\t"Compatibility"\n\t{\n\t\t"ShowAllTools"\t\t"0"\n\t}\n}\n')
+
+    def setUp(self):
+        super().setUp()
+        self.reg = self.home / ".steam/registry.vdf"
+        self.reg.parent.mkdir()
+        self.reg.write_text(self.REG)
+        self.local = self.home / ".local/share/Steam/userdata/1/config/localconfig.vdf"
+        self.local.parent.mkdir(parents=True)
+        self.local.write_text(self.LOCAL)
+        self.mock("pgrep", "exit 1")
+
+    def test_sets_both_keys_at_their_blocks(self):
+        r = self.shell("_steam_no_bigpicture")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.reg.read_text(), self.REG.replace('"StartupMode"\t\t"4"', '"StartupMode"\t\t"7"'))
+        self.assertEqual(self.local.read_text(), self.LOCAL.replace(
+            '\t}\n}', '\t}\n\t"Controller_CheckGuideButton"\t\t"0"\n}'))
+        # idempotent
+        self.shell("_steam_no_bigpicture")
+        self.assertEqual(self.local.read_text().count("Controller_CheckGuideButton"), 1)
+
+    def test_missing_key_is_added_in_hkcu_only(self):
+        self.reg.write_text(self.REG.replace('\t\t\t\t\t"StartupMode"\t\t"4"\n', ''))
+        self.shell("_steam_no_bigpicture")
+        self.assertEqual(self.reg.read_text(), self.REG.replace(
+            '"StartupMode"\t\t"4"\n\t\t\t\t\t"language"\t\t"english"',
+            '"language"\t\t"english"\n\t\t\t\t\t"StartupMode"\t\t"7"'))
+
+    def test_untouched_while_steam_runs(self):
+        self.mock("pgrep", "exit 0")
+        self.shell("_steam_no_bigpicture")
+        self.assertEqual((self.reg.read_text(), self.local.read_text()), (self.REG, self.LOCAL))
+
+
 class OllamaUpdateTests(FixtureCase):
     """Updates re-pull the models, then rebuild each Modelfile, only where wanted."""
 

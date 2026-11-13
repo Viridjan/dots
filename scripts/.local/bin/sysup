@@ -3646,7 +3646,47 @@ check() {
     print_recap
 }
 
+# Set "key" "value" inside the block at slash path (e.g. Registry/HKCU/Software/Valve/Steam)
+# of a text VDF; replaces the line or appends it before the block's closing brace.
+_vdf_set() {
+    local file=$1 path=$2 key=$3 val=$4 tmp
+    tmp=$(mktemp "$file.XXXX") || return 1
+    awk -v want="$path" -v key="$key" -v val="$val" '
+        function cur(  i, p) { p = ""; for (i = 1; i <= d; i++) p = p (i > 1 ? "/" : "") s[i]; return p }
+        /^\t*"[^"]*"$/ { n = $0; gsub(/^\t*"|"$/, "", n); print; next }
+        /^\t*\{$/ { s[++d] = n; done = 0; print; next }
+        /^\t*\}$/ {
+            if (cur() == want && !set) { printf "%s\"%s\"\t\t\"%s\"\n", substr($0, 1, length($0) - 1) "\t", key, val; set = 1 }
+            d--; print; next
+        }
+        cur() == want && index($0, "\"" key "\"\t") == d + 1 {
+            printf "%s\"%s\"\t\t\"%s\"\n", substr($0, 1, d), key, val; set = 1; next
+        }
+        { print }
+        END { exit !set }' "$file" >"$tmp" && mv "$tmp" "$file" || { rm -f "$tmp"; return 1; }
+}
+
+# Big Picture off: no Big Picture at launch (StartupMode 7 = desktop UI), Guide button
+# doesn't open it. Steam rewrites these files on exit, so only edit while it is stopped.
+_steam_no_bigpicture() {
+    local reg="$HOME/.steam/registry.vdf" f
+    [[ -f "$reg" ]] || return 0
+    if pgrep -x steam >/dev/null; then
+        info "Steam running — Big Picture settings not checked (quit Steam and rerun)"
+        return 0
+    fi
+    _vdf_set "$reg" Registry/HKCU/Software/Valve/Steam StartupMode 7 \
+        || { warn "steam: could not set StartupMode in $reg"; return 0; }
+    for f in "$HOME"/.local/share/Steam/userdata/*/config/localconfig.vdf; do
+        [[ -f "$f" ]] || continue
+        _vdf_set "$f" UserLocalConfigStore Controller_CheckGuideButton 0 \
+            || warn "steam: could not set Controller_CheckGuideButton in $f"
+    done
+    ok "Steam: Big Picture off at launch and on Guide button"
+}
+
 setup_steam_launchers() {
+    _steam_no_bigpicture
     local steam_root="$HOME/.local/share/Steam"
     local apps_dir="$HOME/.local/share/applications"
     local vdf="$steam_root/steamapps/libraryfolders.vdf"
