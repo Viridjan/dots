@@ -116,7 +116,7 @@ sysup --help                    # everything else
 
 Bare `sysup` in a terminal opens a menu (needs `fzf`): update, check, actions
 (grouped, Enter marks, Ctrl-R or the top Run row runs them), options
-(`--adopt`, `--clean-aggressive`), status. Esc goes back; a run
+(`--adopt`, `--clean`), status. Esc goes back; a run
 ends sysup with that run's exit status. Outside a terminal it prints the help.
 
 - **Profiles** (`profiles/<name>.toml`): hardware + package lists + feature
@@ -343,7 +343,8 @@ can still permit independent cleanup.
 Installer pipelines report download failures even when the receiving shell
 exits successfully. Failed cache cleanup is recorded in the recap and does not
 print “caches cleaned”; independent work can continue, with a nonzero final
-status. AUR sources remain preserved unless `--clean-aggressive` is selected.
+status. AUR sources of installed packages are kept; clones of uninstalled ones
+are deleted on every cleanup. `--clean` wipes the whole paru/yay cache.
 
 Kernel removal checks which package owns the running kernel image. It refuses
 to remove that package, or to proceed when ownership cannot be determined.

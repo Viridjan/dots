@@ -365,7 +365,7 @@ sysup --actions pacnew-merge
 sysup --adopt
 
 # Also wipe ~/.cache/paru and ~/.cache/yay during cleanup
-sysup --clean-aggressive
+sysup --clean
 
 # Remove stale non-Steam app launchers, report apps not mirrored locally
 sysup --actions app-launchers
@@ -638,7 +638,7 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   `_menu_actions` is `fzf --multi` (grouped by `GROUPS`; Enter marks, the top
   `▶ Run` row or Ctrl-R runs) over `sysup.py menu "${MENU_ORDER[@]}"`
   (feature-gated one-time actions hidden, `[once]` state shown).
-  `_menu_options` toggles `--adopt` / `--clean-aggressive`, added
+  `_menu_options` toggles `--adopt` / `--clean`, added
   to every later run until the menu quits. `--dry-run` was removed 2026-11-14
   (static preview, didn't cover `--actions` or list upgrades). `MENU_ORDER` (top-level array) is the only action ID list:
   `--actions` validates against it, fish completion reads it. Labels and
@@ -743,9 +743,11 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   separate unstow/install calls. Stow checks the full plan before executing it,
   so a conflict preserves that package's working links. Do not restore the
   blanket `stow -D` loop: it removed links before discovering conflicts.
-- **Cache cleanup keeps the AUR sources.** `~/.cache/paru` holds the git
-  checkouts paru reuses; wiping it forces a full re-clone and rebuild of every
-  AUR package. `--clean-aggressive` restores the old wipe-everything behaviour.
+- **Cache cleanup keeps the AUR sources of installed packages.** `~/.cache/paru/clone`
+  holds the checkouts paru reuses and `_review_aur_updates` diffs against.
+  `_prune_aur_clones` (every `clean_caches`) deletes clone dirs none of whose
+  `.SRCINFO` pkgnames (dir name if none) is installed — e.g. unsloth's 823 MB,
+  2026-11-14. `--clean` (renamed from `--clean-aggressive`) wipes paru/yay caches.
   Failed cleanup commands record `cache-cleanup` as failed and suppress the
   success message. Independent work can continue; the final recap returns
   nonzero. Both paccache operations are attempted even if the first fails.

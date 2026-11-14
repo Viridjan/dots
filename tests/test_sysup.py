@@ -1057,9 +1057,9 @@ class ReviewFollowupTests(FixtureCase):
         self.assertEqual(calls[1:], ["run --actions sources,install,stow-symlinks,dms-import,services,fish"])
 
     def test_menu_options_toggle_and_pass_through(self):
-        # adopt on, clean-aggressive on, adopt off again, back, update
-        calls = self.menu("options --adopt --clean-aggressive --adopt ESC update quit")
-        self.assertEqual(calls, ["run --update --clean-aggressive"])
+        # adopt on, clean on, adopt off again, back, update
+        calls = self.menu("options --adopt --clean --adopt ESC update quit")
+        self.assertEqual(calls, ["run --update --clean"])
 
     def test_menu_escape_goes_back_or_quits(self):
         calls = self.menu("actions quit", pick="ESC")  # Esc in the action list: back, nothing run
@@ -2019,6 +2019,30 @@ class SudoFailureDetailTests(FixtureCase):
         self.mock("paccache", "exit 0")
         r = self.shell('clean_caches >/dev/null 2>&1 || true; printf "%s\\n" "${WARNINGS[@]}"')
         self.assertIn("paccache -rk2 failed: no sudo access (password not entered)", r.stdout)
+
+
+class AurClonePruneTests(FixtureCase):
+    def test_prunes_only_clones_with_no_installed_pkgname(self):
+        clone = self.home / ".cache/paru/clone"
+        for d, srcinfo in {"kept-split": "pkgbase = kept-split\n\tpkgname = other\n\tpkgname = kept-a\n",
+                           "gone": "pkgbase = gone\n\tpkgname = gone\n",
+                           "no-srcinfo-kept": None, "no-srcinfo-gone": None}.items():
+            (clone / d).mkdir(parents=True)
+            if srcinfo:
+                (clone / d / ".SRCINFO").write_text(srcinfo)
+        self.mock("pacman", 'printf "kept-a\\nno-srcinfo-kept\\n"')
+        r = self.shell(f'_prune_aur_clones "{clone}"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(sorted(p.name for p in clone.iterdir()), ["kept-split", "no-srcinfo-kept"])
+        self.assertIn("gone no-srcinfo-gone", r.stdout)
+
+    def test_pacman_failure_deletes_nothing(self):
+        clone = self.home / ".cache/paru/clone"
+        (clone / "x").mkdir(parents=True)
+        self.mock("pacman", "exit 1")
+        r = self.shell(f'_prune_aur_clones "{clone}" || echo FAILED')
+        self.assertIn("FAILED", r.stdout)
+        self.assertTrue((clone / "x").exists())
 
 
 class ConfigFlagTests(FixtureCase):

@@ -61,7 +61,7 @@ AUDIT_ORPHAN_REMOVAL=false
 AUDIT_PYTHON_REBUILD=false
 AUDIT_REBUILD=false
 AUDIT_PACNEW=false
-CLEAN_AGGRESSIVE=false
+CLEAN=false
 STOW_ADOPT=false
 LOG_FILE="$STAMP_DIR/sysup.log"
 LOCK_FILE="$STAMP_DIR/sysup.lock"
@@ -2719,6 +2719,24 @@ check_flatpak_orphans() {
 }
 
 # ─── Maintenance: cache cleanup ──────────────────────────
+# Remove clone dirs none of whose .SRCINFO pkgnames (dir name if none) is installed.
+_prune_aur_clones() {
+    local dir=$1 d names installed pruned=() kb=0 s
+    [[ -d "$dir" ]] || return 0
+    installed=$(pacman -Qq) || return 1
+    for d in "$dir"/*/; do
+        d=${d%/}
+        [[ -d "$d" ]] || continue
+        names=$(awk -F' = ' '/^[[:space:]]*pkgname = / { print $2 }' "$d/.SRCINFO" 2>/dev/null || true)
+        [[ -n "$names" ]] || names=${d##*/}
+        grep -qxFf <(printf '%s\n' "$names") <<< "$installed" && continue
+        s=$(du -sk "$d" 2>/dev/null | cut -f1 || true)
+        rm -rf -- "$d" && pruned+=("${d##*/}") && kb=$((kb + ${s:-0}))
+    done
+    (( ${#pruned[@]} )) || return 0
+    ok "removed AUR clones of uninstalled packages ($((kb / 1024)) MiB): ${pruned[*]}"
+}
+
 clean_caches() {
     info "Cleaning package caches..."
     local _cache_ok=true
@@ -2733,21 +2751,16 @@ clean_caches() {
         warn "paccache not found — install pacman-contrib"
     fi
 
-    # BEHAVIOUR CHANGE (deliberate): the paru/yay caches are no longer wiped.
-    # ~/.cache/paru/clone holds the AUR git checkouts paru reuses; deleting it
-    # forces a full re-clone and rebuild of every AUR package on the next run,
-    # which is what made AUR upgrades slow after every maintenance pass. Only
-    # built artefacts are pruned, and only with --clean-aggressive.
-    local _paru_cache="$HOME/.cache/paru" _summary="pacman only; AUR sources preserved"
-    if $CLEAN_AGGRESSIVE; then
+    # ~/.cache/paru/clone holds the AUR checkouts paru reuses and
+    # _review_aur_updates diffs against, so only clones of packages no longer
+    # installed go; --clean wipes the whole paru/yay cache.
+    local _paru_cache="$HOME/.cache/paru" _summary="pacman; AUR sources of installed packages kept"
+    if $CLEAN; then
         rm -rf "$_paru_cache" "$HOME/.cache/yay" \
             || { _cache_ok=false; warn "AUR cache removal failed"; }
-        _summary="aggressive: AUR sources removed, next build re-clones"
+        _summary="--clean: AUR sources removed, next build re-clones"
     else
-        if [[ -d "$_paru_cache" ]]; then
-            local _sz; _sz=$(du -sh "$_paru_cache" 2>/dev/null | cut -f1 || echo '?')
-            ok "kept: AUR build cache ($_sz in $_paru_cache) — use --clean-aggressive to remove"
-        fi
+        _prune_aur_clones "$_paru_cache/clone" || { _cache_ok=false; warn "could not prune stale AUR clones"; }
     fi
     if $_cache_ok; then
         _record "cache-cleanup" ok
@@ -3885,11 +3898,11 @@ _menu_options() {
     local -n _o=$1
     local pick flag x o keep
     while :; do
-        pick=$(for flag in --adopt --clean-aggressive; do
+        pick=$(for flag in --adopt --clean; do
                 x=" "; [[ " ${_o[*]} " == *" $flag "* ]] && x=x
                 case "$flag" in
                     --adopt)   printf '%s\t[%s] %s\n' "$flag" "$x" "adopt: stow takes over conflicting live files (backed up first)" ;;
-                    *)         printf '%s\t[%s] %s\n' "$flag" "$x" "clean aggressive: also wipe ~/.cache/paru and ~/.cache/yay" ;;
+                    *)         printf '%s\t[%s] %s\n' "$flag" "$x" "clean: also wipe ~/.cache/paru and ~/.cache/yay" ;;
                 esac
             done | fzf --delimiter='\t' --with-nth=2 --height=~6 --reverse --no-multi \
                        --prompt='options> ' --header='Enter: toggle   Esc: back') || return 0
@@ -3939,10 +3952,10 @@ usage() {
     echo "                      Off by default: adoption overwrites the tracked"
     echo "                      copy with whatever is live. Conflicting files are"
     echo "                      copied to \$STAMP_DIR/adopt-backup-<ts>/ first."
-    echo "  --clean-aggressive  Also delete ~/.cache/paru and ~/.cache/yay during"
-    echo "                      cleanup. Default keeps them: they hold the AUR git"
-    echo "                      checkouts paru reuses, so wiping forces a full"
-    echo "                      re-clone and rebuild of every AUR package."
+    echo "  --clean             Also delete ~/.cache/paru and ~/.cache/yay during"
+    echo "                      cleanup. Default keeps AUR clones of installed"
+    echo "                      packages (reused by paru and the AUR review) and"
+    echo "                      removes only those of uninstalled packages."
     echo ""
     echo "Environment:"
     echo "  SKIP_PHASES=\"...\"   Space-separated phases to skip. Valid names:"
@@ -3992,7 +4005,7 @@ esac
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --adopt)            STOW_ADOPT=true ;;
-        --clean-aggressive) CLEAN_AGGRESSIVE=true ;;
+        --clean)            CLEAN=true ;;
         --help|-h)          ACTION=help ;;
         --restore)
             [[ -n "$ACTION" ]] && die "More than one action given ($ACTION, $1). Use --help."
