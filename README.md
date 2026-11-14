@@ -463,6 +463,8 @@ Package *lists* (what gets installed) are in `packages.toml` and `profiles/<name
 `[paru]` / `[flatpak]` packages, `[systemd]` units to enable (dropping one
 disables it on the next run), `[npm]` / `[uv]` global tools, and `[ufw] allow`
 firewall rules (one `ufw allow <rule>` each, applied with the services; add-only).
+`[paru].pin` takes `repo/name` entries (e.g. `extra/go`): that package is always
+installed and upgraded from that repo, even when another repo has a newer build.
 
 Your own software: give its `projects.toml` entry a `build` command. Install and
 `sysup --update` pull it (fast-forward only) and rerun the build when the
@@ -539,6 +541,8 @@ sysup --actions steam-launchers
 ```
 
 Re-run after installing new games. Launchers land in `~/.local/share/applications/`.
+The same action keeps Big Picture off (no Big Picture at launch, Guide button doesn't
+open it); it only edits Steam's config while Steam is closed.
 
 ### App launcher cleanup
 
@@ -708,7 +712,8 @@ cp /.snapshots/<N>/snapshot/path/to/file ~/restored-file
 
 Most of these are automated — run `sysup --actions optimize`. It applies steps 1–5 below idempotently: CPU governor,
 disabling NetworkManager-wait-online, masking lvm2-monitor, the rate-mirrors 2h
-delay, and the AMD GPU performance udev rule. Steps 7 (EFI cleanup) and 8 (greetd
+delay, the AMD GPU performance udev rule, and pacman's `VerbosePkgLists` (install and
+upgrade lists as a table, one package per row; paru follows it too). Steps 7 (EFI cleanup) and 8 (greetd
 autologin) stay manual — EFI needs review, autologin conflicts with the DMS
 greeter. Output mode/VRR is set in `dotsets/viridjan/desktop/.config/niri/cfg/display.kdl`
 (`mode "3440x1440@165"`, VRR omitted entirely = off), which is the **only**

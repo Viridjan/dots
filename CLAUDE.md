@@ -338,7 +338,8 @@ sysup --actions kernels
 sysup --actions automount
 
 # Apply CachyOS tuning (idempotent): CPU governor, disable NM-wait-online,
-# mask lvm2-monitor, rate-mirrors 2h delay, AMD GPU performance udev rule
+# mask lvm2-monitor, rate-mirrors 2h delay, AMD GPU performance udev rule,
+# VerbosePkgLists on in pacman.conf (one package per row; was turned OFF until 2026-11-14)
 sysup --actions optimize
 
 # Add pam_gnome_keyring.so to /etc/pam.d/greetd (idempotent; fixes keyring unlock prompt)
@@ -464,6 +465,7 @@ Package lists are TOML (`#` comments inside the arrays are fine):
 | `packages.toml` `[paru].remove` | Force-removed (`pacman -Rdd`) before install (conflict resolution) |
 | `packages.toml` `[paru].skip` | Skipped by install + audit even if listed above |
 | `packages.toml` `[paru].hold` | Installed normally but excluded from automatic upgrades and rebuilds |
+| `packages.toml` `[paru].pin` | `repo/name`: held from `-Syuu`, then `pacman -S --needed repo/name` (fixed source repo) |
 | `packages.toml` `[flatpak].install` | Flatpak apps |
 | `packages.toml` / profile `[systemd].enable` / `.user` | Units enabled by "Enable system services"; dropping one disables it next time (state: `~/.local/state/dots/managed-units`; first run disables nothing) |
 | `packages.toml` / profile `[ufw].allow` | `sudo ufw allow <rule>` per entry (words split) in "Enable system services"; add-only, `ufw delete allow <rule>` to drop one |
