@@ -314,6 +314,24 @@ optimize_system
                 self.assertEqual(triggers, ["2h"])
 
 
+    def test_verbose_pkg_lists_enabled_once(self):
+        conf = self.root / "pacman.conf"
+        script = self.root / "sysup"
+        script.write_text(Path(self.env["SCRIPT"]).read_text().replace("/etc/pacman.conf", str(conf)))
+        self.env["SCRIPT"] = str(script)
+        cases = {"[options]\n#VerbosePkgLists\nColor\n": "[options]\nVerbosePkgLists\nColor\n",
+                 "[options]\nColor\n": "[options]\nVerbosePkgLists\nColor\n",
+                 "[options]\nVerbosePkgLists\n": "[options]\nVerbosePkgLists\n"}
+        for before, after in cases.items():
+            with self.subTest(before=before):
+                conf.write_text(before)
+                r = self.shell('systemctl() { [[ "$1" == list-unit-files ]]; }\nlsblk() { :; }\n'
+                               'sudo() { [[ "$1" == tee ]] && { cat >/dev/null; return 0; }; '
+                               '[[ "$1" == sed ]] && "$@"; return 0; }\noptimize_system')
+                self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+                self.assertEqual(conf.read_text(), after)
+
+
 class LinkTests(ExtrasCase):
     def test_unticked_package_that_was_deployed_gets_unlinked(self):
         dotset = Path(self.env["SYSUP_DOTSET_DIR"])

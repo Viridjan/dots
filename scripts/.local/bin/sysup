@@ -2160,12 +2160,16 @@ optimize_system() {
         fi
     fi
 
-    # 6. Compact pacman upgrade list — drop VerbosePkgLists (Net Change/Download cols)
+    # 6. Upgrade list as a table, one package per row (old/new version, sizes);
+    #    the default packs every package onto one wrapped line (changed 2026-11-14).
     if grep -q "^VerbosePkgLists" /etc/pacman.conf; then
-        sudo sed -i 's/^VerbosePkgLists/#VerbosePkgLists/' /etc/pacman.conf
-        ok "pacman: VerbosePkgLists disabled (compact upgrade list)"
+        ok "pacman: VerbosePkgLists already on"
+    elif grep -q "^#VerbosePkgLists" /etc/pacman.conf; then
+        sudo sed -i 's/^#VerbosePkgLists/VerbosePkgLists/' /etc/pacman.conf
+        ok "pacman: VerbosePkgLists enabled (one package per row)"
     else
-        ok "pacman: VerbosePkgLists already off"
+        sudo sed -i '/^\[options\]/a VerbosePkgLists' /etc/pacman.conf
+        ok "pacman: VerbosePkgLists enabled (one package per row)"
     fi
 
     return 0
