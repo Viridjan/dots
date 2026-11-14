@@ -2034,6 +2034,30 @@ class SudoFailureDetailTests(FixtureCase):
         self.assertIn("paccache -rk2 failed: no sudo access (password not entered)", r.stdout)
 
 
+class SshKeyTests(FixtureCase):
+    def setUp(self):
+        super().setUp()
+        (self.home / ".ssh").mkdir()
+        (self.home / ".ssh/id_ed25519").write_text("k")
+        (self.home / ".ssh/id_ed25519.pub").write_text("ssh-ed25519 AAAAbody me\n")
+        (self.bin / "timeout").symlink_to("/usr/bin/timeout")
+        self.mock("gh", 'printf "%s\\n" "gh $*" >> "$CALLS"; exit 1')
+
+    def test_working_github_ssh_skips_gh(self):
+        self.mock("ssh", 'echo "Hi me! You\'ve successfully authenticated, but GitHub does not provide shell access." >&2; exit 1')
+        r = self.shell('setup_ssh_key; printf "%s\\n" "${WARNINGS[@]}"')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("SSH key works on GitHub", r.stdout)
+        self.assertNotIn("could not add", r.stdout)
+        self.assertFalse(Path(self.env["CALLS"]).exists())
+
+    def test_failing_ssh_falls_back_to_gh(self):
+        self.mock("ssh", 'echo "Permission denied (publickey)." >&2; exit 255')
+        r = self.shell('setup_ssh_key')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("gh auth token", Path(self.env["CALLS"]).read_text())
+
+
 class AurClonePruneTests(FixtureCase):
     def test_prunes_only_clones_with_no_installed_pkgname(self):
         clone = self.home / ".cache/paru/clone"

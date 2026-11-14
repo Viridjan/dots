@@ -1950,6 +1950,13 @@ setup_ssh_key() {
     else
         ok "SSH key exists: $key"
     fi
+    # Real proof first: gh ssh-key list needs a token scope gh logins often lack.
+    # ssh -T exits 1 even on success, so match its output, not its status.
+    body=$(timeout 15 ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -T git@github.com 2>&1 || true)
+    if [[ "$body" == *"successfully authenticated"* ]]; then
+        ok "SSH key works on GitHub"
+        return 0
+    fi
     if ! command -v gh &>/dev/null || ! gh auth token &>/dev/null; then
         warn "add the key on GitHub: gh auth login, then re-run (or paste $key.pub at github.com/settings/keys)"
         return 0
