@@ -3931,7 +3931,7 @@ usage() {
     echo ""
     echo "  (no args)           Menu (in a terminal, needs fzf); this help otherwise"
     echo "  --yes, -y           Full bootstrap, non-interactive"
-    echo "  --actions A,B,...   Run exactly these action IDs (list below)"
+    echo "  --actions A,B,...   Run exactly these action IDs (list: --help-actions)"
     echo "  --update, -u        Update packages + clean caches"
     echo "  --check, -c         Audit: orphans, rebuilds, pacnew, firmware"
     echo ""
@@ -3946,6 +3946,7 @@ usage() {
     echo "                      Backups (local git tags backup/<set>/1|2) are taken"
     echo "                      before deploy, dms-import and git export."
     echo "  --help, -h          Show this message"
+    echo "  --help-actions, -a  List the action IDs for --actions"
     echo ""
     echo "Modifiers (combine with the actions above):"
     echo "  --adopt             Let stow ADOPT conflicting files into the repo."
@@ -3961,9 +3962,6 @@ usage() {
     echo "  SKIP_PHASES=\"...\"   Space-separated phases to skip. Valid names:"
     echo "                      sources install dotfiles configure audit"
     echo "                      (anything else is silently ignored)"
-    echo ""
-    echo "Action IDs (--actions):"
-    _py actions "${MENU_ORDER[@]}" 2>/dev/null || echo "  ${MENU_ORDER[*]}"
     echo ""
     echo "Only one sysup may run at a time (flock on $LOCK_FILE)."
     echo "Exit status is nonzero if any requested action failed."
@@ -4007,6 +4005,7 @@ while [[ $# -gt 0 ]]; do
         --adopt)            STOW_ADOPT=true ;;
         --clean)            CLEAN=true ;;
         --help|-h)          ACTION=help ;;
+        --help-actions|-a)  ACTION=help-actions ;;
         --restore)
             [[ -n "$ACTION" ]] && die "More than one action given ($ACTION, $1). Use --help."
             [[ "${2:-}" == 1 || "${2:-}" == 2 ]] || die "--restore needs 1 (newest) or 2"
@@ -4031,6 +4030,10 @@ done
 
 # --help is read-only: no lock, no log rotation, no stamps.
 if [[ "$ACTION" == help ]]; then usage; exit 0; fi
+if [[ "$ACTION" == help-actions ]]; then
+    _py actions "${MENU_ORDER[@]}" 2>/dev/null || printf '%s\n' "${MENU_ORDER[@]}"
+    exit 0
+fi
 # Bare sysup: menu in a terminal, help otherwise (timer, pipes, scripts).
 if [[ -z "$ACTION" ]]; then
     if [[ -t 0 && -t 1 ]] && command -v fzf &>/dev/null; then

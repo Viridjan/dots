@@ -1291,6 +1291,12 @@ class RunPlanTests(FixtureCase):
         self.assertEqual(saved, "pacman-db\tfail\nfirmware\tok\n@warnings\t1\n")
 
 class ActionsTests(FixtureCase):
+    def test_help_actions_lists_ids_help_does_not(self):
+        r = self.cli("-a")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertRegex(r.stdout, r"sources +Refresh package sources")
+        self.assertNotIn("Refresh package sources", self.cli("--help").stdout)
+
     """`--actions` runs exactly the given menu IDs without the menu (used by vj)."""
 
     STUBS = ('_ensure_dots_repo() { :; }\n_check_packages_against_malware() { :; }\n'
