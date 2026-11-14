@@ -116,7 +116,7 @@ sysup --help                    # everything else
 
 Bare `sysup` in a terminal opens a menu (needs `fzf`): update, check, actions
 (grouped, Enter marks, Ctrl-R or the top Run row runs them), options
-(`--dry-run`, `--adopt`, `--clean-aggressive`), status. Esc goes back; a run
+(`--adopt`, `--clean-aggressive`), status. Esc goes back; a run
 ends sysup with that run's exit status. Outside a terminal it prints the help.
 
 - **Profiles** (`profiles/<name>.toml`): hardware + package lists + feature
@@ -271,16 +271,6 @@ stow --restow -t ~ alacritty DankMaterialShell fish fonts gtk-3.0 gtk-4.0 \
 
 Or just re-run `bash scripts/.local/bin/sysup` — it's idempotent.
 
-### Preview first
-
-`sysup --dry-run` (`-n`) previews the requested action and changes nothing.
-`--update` and `--check` show their own operations. Bootstrap previews honor
-`SKIP_PHASES` and show missing packages, Stow simulations and cleanup. Interactive
-choices are not known yet, so that preview explicitly shows the `--yes` baseline;
-it does not claim that optional services were selected.
-It takes no lock, rotates no log, writes no stamps and fetches nothing — facts
-that would need network or root are shown as `[unknown]` rather than guessed.
-
 ### Stow conflicts are no longer adopted automatically
 
 **Behaviour change.** `sysup` used to deploy every package with
@@ -341,7 +331,7 @@ never built under this feature show as "no history" until their first upgrade.
 `sysup` takes an flock on `~/.local/state/dots/sysup.lock` before it
 rotates the log or touches anything. A second invocation exits immediately with
 a clear message. The lock is held on an open file descriptor, so the kernel
-releases it however the process ends. `--help` and `--dry-run` never take it.
+releases it however the process ends. `--help` never takes it.
 
 Exit status is nonzero if any requested action failed; the end-of-run summary
 lists each action as succeeded, failed, or skipped (with the reason, so an

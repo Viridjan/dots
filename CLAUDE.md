@@ -360,9 +360,6 @@ sysup --actions rebuild
 # Interactively merge .pacnew files (pacdiff; overwrites keep a .bak)
 sysup --actions pacnew-merge
 
-# Preview the resolved plan; changes nothing, takes no lock, fetches nothing
-sysup --dry-run          # combine with any bootstrap/update/check action
-
 # Let stow adopt conflicting files (backs them up to
 # ~/.local/state/dots/adopt-backup-<ts>/ first)
 sysup --adopt
@@ -609,20 +606,20 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   Paths overridable (`VJS_*`) for `tests/test_vjsurface.py`.
 - **Post-run fixes + update check (2026-11-07).** Problems with a known fix are
   queued (`_queue_fix kind payload`) and offered one by one after the recap by
-  `_offer_fixes` (terminal stdin only; never `--yes`, `--dry-run`, timer, or an
+  `_offer_fixes` (terminal stdin only; never `--yes`, timer, or an
   aborted run): stow conflict (identical → link; differs → diff, repo/live wins,
   backups in `$STAMP_DIR/fix-backup-*`), unlisted package (`sysup.py add`
   shared|profile|local|ignore, or uninstall), install conflict (`_conflict_names`
   → `-Rdd` + retry), failed AUR build (log in `$STAMP_DIR/paru-fail.log`,
   retry), pending pacnew, orphans. Exit status is unchanged by fixes. New kind =
   `_fix_<kind>` + a `_queue_fix` call; prompts inside a `while read` loop must
-  read the loop from another fd. Before any non-dry run with a terminal,
+  read the loop from another fd. Before any run with a terminal,
   `_check_repo_current` fetches; if behind upstream it offers pull (`--ff-only`)
   + `exec` relaunch (before the lock; `SYSUP_SELF_UPDATED` stops loops).
 - **Held packages.** `[paru].hold` (packages.toml) excludes named packages from system
   upgrades (including retries) and both rebuild paths. First installation is
   unchanged. Audit and update runs warn about pending held AUR updates with
-  review and manual upgrade commands; dry runs list the holds.
+  review and manual upgrade commands.
 - **Pinned repo packages (2026-11-13).** `[paru].pin` entries are `repo/name` →
   plan `paru-pin.list`. The name joins the holds (`--ignore` on `-Syuu`, rebuilds),
   then `_sync_pinned` (end of `_upgrade_system`) runs `sudo pacman -S --needed
@@ -641,9 +638,9 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   `_menu_actions` is `fzf --multi` (grouped by `GROUPS`; Enter marks, the top
   `▶ Run` row or Ctrl-R runs) over `sysup.py menu "${MENU_ORDER[@]}"`
   (feature-gated one-time actions hidden, `[once]` state shown).
-  `_menu_options` toggles `--dry-run` / `--adopt` / `--clean-aggressive`, added
-  to every later run until the menu quits (`--dry-run` + actions dies, as on
-  the CLI). `MENU_ORDER` (top-level array) is the only action ID list:
+  `_menu_options` toggles `--adopt` / `--clean-aggressive`, added
+  to every later run until the menu quits. `--dry-run` was removed 2026-11-14
+  (static preview, didn't cover `--actions` or list upgrades). `MENU_ORDER` (top-level array) is the only action ID list:
   `--actions` validates against it, fish completion reads it. Labels and
   descriptions live in `ACTIONS` in `sysup.py`; a test fails when an ID lacks
   an entry. `ONCE` is the list of one-time IDs.
@@ -732,9 +729,8 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   `~/.config/org.keshavnrj.ubuntu/WhatSie.conf` and Telegram (Settings → Advanced → Manage
   dictionaries; encrypted `tdata`, not scriptable) are per machine.
 - **Single instance.** An flock on `~/.local/state/dots/sysup.lock` is taken
-  *before* log rotation; a second run exits with a message. `--help` and
-  `--dry-run` skip runtime init entirely (no lock, no log rotation, no stamps),
-  so they are genuinely read-only. Main execution is guarded by a
+  *before* log rotation; a second run exits with a message. `--help` skips
+  runtime init entirely (no lock, no log rotation, no stamps). Main execution is guarded by a
   `BASH_SOURCE` check so tests can source the file for its functions.
 - **Stow no longer uses `--adopt` by default.** Conflicts are reported and left
   untouched; `--adopt` opts in and backs both live and repository versions up to
@@ -764,8 +760,8 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
 - **Audit-dependent actions live in one table** (`AUDIT_ACTIONS`, top of the
   file) mapping checklist name → flag var. `_enable_audit_action` sets the flag
   *and* un-skips the audit phase, so an action can't be selected into a phase
-  that never runs. Add new ones there only — the checklist, the CLI flag and the
-  dry-run preview all read from it.
+  that never runs. Add new ones there only — the checklist and the CLI flag
+  both read from it.
 - **A failed `paru -Syuu` names its cause in the recap.** `_syuu` tees both the
   first attempt *and* the untrusted-key retry (the retry used to run unlogged, so
   its failure reported nothing), then `_syuu_fail_detail` pulls

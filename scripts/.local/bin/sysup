@@ -61,7 +61,6 @@ AUDIT_ORPHAN_REMOVAL=false
 AUDIT_PYTHON_REBUILD=false
 AUDIT_REBUILD=false
 AUDIT_PACNEW=false
-DRY_RUN=false
 CLEAN_AGGRESSIVE=false
 STOW_ADOPT=false
 LOG_FILE="$STAMP_DIR/sysup.log"
@@ -117,7 +116,7 @@ _protected_conflicts() {
 # Single source of truth: checklist name → flag variable. Every one of these
 # only sets a flag consumed inside phase_audit, so selecting one must also
 # enable that phase. Adding an action here wires up the checklist, the
-# force-enable, the CLI flag and the dry-run preview at once — previously each
+# force-enable and the CLI flag at once — previously each
 # lived in a separate place and `rebuild` silently did nothing when audit was
 # unchecked because only two of the four lists had been updated.
 declare -A AUDIT_ACTIONS=(
@@ -175,7 +174,7 @@ _strip_ver() {
 
 _offer_fixes() {
     (( ${#_FIXES[@]} )) || return 0
-    { $INTERACTIVE && ! $DRY_RUN && _fix_tty; } || return 0
+    { $INTERACTIVE && _fix_tty; } || return 0
     _banner "$CYN" "Fixes (${#_FIXES[@]}) — Enter skips"
     local f fixed=0 left=0
     local -A seen=()
@@ -337,15 +336,6 @@ _check_repo_current() {
     fi
     warn "pull failed (local changes or diverged) — continuing with this version"
 }
-# ─── Dry-run helper ──────────────────────────────────────
-# Mutating commands go through this. In --dry-run it prints and does nothing.
-_mutate() {
-    if $DRY_RUN; then echo -e "${CYN}    [dry-run] would run: $*${NC}"; return 0; fi
-    "$@"
-}
-# Facts that cannot be known without network/privileged access get labelled,
-# so a preview never implies something was actually verified.
-_unknown() { echo -e "${YEL}    [unknown] $*${NC}"; }
 
 # ─── Cleanup ─────────────────────────────────────────────
 # Installed immediately so an early failure still restores the cursor. Must not
@@ -364,7 +354,7 @@ _cleanup() {
 trap _cleanup EXIT
 
 # ─── Runtime init (locking + logging) ────────────────────
-# Deliberately NOT run at load: --help and --dry-run must not rotate the log,
+# Deliberately NOT run at load: --help must not rotate the log,
 # create stamps, or take the lock. Every mutating entry point calls this first.
 _RUNTIME_READY=false
 _LOCK_FD=
@@ -763,7 +753,7 @@ _sync_pinned() {
     local pin out
     while IFS= read -r pin; do
         [[ "$pin" == */* ]] || { _failw "pin:$pin" "pin '$pin' is not repo/name — skipped"; continue; }
-        if out=$(_mutate sudo pacman -S --needed --noconfirm "$pin" 2>&1); then
+        if out=$(sudo pacman -S --needed --noconfirm "$pin" 2>&1); then
             _record "pin:${pin#*/}" ok
         else
             _failw "pin:${pin#*/}" "pinned $pin failed: $(tail -n1 <<<"$out")"
@@ -794,14 +784,6 @@ check_held_updates() {
     return 0
 }
 
-_preview_holds() {
-    local held
-    held=$(_held_packages)
-    if [[ -n "$held" ]]; then
-        info "Held packages (excluded from automatic upgrades and rebuilds):"
-        echo "$held"
-    fi
-}
 
 # Build these indexes once instead of spawning grep/pacman for every package.
 declare -A _INSTALLED_PKGS=()
@@ -1523,7 +1505,6 @@ _warn_unfolded() {
 # Never blocks the step it protects: any failure warns and returns 0.
 _backup_dotset() {
     local mode="$1" why="${2:-$1}" set rel idx tree commit prev f name failed=false
-    $DRY_RUN && return 0
     [[ -n "${SYSUP_DOTSET_DIR:-}" ]] || return 0
     rel=${SYSUP_DOTSET_DIR#"$DOTS_DIR"/}
     [[ "$rel" != "$SYSUP_DOTSET_DIR" ]] || return 0      # set outside the repo
@@ -1621,10 +1602,10 @@ deploy_dotfiles() {
                 _record "stow:$label" fail "backup failed; adoption cancelled"
                 return 1
             fi
-            _mutate stow --adopt "$@" && _stowed+=("$label") && return 0
+            stow --adopt "$@" && _stowed+=("$label") && return 0
             _record "stow:$label" fail "adopt failed"; return 1
         fi
-        if _mutate stow "$@" 2>/dev/null; then
+        if stow "$@" 2>/dev/null; then
             _stowed+=("$label"); return 0
         fi
         # Re-run visibly to capture why; stow reports conflicts on stderr.
@@ -1651,9 +1632,7 @@ deploy_dotfiles() {
     #   brave  — managed policy letting discord.com reach Vesktop's local RPC port
     _deploy_root_pkg() {
         local _rpkg="$1"
-        if $DRY_RUN; then
-            _mutate sudo stow --restow -t / "$_rpkg"
-        elif $STOW_ADOPT; then
+        if $STOW_ADOPT; then
             _adopt_backup -t / "$_rpkg" || { _record "stow:$_rpkg" fail "backup failed"; return 1; }
             sudo stow --adopt -t / "$_rpkg" && _stowed+=("$_rpkg→/") || _record "stow:$_rpkg" fail "adopt failed"
         else
@@ -1665,7 +1644,6 @@ deploy_dotfiles() {
     # The drop-in dir is a folded link, so edits to it land without a restow
     # and stay inert until systemd reloads. Restart only a running service.
     _reload_ollama() {
-        $DRY_RUN && return 0
         [[ "$(systemctl show -p NeedDaemonReload --value ollama 2>/dev/null)" == yes ]] || return 0
         sudo systemctl daemon-reload && sudo systemctl try-restart ollama \
             && ok "ollama drop-ins reloaded" \
@@ -1715,12 +1693,12 @@ _unstow_unticked() {
             grep -qxF "$pkg" <<< "$now" && continue
             case "$pkg" in
                 niri) warn "niri is unticked but stays linked (unlinking would leave niri without config)"; continue ;;
-                ollama|brave) _mutate sudo stow -D -d "$SYSUP_DOTSET_DIR" -t / "$pkg" ;;
-                *) _mutate stow -D -d "$SYSUP_DOTSET_DIR" -t "$HOME" "$pkg" ;;
+                ollama|brave) sudo stow -D -d "$SYSUP_DOTSET_DIR" -t / "$pkg" ;;
+                *) stow -D -d "$SYSUP_DOTSET_DIR" -t "$HOME" "$pkg" ;;
             esac && ok "unlinked (unticked): $pkg" || warn "could not unlink unticked package: $pkg"
         done < "$state"
     fi
-    $DRY_RUN || { mkdir -p "$STAMP_DIR" && printf '%s\n' "$now" > "$state"; } || true
+    { mkdir -p "$STAMP_DIR" && printf '%s\n' "$now" > "$state"; } || true
     return 0
 }
 
@@ -1734,7 +1712,7 @@ _prune_dead_links() {
         [[ "$t" == /* ]] || t="$(dirname -- "$l")/$t"
         t=$(realpath -m -- "$t") || continue
         [[ "$t" == "$DOTS_DIR"/* ]] || continue
-        _mutate rm -f -- "$l" && ok "removed dead link: ${l/#"$HOME"/\~}"
+        rm -f -- "$l" && ok "removed dead link: ${l/#"$HOME"/\~}"
     done < <(find "$HOME/.config" -maxdepth 3 -xtype l -print0 2>/dev/null
              find "$HOME/.local/bin" "$HOME/.local/share/applications" -maxdepth 1 -xtype l -print0 2>/dev/null)
     return 0
@@ -1766,16 +1744,6 @@ _adopt_backup() {
         -e '^ *\* existing target is neither a link nor a directory: '; then
         warn "Cannot safely parse stow conflicts; adoption cancelled: $_err"
         return 1
-    fi
-    # Unreachable today (--dry-run exits after plan_preview and never reaches
-    # deploy_dotfiles), but _deploy_pkg and the root-target loop both honour
-    # DRY_RUN, so this stays consistent with them: if dry-run is ever wired
-    # through the phases, adoption must not start writing backups.
-    if $DRY_RUN; then
-        printf '%s\n' "$_targets" | while IFS= read -r t; do
-            [[ -n "$t" ]] && echo -e "${CYN}    [dry-run] would back up live+repo copies of $t${NC}"
-        done
-        return 0
     fi
     mkdir -p "$STAMP_DIR" || return 1
     dest=$(mktemp -d "$STAMP_DIR/adopt-backup-$(date '+%Y%m%d-%H%M%S')-XXXXXX") || return 1
@@ -2401,7 +2369,6 @@ update_claude_plugins() {
 _DMS_PKGS=(dux-shell dux-gop quickshell)
 _dms_versions() { pacman -Q "${_DMS_PKGS[@]}" 2>/dev/null || true; }
 _restart_dms() {
-    $DRY_RUN && return 0
     systemctl --user is-active -q dms.service 2>/dev/null || return 0
     if systemctl --user restart dms.service; then
         ok "DMS restarted ($1)"
@@ -2759,8 +2726,8 @@ clean_caches() {
     # which may not be installed yet if a fresh bootstrap failed mid-install.
     # Unguarded, it would abort the run before print_recap.
     if command -v paccache &>/dev/null; then
-        _mutate sudo paccache -rk2  || { _cache_ok=false; warn "paccache -rk2 failed$(_sudo_cause)"; }
-        _mutate sudo paccache -ruk0 || { _cache_ok=false; warn "paccache -ruk0 failed$(_sudo_cause)"; }
+        sudo paccache -rk2  || { _cache_ok=false; warn "paccache -rk2 failed$(_sudo_cause)"; }
+        sudo paccache -ruk0 || { _cache_ok=false; warn "paccache -ruk0 failed$(_sudo_cause)"; }
     else
         _cache_ok=false
         warn "paccache not found — install pacman-contrib"
@@ -2773,7 +2740,7 @@ clean_caches() {
     # built artefacts are pruned, and only with --clean-aggressive.
     local _paru_cache="$HOME/.cache/paru" _summary="pacman only; AUR sources preserved"
     if $CLEAN_AGGRESSIVE; then
-        _mutate rm -rf "$_paru_cache" "$HOME/.cache/yay" \
+        rm -rf "$_paru_cache" "$HOME/.cache/yay" \
             || { _cache_ok=false; warn "AUR cache removal failed"; }
         _summary="aggressive: AUR sources removed, next build re-clones"
     else
@@ -3389,7 +3356,7 @@ _selected_action() {
 }
 
 export_dotfiles() {
-    if $DRY_RUN || ! $INTERACTIVE; then
+    if ! $INTERACTIVE; then
         _record "dotfiles-export" skip "interactive review required"
         return 0
     fi
@@ -3614,7 +3581,7 @@ _stamp_once() {
         [[ "${_RESULT_NAMES[i]}" == action:* && "${_RESULT_STATES[i]}" == ok ]] \
             && ids+=("${_RESULT_NAMES[i]#action:}")
     done
-    (( ${#ids[@]} )) && ! $DRY_RUN || return 0
+    (( ${#ids[@]} )) || return 0
     _py once-done "${ids[@]}" || warn "could not record one-time actions in the config"
 }
 
@@ -3846,119 +3813,6 @@ check_app_launchers() {
     ok "$missing installed app(s) not mirrored in ~/.local/share/applications (already visible via /usr/share/applications, informational only)"
 }
 
-# ─── Dry run ─────────────────────────────────────────────
-# Read-only preview of the resolved plan. Takes no lock, rotates no log, writes
-# no stamps, refreshes no definitions, touches no repo. Anything that would need
-# a network fetch or root is reported as unknown rather than guessed at.
-plan_preview() {
-    DRY_RUN=true
-    info "Dry run — no changes"
-    case "${ACTION:-}" in
-        --check|-c)
-            info "Audit: foreign/orphan packages, rebuilds, pacnew, firmware, malware, pacman database"
-            echo "      Would write ~/foreign-pkgs.txt when foreign packages are found."
-            _unknown "audit findings: checks and definition refresh have not run"
-            return 0 ;;
-        --update|-u)
-            detect_machine
-            info "Update: malware gate, conflict removal + demotions, mirror refresh, system and Flatpak upgrades"
-            _preview_holds
-            echo "      Would remove unused Flatpak runtimes."
-            _unknown "available upgrades and malware verdict: network checks have not run"
-            info "Cleanup: paccache -rk2 / -ruk0"
-            $CLEAN_AGGRESSIVE && echo "      Would remove ~/.cache/paru and ~/.cache/yay." \
-                || echo "      AUR sources preserved."
-            return 0 ;;
-    esac
-    detect_machine
-    if [[ "${ACTION:-}" != --yes && "${ACTION:-}" != -y ]]; then
-        _unknown "interactive checklist selections; showing the --yes baseline below"
-    fi
-    ok "dots repo: $DOTS_DIR"
-    info "Bootstrap phases (--yes baseline):"
-    local p
-    for p in sources install dotfiles configure audit; do
-        if _skipped "$p"; then
-            echo "      – $p (skipped)"
-        else
-            echo "      ✓ $p"
-        fi
-    done
-
-    if ! _skipped "sources"; then
-        info "Sources: install paru if missing, keyrings, mirrors, Flathub remote, clone projects"
-        _unknown "definition refresh and malware scan: not run"
-    fi
-    if ! _skipped "install"; then
-        info "Packages that would be installed:"
-        local installed list pkg missing=0
-        if [[ -r "$SYSUP_PLAN_DIR/paru-install.list" ]] && installed=$(pacman -Qq 2>/dev/null); then
-            local -A present=() skipped=()
-            while IFS= read -r pkg; do
-                [[ -n "$pkg" ]] && present["$pkg"]=1
-            done <<< "$installed"
-            if [[ -f "$SYSUP_PLAN_DIR/paru-skip.list" ]]; then
-                while IFS= read -r pkg; do skipped["$pkg"]=1; done < <(_pkg_list "$SYSUP_PLAN_DIR/paru-skip.list")
-            fi
-            list="$SYSUP_PLAN_DIR/paru-install.list"
-            while IFS= read -r pkg; do
-                [[ -v skipped["$pkg"] ]] && continue
-                [[ -v present["$pkg"] ]] || { echo "      + $pkg"; (( missing++ )) || true; }
-            done < <(_pkg_list "$list")
-            (( missing == 0 )) && ok "all listed packages present"
-        else
-            _unknown "package lists or installed-package query unavailable"
-        fi
-        echo "      Would remove installed packages listed in packages.toml [paru].remove, then upgrade the system."
-        if [[ -s "$SYSUP_PLAN_DIR/paru-demote.list" ]]; then
-            echo "      Would demote to dependencies (and remove if unneeded): $(_pkg_list "$SYSUP_PLAN_DIR/paru-demote.list" | tr '\n' ' ')"
-        fi
-        echo "      Would review pending AUR updates (diffs in \$STAMP_DIR/aur-review/) and install [npm]/[uv] tools."
-        _preview_holds
-        echo "      Would install the planned Flatpak apps and update Flatpak apps."
-        _unknown "available upgrades and malware verdict: network checks have not run"
-    fi
-
-    if ! _skipped "dotfiles"; then
-        info "Dotfile deployment:"
-        if [[ -z "${SYSUP_DOTSET_DIR:-}" ]]; then
-            echo "      Dotfile set: none — only scripts would be linked."
-        elif cd "$SYSUP_DOTSET_DIR" 2>/dev/null; then
-            local out rc target
-            while IFS= read -r pkg; do
-                [[ -n "$pkg" && -d "$pkg" && "$pkg" != niri ]] || continue
-                target="$HOME"
-                [[ "$pkg" == ollama || "$pkg" == brave ]] && target=/
-                rc=0
-                out=$(stow -n --restow -t "$target" "$pkg" 2>&1) || rc=$?
-                if (( rc != 0 )); then
-                    _unknown "stow probe for $pkg failed (exit $rc): $out"
-                else
-                    ok "$pkg: stow simulation passed"
-                fi
-            done < <([[ -f "$SYSUP_PLAN_DIR/stow.list" ]] && cat "$SYSUP_PLAN_DIR/stow.list")
-            echo "      Would link machine-specific niri files and import DMS overrides."
-            $STOW_ADOPT && echo "      Would back up live AND repo files before adoption."
-        else
-            _unknown "cannot read $SYSUP_DOTSET_DIR — stow conflicts not checked"
-        fi
-    fi
-    if ! _skipped "configure"; then
-        info "Configure (--yes): custom install scripts and fish setup"
-        _unknown "installer effects: commands are not executed in preview"
-    fi
-    if ! _skipped "audit"; then
-        info "Audit: foreign/orphan packages, unused Flatpak runtimes, rebuild checks, pacnew, firmware, malware, database"
-    fi
-    if ! _skipped "install"; then
-        info "Cleanup: paccache -rk2 / -ruk0"
-        $CLEAN_AGGRESSIVE && echo "      Would remove ~/.cache/paru and ~/.cache/yay." \
-            || echo "      AUR sources preserved."
-    fi
-    ok "dry run complete — nothing was changed"
-    return 0
-}
-
 # Profile, features, one-time actions, last check, dotset backups.
 _status() {
     local backups
@@ -4031,10 +3885,9 @@ _menu_options() {
     local -n _o=$1
     local pick flag x o keep
     while :; do
-        pick=$(for flag in --dry-run --adopt --clean-aggressive; do
+        pick=$(for flag in --adopt --clean-aggressive; do
                 x=" "; [[ " ${_o[*]} " == *" $flag "* ]] && x=x
                 case "$flag" in
-                    --dry-run) printf '%s\t[%s] %s\n' "$flag" "$x" "dry run: preview update/check, change nothing (not for actions)" ;;
                     --adopt)   printf '%s\t[%s] %s\n' "$flag" "$x" "adopt: stow takes over conflicting live files (backed up first)" ;;
                     *)         printf '%s\t[%s] %s\n' "$flag" "$x" "clean aggressive: also wipe ~/.cache/paru and ~/.cache/yay" ;;
                 esac
@@ -4082,10 +3935,6 @@ usage() {
     echo "  --help, -h          Show this message"
     echo ""
     echo "Modifiers (combine with the actions above):"
-    echo "  --dry-run, -n       Print the resolved plan and change nothing."
-    echo "                      Takes no lock, rotates no log, writes no stamps,"
-    echo "                      fetches nothing. Facts needing network or root"
-    echo "                      are shown as [unknown], never guessed."
     echo "  --adopt             Let stow ADOPT conflicting files into the repo."
     echo "                      Off by default: adoption overwrites the tracked"
     echo "                      copy with whatever is live. Conflicting files are"
@@ -4142,7 +3991,6 @@ esac
 # action itself is whatever non-modifier argument appears.
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --dry-run|-n)       DRY_RUN=true ;;
         --adopt)            STOW_ADOPT=true ;;
         --clean-aggressive) CLEAN_AGGRESSIVE=true ;;
         --help|-h)          ACTION=help ;;
@@ -4168,10 +4016,10 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-# --help and --dry-run are read-only: no lock, no log rotation, no stamps.
+# --help is read-only: no lock, no log rotation, no stamps.
 if [[ "$ACTION" == help ]]; then usage; exit 0; fi
 # Bare sysup: menu in a terminal, help otherwise (timer, pipes, scripts).
-if ! $DRY_RUN && [[ -z "$ACTION" ]]; then
+if [[ -z "$ACTION" ]]; then
     if [[ -t 0 && -t 1 ]] && command -v fzf &>/dev/null; then
         (( EUID != 0 )) || die "run sysup as your user, not root — it calls sudo itself"
         _menu || exit; exit 0
@@ -4186,16 +4034,8 @@ case "$ACTION" in
 esac
 # Root would write stamps, logs and links into /root; sudo is called per command.
 (( EUID != 0 )) || die "run sysup as your user, not root — it calls sudo itself"
-$DRY_RUN || _check_repo_current "${_ORIG_ARGS[@]}"
+_check_repo_current "${_ORIG_ARGS[@]}"
 _ensure_plan
-if $DRY_RUN; then
-    case "$ACTION" in
-        ""|--yes|-y|--update|-u|--check|-c)
-            $STOW_ADOPT && warn "--adopt shown in preview only; nothing will be adopted"
-            plan_preview; exit $? ;;
-        *) die "--dry-run currently covers the bootstrap/update/check plan, not $ACTION" ;;
-    esac
-fi
 
 case "$ACTION" in
     --actions)           _init_runtime; INTERACTIVE=true;  bootstrap ;;

@@ -175,35 +175,6 @@ deploy_dotfiles
         r = self.shell('cd "$DOTS_DIR"\n_adopt_backup -t "$HOME" sample')
         self.assertNotEqual(r.returncode, 0, r.stdout)
 
-    def test_check_preview_omits_mutations(self):
-        r = self.cli("--dry-run", "--check")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        for unwanted in ("Packages that would be installed", "Dotfile deployment:",
-                         "Services that would be enabled:", "paccache -rk2"):
-            self.assertNotIn(unwanted, r.stdout)
-
-    def test_update_preview_omits_bootstrap(self):
-        r = self.cli("--update", "--dry-run")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertNotIn("Dotfile deployment:", r.stdout)
-        self.assertNotIn("Services that would be enabled:", r.stdout)
-        self.assertIn("paccache", r.stdout)
-
-    def test_preview_respects_skipped_phases(self):
-        self.env["SKIP_PHASES"] = "sources install dotfiles configure audit"
-        r = self.cli("--yes", "--dry-run")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertNotIn("Packages that would be installed", r.stdout)
-        self.assertNotIn("Dotfile deployment:", r.stdout)
-        self.assertNotIn("paccache -rk2", r.stdout)
-
-    def test_preview_does_not_claim_failed_stow_probe_is_clean(self):
-        self.fixture_repo()
-        r = self.cli("--yes", "--dry-run")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertNotIn("no stow conflicts detected", r.stdout)
-        self.assertIn("[unknown]", r.stdout)
-
     def test_malformed_scanner_cannot_print_partial_clean_verdict(self):
         (self.home / ".local/share/aur-malware-check").mkdir(parents=True)
         r = self.shell('''
@@ -570,9 +541,7 @@ print_recap
 
     def test_read_only_entry_points(self):
         self.fixture_repo()
-        for args in (("--help",), ("--dry-run", "--check"),
-                     ("--update", "--dry-run"), ("--yes", "--dry-run", "--adopt"),
-                     ("--dry-run", "--clean-aggressive")):
+        for args in (("--help",),):
             with self.subTest(args=args):
                 before = {str(p.relative_to(self.home)): p.read_bytes()
                           for p in self.home.rglob("*") if p.is_file()}
@@ -896,7 +865,7 @@ echo 'safe-pkg 1-1 -> 2-1'
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertFalse(Path(self.env["CALLS"]).exists())
 
-    def test_first_install_kept_and_dry_run_lists_hold_without_writes(self):
+    def test_first_install_kept(self):
         self.holds()
         self.plan("packages.list", "vectorcraft-bin\n")
         self.mock("pacman", 'exit 0')
@@ -904,14 +873,6 @@ echo 'safe-pkg 1-1 -> 2-1'
         r = self.shell('_install_list "$SYSUP_PLAN_DIR/packages.list"')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(self.calls(), ["-S --needed --noconfirm --useask --ask=4 vectorcraft-bin"])
-        Path(self.env["CALLS"]).unlink()
-        self.mock("hostname", 'echo desktop')
-        before = sorted(str(p.relative_to(self.home)) for p in self.home.rglob("*"))
-        r = self.cli("--dry-run", "--update")
-        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("vectorcraft-bin", r.stdout)
-        self.assertEqual(before, sorted(str(p.relative_to(self.home)) for p in self.home.rglob("*")))
-        self.assertFalse(Path(self.env["CALLS"]).exists())
 
 
 class FollowupReviewTests(FixtureCase):
@@ -1096,9 +1057,9 @@ class ReviewFollowupTests(FixtureCase):
         self.assertEqual(calls[1:], ["run --actions sources,install,stow-symlinks,dms-import,services,fish"])
 
     def test_menu_options_toggle_and_pass_through(self):
-        # adopt on, dry-run on, adopt off again, back, update
-        calls = self.menu("options --adopt --dry-run --adopt ESC update quit")
-        self.assertEqual(calls, ["run --update --dry-run"])
+        # adopt on, clean-aggressive on, adopt off again, back, update
+        calls = self.menu("options --adopt --clean-aggressive --adopt ESC update quit")
+        self.assertEqual(calls, ["run --update --clean-aggressive"])
 
     def test_menu_escape_goes_back_or_quits(self):
         calls = self.menu("actions quit", pick="ESC")  # Esc in the action list: back, nothing run

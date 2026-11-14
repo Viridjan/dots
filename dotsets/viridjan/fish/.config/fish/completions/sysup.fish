@@ -24,7 +24,6 @@ complete -c sysup -l pkg -x -a 'shared profile local remove ignore' -d 'Put pack
 complete -c sysup -l status -d 'Profile, one-time actions, backups'
 complete -c sysup -l skip-once -x -a '(__sysup_action_ids)' -d 'Mark one-time action skipped'
 complete -c sysup -l restore -x -a '1 2' -d 'Restore dotset from backup'
-complete -c sysup -s n -l dry-run -d 'Preview, change nothing'
 complete -c sysup -l adopt -d 'Adopt conflicting files (backed up)'
 complete -c sysup -l clean-aggressive -d 'Also wipe paru/yay caches'
 complete -c sysup -s h -l help -d 'Show help'

@@ -110,8 +110,7 @@ class BackupTests(FixtureCase):
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("no backup/mine/2 yet", r.stdout + r.stderr)
 
-    def test_dry_run_and_no_dotset_do_nothing(self):
-        self.shell("DRY_RUN=true; _backup_dotset work")
+    def test_no_dotset_does_nothing(self):
         self.env["SYSUP_DOTSET_DIR"] = ""
         self.shell("_backup_dotset work")
         self.assertEqual(self.tags(), [])
