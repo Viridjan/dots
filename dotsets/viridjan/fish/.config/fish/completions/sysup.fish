@@ -15,7 +15,7 @@ end
 
 complete -c sysup -f
 complete -c sysup -s y -l yes -d 'Full bootstrap, no prompts'
-complete -c sysup -l actions -x -a '(__sysup_actions_arg)' -d 'Run these action IDs'
+complete -c sysup -s a -l actions -x -a '(__sysup_actions_arg)' -d 'Run these action IDs'
 complete -c sysup -s u -l update -d 'Update packages + clean caches'
 complete -c sysup -s c -l check -d 'Audit only'
 complete -c sysup -l profile -x -a '(path basename -E .toml ~/Projects/dots/profiles/*.toml)' -d 'Set this machine profile'
@@ -27,4 +27,4 @@ complete -c sysup -l restore -x -a '1 2' -d 'Restore dotset from backup'
 complete -c sysup -l adopt -d 'Adopt conflicting files (backed up)'
 complete -c sysup -l clean -d 'Also wipe paru/yay caches'
 complete -c sysup -s h -l help -d 'Show help'
-complete -c sysup -s a -l help-actions -d 'List action IDs'
+complete -c sysup -o ha -l help-actions -d 'List action IDs'

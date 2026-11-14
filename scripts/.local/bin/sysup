@@ -3526,7 +3526,7 @@ bootstrap() {
         SKIP_PHASES=""
         local _selected
         detect_machine
-        [[ -n "${SYSUP_ACTIONS:-}" ]] || die "no actions given: sysup --actions A,B (IDs: ${MENU_ORDER[*]})"
+        [[ -n "${SYSUP_ACTIONS:-}" ]] || die "no actions given: sysup --actions A,B (IDs: sysup -ha)"
         local _id
         _selected=""
         for _id in ${SYSUP_ACTIONS//,/ }; do
@@ -3931,7 +3931,7 @@ usage() {
     echo ""
     echo "  (no args)           Menu (in a terminal, needs fzf); this help otherwise"
     echo "  --yes, -y           Full bootstrap, non-interactive"
-    echo "  --actions A,B,...   Run exactly these action IDs (list: --help-actions)"
+    echo "  --actions, -a A,B   Run exactly these action IDs (list: --help-actions)"
     echo "  --update, -u        Update packages + clean caches"
     echo "  --check, -c         Audit: orphans, rebuilds, pacnew, firmware"
     echo ""
@@ -3946,7 +3946,7 @@ usage() {
     echo "                      Backups (local git tags backup/<set>/1|2) are taken"
     echo "                      before deploy, dms-import and git export."
     echo "  --help, -h          Show this message"
-    echo "  --help-actions, -a  List the action IDs for --actions"
+    echo "  --help-actions, -ha List the action IDs for --actions"
     echo ""
     echo "Modifiers (combine with the actions above):"
     echo "  --adopt             Let stow ADOPT conflicting files into the repo."
@@ -4005,14 +4005,14 @@ while [[ $# -gt 0 ]]; do
         --adopt)            STOW_ADOPT=true ;;
         --clean)            CLEAN=true ;;
         --help|-h)          ACTION=help ;;
-        --help-actions|-a)  ACTION=help-actions ;;
+        --help-actions|-ha) ACTION=help-actions ;;
         --restore)
             [[ -n "$ACTION" ]] && die "More than one action given ($ACTION, $1). Use --help."
             [[ "${2:-}" == 1 || "${2:-}" == 2 ]] || die "--restore needs 1 (newest) or 2"
             RESTORE_N=$2; shift; ACTION=--restore ;;
-        --actions=*|--actions)
+        --actions=*|--actions|-a)
             [[ -n "$ACTION" ]] && die "More than one action given ($ACTION, $1). Use --help."
-            if [[ "$1" == --actions ]]; then
+            if [[ "$1" == --actions || "$1" == -a ]]; then
                 [[ $# -ge 2 && -n "$2" ]] || die "--actions needs a comma-separated list of action IDs"
                 SYSUP_ACTIONS="$2"; shift
             else

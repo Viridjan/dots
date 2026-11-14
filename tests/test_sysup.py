@@ -1002,7 +1002,7 @@ class ReviewFollowupTests(FixtureCase):
     def test_bootstrap_without_actions_lists_ids(self):
         r = self.shell('detect_machine() { MACHINE=desktop; }\n_ensure_dots_repo() { echo BAD_CONTINUED; }\nbootstrap')
         self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("sysup --actions A,B (IDs: sources install", r.stderr)
+        self.assertIn("sysup --actions A,B (IDs: sysup -ha)", r.stderr)
         self.assertNotIn('BAD_CONTINUED', r.stdout)
 
     def test_bare_invocation_prints_usage(self):
@@ -1291,8 +1291,15 @@ class RunPlanTests(FixtureCase):
         self.assertEqual(saved, "pacman-db\tfail\nfirmware\tok\n@warnings\t1\n")
 
 class ActionsTests(FixtureCase):
+    def test_short_a_is_actions(self):
+        short, long = self.cli("-a", "bogus-id"), self.cli("--actions", "bogus-id")
+        self.assertNotEqual(short.returncode, 0)
+        self.assertIn("bogus-id", short.stdout + short.stderr)
+        last = lambda r: (r.stdout + r.stderr).strip().splitlines()[-1]
+        self.assertEqual(last(short), last(long))
+
     def test_help_actions_lists_ids_help_does_not(self):
-        r = self.cli("-a")
+        r = self.cli("-ha")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertRegex(r.stdout, r"sources +Refresh package sources")
         self.assertNotIn("Refresh package sources", self.cli("--help").stdout)
