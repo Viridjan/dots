@@ -372,6 +372,13 @@ class CommandTests(Tmp):
         self.assertIn("skipped", out)
         self.assertNotIn("surface-secureboot", out)  # needs linux-surface feature
 
+    def test_actions_table_groups_ids_with_labels(self):
+        out = S.actions_table(["fish", "sources", "install", "mystery"])
+        self.assertEqual(out[:3], ["  packages:", "    sources  Refresh package sources",
+                                   "    install  Upgrade and install packages"])
+        self.assertIn("  apps:", out)
+        self.assertEqual(out[-1], "    mystery")
+
     def test_menu_rows_carry_label_state_and_hide_gated(self):
         self.cli("choose", "desktop")
         self.cli("once-done", "services")

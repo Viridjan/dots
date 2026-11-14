@@ -517,6 +517,16 @@ def menu_rows(repo: Repo, cfg: dict, ids) -> list:
             if ONCE_FEATURE.get(i) in (None, *have)]
 
 
+def actions_table(ids) -> list:
+    """Help text: action IDs by group, one per row with its label (needs no config)."""
+    width = max(len(i) for i in ids)
+    out = []
+    for g in GROUPS:
+        rows = [f"    {i.ljust(width)}  {ACTIONS[i][1]}" for i in ids if ACTIONS.get(i, ("",))[0] == g]
+        out += [f"  {g}:", *rows] if rows else []
+    return out + [f"    {i}" for i in ids if i not in ACTIONS]
+
+
 def status_lines(repo: Repo, cfg: dict) -> list:
     out = [f"profile: {cfg['profile']}   dotset: {cfg['dotset']}",
            f"features: {' '.join(features(repo, cfg)) or '-'}", "", "one-time actions (sysup --actions ID):"]
@@ -593,6 +603,9 @@ def main(argv) -> int:
     if cmd == "status" and not args:
         repo = load_repo()
         print("\n".join(status_lines(repo, effective(repo))))
+        return 0
+    if cmd == "actions" and args:
+        print("\n".join(actions_table(args)))
         return 0
     if cmd == "menu" and args:
         repo = load_repo()

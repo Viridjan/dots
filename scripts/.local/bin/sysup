@@ -3963,7 +3963,7 @@ usage() {
     echo "                      (anything else is silently ignored)"
     echo ""
     echo "Action IDs (--actions):"
-    echo "  ${MENU_ORDER[*]}"
+    _py actions "${MENU_ORDER[@]}" 2>/dev/null || echo "  ${MENU_ORDER[*]}"
     echo ""
     echo "Only one sysup may run at a time (flock on $LOCK_FILE)."
     echo "Exit status is nonzero if any requested action failed."
