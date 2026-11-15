@@ -193,6 +193,7 @@ install = [
     "cadcraft-bin",
     "figcraft-bin",
     "solidcraft-bin",  # parametric 3D CAD (tangency-labs)
+    "mailcraft-bin",  # mail/calendar/contacts, Outlook alternative (UCS-Care-Group)
 
     # Browsers
     "brave-origin-bin",
