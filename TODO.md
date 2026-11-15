@@ -8,6 +8,17 @@
       `dcal account add google` (browser sign-in), confirm `dcal account list` shows `ok`, then add the Thunderbird `user.js` from README "Calendar" (calendars + alarms off). Confirm `xdg-mime query default text/calendar` = `dev.duxlabs.calendar.desktop`.
 
 
+## Desktop: suspend powers the PC off (since ~2026-11-10)
+
+Every logged suspend ends at `PM: suspend entry (deep)` with no resume; next start is a cold boot
+showing a white screen with three dots. ASRock H670M-ITX/ax BIOS 17.03, RX 6700 XT. Suspects:
+linux-cachyos 7.3.3 (11-08), systemd 262.2 (11-10), mesa 26.2.6 (11-06). One test per suspend:
+
+- [ ] Suspend test 1: boot `linux-cachyos-lts` (6.18.x) from Limine, `systemctl suspend`, wake. Works → kernel 7.3.x regression (hold the kernel).
+- [ ] Suspend test 2: on the normal kernel, `echo s2idle | sudo tee /sys/power/mem_sleep` then `systemctl suspend`. Works → S3 (deep) itself broken (kernel/BIOS/GPU). Resets at reboot.
+- [ ] Suspend test 3: while suspended, are fans + power LED fully off (PSU/firmware) or on with a black screen (resume hang)?
+- [ ] White boot screen: note whether it appears before or after the ASRock logo. If all tests fail: suspect PSU, CMOS battery, BIOS update.
+
 ## sysup rename (2026-11-08) — Surface and Plancia, once each
 
 After `git pull` the old `vjupdate` and `vj` links in `~/.local/bin` point at
