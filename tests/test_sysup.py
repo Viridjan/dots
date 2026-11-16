@@ -640,6 +640,30 @@ class UpgradeFailureReportingTests(FixtureCase):
         r = self.shell('_syuu || true\necho "DETAIL=$SYUU_FAIL_DETAIL"')
         self.assertIn("DETAIL=failed to synchronize all databases", r.stdout)
 
+    def test_failing_mirror_dropped_and_retried(self):
+        # mirror5 served an HTML 404 for a .sig: pacman aborts, not falls through.
+        self.mock("sudo", '"$@"')
+        self.mock("paru", "\n".join([
+            'if [[ -f "$CALLS.tried" ]]; then echo "ok"; exit 0; fi',
+            ': > "$CALLS.tried"',
+            "echo \"error: failed retrieving file 'hiprt-3.2.0-1.pkg.tar.zst.sig' from mirror5.krfoss.org : Maximum file size exceeded\"",
+            "echo \"error: failed retrieving file 'x.sig' from solo.example : Not Found\"",
+            "echo 'error: failed to commit transaction (failed to retrieve some files)'",
+            "exit 1",
+        ]))
+        v3, solo = self.root / "v3-mirrorlist", self.root / "solo-mirrorlist"
+        v3.write_text("Server = https://mirror5.krfoss.org/cachyos/repo/$arch_v3/$repo\n"
+                      "Server = https://mirror.krfoss.org/cachyos/repo/$arch_v3/$repo\n")
+        solo.write_text("Server = https://solo.example/$repo\n")
+        r = self.shell(f'_MIRRORLISTS=("{v3}" "{solo}")\n_syuu')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(v3.read_text(),
+                         "#Server = https://mirror5.krfoss.org/cachyos/repo/$arch_v3/$repo\n"
+                         "Server = https://mirror.krfoss.org/cachyos/repo/$arch_v3/$repo\n")
+        # Never comment out a list's last Server.
+        self.assertEqual(solo.read_text(), "Server = https://solo.example/$repo\n")
+        self.assertIn("dropped failing mirror(s) from the mirrorlists: mirror5.krfoss.org", r.stdout)
+
     def test_successful_upgrade_leaves_no_detail(self):
         self.mock("paru", 'echo "there is nothing to do"\nexit 0')
         r = self.shell('_syuu\necho "DETAIL=[$SYUU_FAIL_DETAIL]"')

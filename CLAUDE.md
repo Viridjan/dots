@@ -616,6 +616,11 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   read the loop from another fd. Before any run with a terminal,
   `_check_repo_current` fetches; if behind upstream it offers pull (`--ff-only`)
   + `exec` relaunch (before the lock; `SYSUP_SELF_UPDATED` stops loops).
+- **Failing mirror (2026-11-16).** A mirror that answers a missing file with an HTML
+  error page aborts the transaction (`Maximum file size exceeded` on a `.sig`) instead of
+  falling through. `_drop_failed_mirrors` (in `_syuu` and `_install_list`) comments out each
+  host named in `failed retrieving file … from HOST` in `/etc/pacman.d/*mirrorlist` (never a
+  list's last `Server`) and retries once; the next mirror ranking rewrites the lists.
 - **Held packages.** `[paru].hold` (packages.toml) excludes named packages from system
   upgrades (including retries) and both rebuild paths. First installation is
   unchanged. Audit and update runs warn about pending held AUR updates with

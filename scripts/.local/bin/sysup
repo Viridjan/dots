@@ -677,7 +677,31 @@ _estimate_aur_builds() {
 # so compute the step that lands on an absolute 19.
 _paru() { nice -n "$(( 19 - $(nice) ))" ionice -c 3 paru "$@"; }
 
-# paru -Syuu wrapper: auto-recovers from untrusted-signature errors once.
+# A mirror that answers a missing file with an HTML error page fails the whole
+# transaction ("Maximum file size exceeded" on a .sig) instead of pacman moving
+# on to the next Server (2026-11-16, mirror5.krfoss.org lacked a new package).
+# Comment out each host named in "failed retrieving file ... from HOST" in every
+# mirrorlist, unless that would leave the list without a Server line. Returns 0
+# when a host was dropped (worth a retry). The next mirror ranking rewrites them.
+_MIRRORLISTS=(/etc/pacman.d/*mirrorlist)
+_drop_failed_mirrors() {
+    local host re f hit dropped=()
+    for host in $(sed -n "s/^error: failed retrieving file '[^']*' from \([^ ]*\) : .*/\1/p" "$1" | sort -u); do
+        [[ "$host" =~ ^[A-Za-z0-9.-]+$ ]] || continue
+        re="^Server = https\?://${host//./\\.}/"
+        hit=false
+        for f in "${_MIRRORLISTS[@]}"; do
+            grep -q "$re" "$f" 2>/dev/null || continue
+            grep -v "$re" "$f" | grep -q '^Server' || continue
+            sudo sed -i "s|$re|#&|" "$f" && hit=true
+        done
+        ! $hit || dropped+=("$host")
+    done
+    ((${#dropped[@]})) || return 1
+    warn "dropped failing mirror(s) from the mirrorlists: ${dropped[*]}"
+}
+
+# paru -Syuu wrapper: auto-recovers from untrusted-signature errors and a failing mirror once.
 _syuu() {
     local held
     held=$( { _held_packages; printf '%s\n' "${_AUR_FLAGGED[@]}"; } | awk NF | tr '\n' ',')
@@ -689,7 +713,8 @@ _syuu() {
     LC_TIME=C _paru "${args[@]}" 2>&1 | tee "$logfile" || rc=$?
     if (( rc != 0 )); then
         local out; out=$(<"$logfile")
-        if echo "$out" | grep -q "is unknown trust" && _fix_untrusted_keys "$out"; then
+        if { grep -q "is unknown trust" <<<"$out" && _fix_untrusted_keys "$out"; } \
+            || _drop_failed_mirrors "$logfile"; then
             info "Retrying upgrade..."
             rc=0
             # Retry output is tee'd too — it used to be discarded, so a failure
@@ -858,7 +883,10 @@ _install_list() {
             warn "not auto-removing protected conflicts: $blocked"
         fi
         install_log=$(mktemp) || return 1
-        if ! LC_ALL=C _paru -S --needed --noconfirm "${ask[@]}" "${to_install[@]}" 2>&1 | tee "$install_log"; then
+        local paru_args=(-S --needed --noconfirm "${ask[@]}" "${to_install[@]}")
+        if ! LC_ALL=C _paru "${paru_args[@]}" 2>&1 | tee "$install_log" \
+            && ! { _drop_failed_mirrors "$install_log" && info "Retrying install..." \
+                   && LC_ALL=C _paru "${paru_args[@]}" 2>&1 | tee "$install_log"; }; then
             INSTALL_FAIL_DETAIL=$(_syuu_fail_detail "$install_log")
             _queue_aur_fails "$install_log"
             # pacman's wording, then paru's own AUR conflict check.
