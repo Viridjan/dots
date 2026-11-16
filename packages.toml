@@ -137,7 +137,7 @@ install = [
     "git-filter-repo",
     "github-cli",
     "godot",
-    "rust",  # cargo: builds 7000bar (projects.toml build)
+    "rust",
 
     # Containers (Open Notebook)
     "docker",

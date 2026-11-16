@@ -457,15 +457,15 @@ firewall rules (one `ufw allow <rule>` each, applied with the services; add-only
 `[paru].pin` takes `repo/name` entries (e.g. `extra/go`): that package is always
 installed and upgraded from that repo, even when another repo has a newer build.
 
-Your own software: give its `projects.toml` entry a `build` command. Install and
+Software built from a git repo: give its `projects.toml` entry a `build` command. Install and
 `sysup --update` pull it (fast-forward only) and rerun the build when the
-commit changed; a repo with uncommitted changes is skipped. Example (7000bar):
+commit changed; a repo with uncommitted changes is skipped. Example (dux-player):
 
 ```toml
 [[repo]]
-name = "7000bar"
-url = "git@github.com:Viridjan/7000bar.git"
-build = "cargo build --release && install -Dm755 target/release/7000bar ~/.local/bin/7000bar"
+name = "dux-player"
+url = "https://github.com/Conava/dux-player.git"
+build = "git submodule update --init --recursive && make build && make install PREFIX=\"$HOME/.local\""
 ```
 
 | Package | What it stows |
