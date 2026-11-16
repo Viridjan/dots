@@ -28,6 +28,7 @@ install = [
     # Headset client APK must match `pacman -Q alvr-bin`.
     "alvr-bin",
     "dux-shell-plugin-hass-git",
+    "blender",
 ]
 
 [systemd]
