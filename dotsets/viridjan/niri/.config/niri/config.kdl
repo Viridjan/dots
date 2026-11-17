@@ -154,8 +154,8 @@ overview {
 
 workspace "social"
 workspace "media"
-// games: Spotify autostarts here; games open here too
-// (rules below + gamescope-media), their launchers stay on media.
+// games: games open here (rules below + gamescope-media);
+// their launchers and Spotify stay on media.
 workspace "games"
 workspace "main"
 
@@ -293,7 +293,7 @@ window-rule {
 }
 window-rule {
     match title="Spotify"
-    open-on-workspace "games"
+    open-on-workspace "media"
     open-focused false
 }
 window-rule {
