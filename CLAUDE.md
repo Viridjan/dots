@@ -80,7 +80,7 @@ dots/
                         .githooks/nicotine-clean blanks `passw` + drops [statistics] on commit — the live file
                         keeps both; registered by deploy_dotfiles. A pull that changes it blanks the local password)
       nirinit/        → ~/.config/nirinit/  (skip list: apps the niri autostart already opens)
-  scripts/        → ~/.local/bin/ + ~/.local/lib/sysup/ (sysup.py, automount.sh)  (sysup, vjsurface, start-windows, start-open-notebook, start-battlenet, gamescope-media; stowed --no-folding,
+  scripts/        → ~/.local/bin/ + ~/.local/lib/sysup/ (sysup.py, automount.sh)  (sysup, vjsurface, start-windows, start-open-notebook, start-battlenet, gamescope-media, social-order; stowed --no-folding,
                     always from the repo root — tooling, not part of a dotfile set)
                   + ~/.local/share/applications/  (.desktop launchers)
                   + ~/.local/share/ollama/  (<name>.Modelfile, rebuilt by setup_ollama)

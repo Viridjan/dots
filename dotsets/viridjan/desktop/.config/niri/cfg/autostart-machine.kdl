@@ -2,6 +2,7 @@
 spawn-at-startup "thunderbird"
 spawn-at-startup "whatsie"
 spawn-at-startup "Telegram"
+spawn-at-startup "social-order"  // Telegram → 2nd column once the social apps opened
 
 // Media workspace
 spawn-sh-at-startup "steam"
