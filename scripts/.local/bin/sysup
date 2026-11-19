@@ -1546,7 +1546,8 @@ _warn_unfolded() {
         rel=${d#"$pkg"/}
         [[ -n "$hit" && "$rel" == "$hit"/* ]] && continue
         # Shared parents; systemctl --user enable writes .wants links into user/.
-        case "$rel" in .config|.local|.local/share|.local/state|.local/lib|.config/systemd|.config/systemd/user) continue ;; esac
+        # ~/.claude is unfolded on purpose: Claude Code keeps credentials and sessions there.
+        case "$rel" in .claude|.config|.local|.local/share|.local/state|.local/lib|.config/systemd|.config/systemd/user) continue ;; esac
         t="$HOME/$rel"
         [[ -d "$t" ]] || continue
         # Folded (directly or through a parent link): resolves into the package.

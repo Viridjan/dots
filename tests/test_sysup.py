@@ -1194,11 +1194,14 @@ class RunPlanTests(FixtureCase):
         (dotset / "ok/.config/ok").mkdir(parents=True)
         (self.home / ".config/app/sub").mkdir(parents=True)  # unfolded: real dirs
         (self.home / ".config/ok").symlink_to(dotset / "ok/.config/ok")
-        r = self.shell(f'cd "{dotset}"; _warn_unfolded app; _warn_unfolded ok')
+        (dotset / "claude/.claude").mkdir(parents=True)
+        (self.home / ".claude").mkdir()  # unfolded on purpose
+        r = self.shell(f'cd "{dotset}"; _warn_unfolded app; _warn_unfolded ok; _warn_unfolded claude')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("'app' is unfolded at ~/.config/app ", r.stdout)
         self.assertNotIn("~/.config/app/sub", r.stdout)  # top-most dir only
         self.assertNotIn("'ok'", r.stdout)
+        self.assertNotIn("'claude'", r.stdout)
 
     def test_pacnew_overwrite_losing_repos_is_restored(self):
         (self.bin / "comm").symlink_to("/usr/bin/comm")
