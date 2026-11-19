@@ -177,6 +177,7 @@ install = [
     "ufw",
     "ufw-extras",
     "networkmanager-openvpn",
+    "proton-vpn-gtk-app",
     "samba",
 
     # Editors
