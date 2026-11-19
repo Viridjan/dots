@@ -117,3 +117,5 @@ graphify-out/.chunks_dispatch.json
 
 # nicotine+ — config.old is a full backup copy incl. the password
 dotsets/*/nicotine/.config/nicotine/config.old
+# Rewritten by the ponytail plugin every session (stow conflict when tracked)
+dotsets/*/claude/.claude/ponytail-statusline.sh
