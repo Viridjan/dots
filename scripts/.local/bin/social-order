@@ -1,24 +1,27 @@
 #!/usr/bin/env bash
-# Puts Telegram in the 2nd column of its workspace once the autostarted social
-# apps have opened. They open in whatever order they finish loading, and niri
-# window rules can't set a column position. Started from the desktop's
-# autostart-machine.kdl.
+# Orders the social workspace columns once the autostarted social apps have
+# opened: Whatsie, Telegram, Vesktop, Thunderbird. They open in whatever order
+# they finish loading, and niri window rules can't set a column position.
+# Started from the desktop's autostart-machine.kdl.
 set -u
 
-apps='["org.mozilla.Thunderbird","com.ktechpit.whatsie","org.telegram.desktop","vesktop"]'
+order=(com.ktechpit.whatsie org.telegram.desktop vesktop org.mozilla.Thunderbird)
+apps=$(printf '%s\n' "${order[@]}" | jq -R . | jq -sc .)
 for _ in $(seq 120); do
-    # All four mapped (or 2 minutes passed): later windows can't shift Telegram.
+    # All mapped (or 2 minutes passed): later windows can't shift the order.
     niri msg -j windows | jq -e --argjson a "$apps" '[.[].app_id] as $w | all($a[]; IN($w[]))' >/dev/null && break
     sleep 1
 done
 sleep 2
 
-tg=$(niri msg -j windows | jq -r 'first(.[] | select(.app_id == "org.telegram.desktop")) | "\(.id) \(.layout.pos_in_scrolling_layout[0] // 0)"')
-read -r id col <<<"$tg"
-[[ -n "${id:-}" && "$col" != 2 ]] || exit 0
-
 prev=$(niri msg -j focused-window | jq -r '.id // empty')
-niri msg action focus-window --id "$id"
-niri msg action move-column-to-index 2
+idx=1
+for app in "${order[@]}"; do
+    id=$(niri msg -j windows | jq -r --arg a "$app" 'first(.[] | select(.app_id == $a)) | .id // empty')
+    [[ -n "$id" ]] || continue  # missing app: the rest close the gap
+    niri msg action focus-window --id "$id"
+    niri msg action move-column-to-index "$idx"
+    idx=$((idx + 1))
+done
 [[ -n "$prev" ]] && niri msg action focus-window --id "$prev"
 exit 0
