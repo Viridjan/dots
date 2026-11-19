@@ -4,7 +4,7 @@ hostname = "desktop"
 # Default dotfile set (dotsets/<name>/); each machine may pick another.
 dotset = "viridjan"
 # Behaviour switches read by sysup (_has_feature).
-features = ["desktop-services", "cpu-performance", "amd-gpu-tuning", "ollama-model", "windows-vm", "rag-stack"]
+features = ["desktop-services", "cpu-performance", "amd-gpu-tuning", "ollama-model", "windows-vm", "rag-stack", "data-partition"]
 
 [paru]
 install = [

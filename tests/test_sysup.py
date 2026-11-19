@@ -1455,6 +1455,44 @@ class BuildPriorityTests(FixtureCase):
         self.assertTrue(self.calls()[0].startswith("paru NICE=19 LC=C -Syuu"), self.calls())
 
 
+class QbittorrentSavePathTests(FixtureCase):
+    """Feature data-partition: qBittorrent's default save path is set, only with it stopped."""
+
+    CONF = "[AddNewTorrentDialog]\nSavePathHistory=/x\n\n[BitTorrent]\nSession\\Port=1\n\n[GUI]\nA=1\n"
+
+    def setUp(self):
+        super().setUp()
+        self.conf = self.home / ".config/qBittorrent/qBittorrent.conf"
+        self.conf.parent.mkdir(parents=True)
+        self.dir = self.home / "data/Downloads"
+        self.mock("pgrep", "exit 1")
+
+    def run_it(self, features="data-partition"):
+        r = self.shell(f'SYSUP_FEATURES="{features}" SYSUP_QBT_DIR="{self.dir}"; _qbittorrent_save_path')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_sets_key_in_bittorrent_section_idempotently(self):
+        self.conf.write_text(self.CONF)
+        self.run_it()
+        want = self.CONF.replace("Session\\Port=1\n", f"Session\\Port=1\nSession\\DefaultSavePath={self.dir}\n", 1)
+        self.assertEqual(self.conf.read_text(), want)
+        self.assertTrue(self.dir.is_dir())
+        self.conf.write_text(self.conf.read_text().replace(str(self.dir), "/old"))
+        self.run_it()
+        self.assertEqual(self.conf.read_text(), want)
+
+    def test_missing_config_gets_section(self):
+        self.run_it()
+        self.assertEqual(self.conf.read_text(), f"[BitTorrent]\nSession\\DefaultSavePath={self.dir}\n")
+
+    def test_untouched_without_feature_or_while_running(self):
+        self.conf.write_text(self.CONF)
+        self.run_it(features="")
+        self.mock("pgrep", "exit 0")
+        self.run_it()
+        self.assertEqual(self.conf.read_text(), self.CONF)
+
+
 class SteamBigPictureTests(FixtureCase):
     """Big Picture stays off: StartupMode 7 + Controller_CheckGuideButton 0, only with Steam stopped."""
 

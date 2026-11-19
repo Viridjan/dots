@@ -1435,6 +1435,41 @@ _apply_display() {
     fi
 }
 
+# Set key=value in [section] of an INI file (Qt QSettings style); replaces the line or
+# appends it to the section, adding the section if missing. Values go through ENVIRON:
+# awk -v would eat the backslashes in Qt keys like Session\DefaultSavePath.
+_ini_set() {
+    local file=$1 tmp
+    tmp=$(mktemp "$file.XXXX") || return 1
+    INI_SEC="[$2]" INI_KEY=$3 INI_VAL=$4 awk '
+        BEGIN { sec = ENVIRON["INI_SEC"]; line = ENVIRON["INI_KEY"] "=" ENVIRON["INI_VAL"] }
+        function flush() { for (; blank > 0; blank--) print "" }
+        $0 == sec { in_s = 1; seen = 1; print; next }
+        in_s && $0 == "" { blank++; next }    # held back: a new key goes above the gap
+        /^\[/ { if (in_s && !set) { print line; set = 1 } in_s = 0 }
+        in_s && index($0, ENVIRON["INI_KEY"] "=") == 1 { flush(); if (!set) print line; set = 1; next }
+        { flush(); print }
+        END { if (!set) { if (!seen) print sec; print line } flush() }' "$file" >"$tmp" \
+        && mv "$tmp" "$file" || { rm -f "$tmp"; return 1; }
+}
+
+# Feature data-partition: qBittorrent downloads to /mnt/data/Downloads instead of the
+# main disk. qBittorrent rewrites its config on exit, so only edit while it is stopped.
+_qbittorrent_save_path() {
+    _has_feature data-partition || return 0
+    local conf="$HOME/.config/qBittorrent/qBittorrent.conf" dir=${SYSUP_QBT_DIR:-/mnt/data/Downloads}  # override: tests
+    if pgrep -x qbittorrent >/dev/null; then
+        info "qBittorrent running — download folder not checked (quit it and rerun)"
+        return 0
+    fi
+    if mkdir -p "$dir" "${conf%/*}" && : >>"$conf" \
+        && _ini_set "$conf" BitTorrent 'Session\DefaultSavePath' "$dir"; then
+        ok "qBittorrent downloads to $dir"
+    else
+        warn "qBittorrent: could not set download folder $dir in $conf"
+    fi
+}
+
 _stow_niri_cfg() {
     # ~/.config/niri/ must stay a real directory — DMS writes dms/ inside it and
     # stow would fold the whole dir into a symlink, breaking DMS on regeneration.
@@ -1694,6 +1729,8 @@ deploy_dotfiles() {
         done < <([[ -f "$SYSUP_PLAN_DIR/stow.list" ]] && cat "$SYSUP_PLAN_DIR/stow.list")
         _unstow_unticked
     fi
+
+    _qbittorrent_save_path
 
     for _pkg in "${_stowed[@]}"; do ok "stowed: $_pkg"; done
     if [[ ${#_conflicts[@]} -gt 0 ]]; then

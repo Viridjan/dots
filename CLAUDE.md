@@ -149,7 +149,8 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
   ignore edit the local config (remove = demote, paru only).
 - **Features** replace every old `MACHINE == desktop|surface` check:
   `linux-surface`, `desktop-services`, `cpu-performance`, `amd-gpu-tuning`,
-  `ollama-model`, `windows-vm`, `rag-stack` (desktop: `_setup_rag` in the claude action starts
+  `ollama-model`, `windows-vm`, `data-partition` (desktop: dotfiles deploy sets qBittorrent's
+  `Session\DefaultSavePath` to `/mnt/data/Downloads`, skipped while qBittorrent runs), `rag-stack` (desktop: `_setup_rag` in the claude action starts
   Milvus from `rag/` and registers the claude-context + godot MCPs for Claude/Codex; npm/uv/
   `lightrag@summit` (:9621) + `lightrag@dots` (:9622) user units from template `lightrag@.service`, one per document set; docs indexed by `lightrag-index <project>` (scripts; set + sources from the project's `.lightrag.json`) (`lightrag-hku[api] --with ollama`: [npm]/[uv] entries may carry installer args); `nomic-embed-text` pulled; see `docs/rag-tools.md`),
   `nvidia` (plancia: shows the one-time
