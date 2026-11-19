@@ -35,3 +35,4 @@
 - [Linux_Hacks upstream](linux-hacks-upstream.md) — sysup origin; reviewed to 3c5109a on 2026-11-10, ported/skipped list
 - [go pinned to extra](go-pinned-extra.md) — cachyos-v3 go 1.27.4-2 is a v4 binary; [paru].pin extra/go, drop when fixed
 - [vertical package lists](feedback-vertical-pkg-lists.md) — VerbosePkgLists ON (one package per row); old compact choice reversed 2026-11-14
+- [data partition storage](data-partition-storage.md) — root 586G fills; bulk media/downloads → /mnt/data; qBittorrent → /mnt/data/Downloads; held-open deleted files

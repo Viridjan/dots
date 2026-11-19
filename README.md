@@ -524,14 +524,15 @@ except `Mod+.` (expel, to undo a drag-and-drop stack). Helpers from
 
 ### Steam game launchers
 
-Create `.desktop` entries for all installed Steam games (shows up in app menus).
-Also removes launchers for games that were uninstalled:
+Games stay out of the app launcher: this removes every Steam game `.desktop`
+entry in `~/.local/share/applications/` (sysup's old `steam_app_*` ones, the ones
+Steam creates on install, Discord's). Tracked launchers such as Battle.net stay.
+Start games from Steam; re-run after installing a game:
 
 ```bash
 sysup --actions steam-launchers
 ```
 
-Re-run after installing new games. Launchers land in `~/.local/share/applications/`.
 The same action keeps Big Picture off (no Big Picture at launch, Guide button doesn't
 open it); it only edits Steam's config while Steam is closed.
 

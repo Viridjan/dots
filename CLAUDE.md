@@ -205,7 +205,7 @@ EOF
 ```
 
 `claude` may need `sysup --adopt` on a fresh machine (absorbs existing real files, backing them up first).
-`~/.claude` is unfolded (file-level links). Claude Code writing a memory file or plugin script replaces its link with a real file → `stow conflict in 'claude'`. If live is newer: `mv` it over the repo copy, then `stow --restow -t ~ claude`.
+`~/.claude` is unfolded (file-level links). Claude Code writing a memory file or plugin script replaces its link with a real file → `stow conflict in 'claude'`. `_warn_unfolded` skips `.claude` (unfolded on purpose). `ponytail-statusline.sh` is untracked + ignored (the plugin rewrites it every session; `statusline.sh` reads the plugin cache copy). If live is newer: `mv` it over the repo copy, then `stow --restow -t ~ claude`.
 
 `desktop/`, `surface/` and `plancia/` inside a set are not stow packages: `_stow_niri_cfg` links the files of the dir named after the active profile.
 
@@ -287,6 +287,8 @@ Both rows were proven empirically on 2026-08-25, not assumed:
 - **Workspaces** (2026-10-29): 1 social, 2 media (dgop, Spotify since 2026-11-17, Steam/Bottles/Battle.net launchers),
   3 games (games open unfocused; `steam_app_*`, Dota 2, Wine `*.exe`, `gamescope-media`,
   anything Quiver Launcher starts: `quiver-games` watcher, parent-pid match, X11 pid via xdotool), 4 main.
+  `social-order` (desktop autostart) orders the social columns once all four opened: Whatsie,
+  Telegram, Vesktop, Thunderbird.
   `start-battlenet` (umu) gives launcher and games one app-id, `steam_app_battlenet`: title `^Battle\.net` → media
   and excluded from the `^steam_app_` fullscreen rule, the rest → games.
   A workspace added by reload lands at index 1 live; `niri msg action move-workspace-to-index --reference <name> <n>`.
