@@ -1493,6 +1493,26 @@ class QbittorrentSavePathTests(FixtureCase):
         self.assertEqual(self.conf.read_text(), self.CONF)
 
 
+class GameLauncherRemovalTests(FixtureCase):
+    """steam-launchers removes Steam game launchers, nothing else."""
+
+    def test_removes_steam_games_keeps_apps_and_links(self):
+        apps = self.home / ".local/share/applications"
+        apps.mkdir(parents=True)
+        files = {"steam_app_570.desktop": "Exec=steam -applaunch 570",
+                 "Celeste.desktop": "Exec=steam steam://rungameid/504230",
+                 "discord-1.desktop": "Exec=steam://rungameid/286160 %u",
+                 "app.desktop": "Exec=app"}
+        for n, ex in files.items():
+            (apps / n).write_text(f"[Desktop Entry]\n{ex}\n")
+        (self.home / "tracked.desktop").write_text("[Desktop Entry]\nExec=steam -applaunch 1\n")
+        (apps / "tracked.desktop").symlink_to(self.home / "tracked.desktop")
+        r = self.shell("_steam_no_bigpicture() { :; }; setup_steam_launchers")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(sorted(p.name for p in apps.iterdir()), ["app.desktop", "tracked.desktop"])
+        self.assertIn("removed: 3", r.stdout)
+
+
 class SteamBigPictureTests(FixtureCase):
     """Big Picture stays off: StartupMode 7 + Controller_CheckGuideButton 0, only with Steam stopped."""
 

@@ -3764,86 +3764,18 @@ _steam_no_bigpicture() {
     ok "Steam: Big Picture off at launch and on Guide button"
 }
 
+# Games stay out of the app launcher: removes every Steam game .desktop entry (ours,
+# Steam's own "Play this game on Steam" ones, Discord's rungameid ones). Links (tracked
+# launchers such as battlenet.desktop) are left alone. Games start from Steam.
 setup_steam_launchers() {
     _steam_no_bigpicture
-    local steam_root="$HOME/.local/share/Steam"
-    local apps_dir="$HOME/.local/share/applications"
-    local vdf="$steam_root/steamapps/libraryfolders.vdf"
-    local -a library_paths=()
-    local count=0 skipped=0
-
-    [[ -f "$vdf" ]] || { warn "Steam library not found — is Steam installed?"; return; }
-
-    info "Scanning Steam libraries..."
-
-    # Parse library paths from libraryfolders.vdf
-    while IFS= read -r line; do
-        if [[ "$line" =~ \"path\"[[:space:]]+\"([^\"]+)\" ]]; then
-            library_paths+=("${BASH_REMATCH[1]}/steamapps")
-        fi
-    done < "$vdf"
-
-    # Also include the default steamapps dir
-    library_paths+=("$steam_root/steamapps")
-
-    # Deduplicate
-    declare -A _seen_paths
-    local -a _unique_paths=()
-    for _p in "${library_paths[@]}"; do
-        [[ -d "$_p" && -z "${_seen_paths[$_p]:-}" ]] || continue
-        _seen_paths[$_p]=1
-        _unique_paths+=("$_p")
+    local f removed=0
+    for f in "$HOME"/.local/share/applications/*.desktop; do
+        [[ -f "$f" && ! -L "$f" ]] || continue
+        grep -qE '^Exec=.*(steam -applaunch |steam://rungameid/)' "$f" || continue
+        rm -f "$f" && (( ++removed ))
     done
-    library_paths=("${_unique_paths[@]}")
-
-    mkdir -p "$apps_dir"
-
-    for lib in "${library_paths[@]}"; do
-        for acf in "$lib"/appmanifest_*.acf; do
-            [[ -f "$acf" ]] || continue
-
-            local appid name
-            appid=$(grep -m1 '"appid"' "$acf" | grep -oP '(?<="appid"\s{1,8}")[^"]+' || true)
-            name=$(grep -m1 '"name"' "$acf" | grep -oP '(?<="name"\s{1,8}")[^"]+' || true)
-
-            [[ -z "$appid" || -z "$name" ]] && continue
-
-            # Skip Proton, redistributables, Steam Linux Runtime, and tools
-            if echo "$name" | grep -qiE '(^Proton |^Steam Linux Runtime|Steamworks Common Redistributables|^Steam ?VR|^Pressure Vessel)'; then
-                (( skipped++ )) || true
-                continue
-            fi
-
-            local desktop="$apps_dir/steam_app_${appid}.desktop"
-            local icon_entry="steam_icon_${appid}"
-
-            cat > "$desktop" <<EOF
-[Desktop Entry]
-Name=$name
-Exec=steam -applaunch $appid
-Icon=$icon_entry
-Terminal=false
-Type=Application
-Categories=Game;
-EOF
-            (( count++ )) || true
-        done
-    done
-
-    # Remove launchers for games no longer installed (appmanifest gone)
-    local removed=0
-    for desktop in "$apps_dir"/steam_app_*.desktop; do
-        [[ -f "$desktop" ]] || continue
-        local id="${desktop##*/steam_app_}"
-        id="${id%.desktop}"
-        local found=false
-        for lib in "${library_paths[@]}"; do
-            [[ -f "$lib/appmanifest_${id}.acf" ]] && { found=true; break; }
-        done
-        $found || { rm -f "$desktop"; (( removed++ )) || true; }
-    done
-
-    ok "created: $count Steam game launchers ($skipped tools/runtimes skipped, $removed stale removed)"
+    ok "game launchers removed: $removed"
 }
 
 # ─── Maintenance: non-Steam app launcher hygiene ─────────

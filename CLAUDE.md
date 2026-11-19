@@ -352,7 +352,7 @@ sysup --actions dms-export
 # Sync DMS overrides: repo → live (skips auto-generated files)
 sysup --actions dms-import
 
-# Create .desktop launchers for all installed Steam games
+# Remove Steam game .desktop launchers (games start from Steam) + keep Big Picture off
 sysup --actions steam-launchers
 
 # Rebuild packages flagged by rebuild-detector
