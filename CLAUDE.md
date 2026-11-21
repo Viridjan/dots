@@ -565,7 +565,8 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
     `_sudo_cause` (`sudo -n true` fails = no ticket).
 - **Steam Big Picture off (2026-11-13).** `steam-launchers` first runs
   `_steam_no_bigpicture`: `_vdf_set` writes `StartupMode "7"` (desktop UI) in
-  `~/.steam/registry.vdf` HKCU and `Controller_CheckGuideButton "0"` in each
+  `~/.steam/registry.vdf` HKCU (plus `GPUAccelWebViewsV3 "0"`: GPU web views made
+  the Shift+Tab overlay lag, 2026-11-21) and `Controller_CheckGuideButton "0"` in each
   `localconfig.vdf`. Skipped while Steam runs (it rewrites both on exit).
 - **Supply chain, from pasadoorian/Linux_Hacks (2026-11-10).** `check_aur_health`:
   one `paru -Sai` over `pacman -Qmq` (`_aur_info`); warns on maintainers in the

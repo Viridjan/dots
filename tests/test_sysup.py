@@ -1523,7 +1523,7 @@ class SteamBigPictureTests(FixtureCase):
            '\t\t\t\t"Steam"\n\t\t\t\t{\n\t\t\t\t\t"SteamPID"\t\t"1"\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n'
            '\t"HKCU"\n\t{\n\t\t"Software"\n\t\t{\n\t\t\t"Valve"\n\t\t\t{\n'
            '\t\t\t\t"Steam"\n\t\t\t\t{\n\t\t\t\t\t"StartupMode"\t\t"4"\n\t\t\t\t\t"language"\t\t"english"\n'
-           '\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n')
+           '\t\t\t\t\t"GPUAccelWebViewsV3"\t\t"1"\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n')
     LOCAL = ('"UserLocalConfigStore"\n{\n\t"Compatibility"\n\t{\n\t\t"ShowAllTools"\t\t"0"\n\t}\n}\n')
 
     def setUp(self):
@@ -1539,7 +1539,8 @@ class SteamBigPictureTests(FixtureCase):
     def test_sets_both_keys_at_their_blocks(self):
         r = self.shell("_steam_no_bigpicture")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertEqual(self.reg.read_text(), self.REG.replace('"StartupMode"\t\t"4"', '"StartupMode"\t\t"7"'))
+        self.assertEqual(self.reg.read_text(), self.REG.replace('"StartupMode"\t\t"4"', '"StartupMode"\t\t"7"')
+                         .replace('"GPUAccelWebViewsV3"\t\t"1"', '"GPUAccelWebViewsV3"\t\t"0"'))
         self.assertEqual(self.local.read_text(), self.LOCAL.replace(
             '\t}\n}', '\t}\n\t"Controller_CheckGuideButton"\t\t"0"\n}'))
         # idempotent
@@ -1547,11 +1548,12 @@ class SteamBigPictureTests(FixtureCase):
         self.assertEqual(self.local.read_text().count("Controller_CheckGuideButton"), 1)
 
     def test_missing_key_is_added_in_hkcu_only(self):
-        self.reg.write_text(self.REG.replace('\t\t\t\t\t"StartupMode"\t\t"4"\n', ''))
+        self.reg.write_text(self.REG.replace('\t\t\t\t\t"StartupMode"\t\t"4"\n', '')
+                            .replace('\t\t\t\t\t"GPUAccelWebViewsV3"\t\t"1"\n', ''))
         self.shell("_steam_no_bigpicture")
         self.assertEqual(self.reg.read_text(), self.REG.replace(
-            '"StartupMode"\t\t"4"\n\t\t\t\t\t"language"\t\t"english"',
-            '"language"\t\t"english"\n\t\t\t\t\t"StartupMode"\t\t"7"'))
+            '"StartupMode"\t\t"4"\n\t\t\t\t\t"language"\t\t"english"\n\t\t\t\t\t"GPUAccelWebViewsV3"\t\t"1"',
+            '"language"\t\t"english"\n\t\t\t\t\t"StartupMode"\t\t"7"\n\t\t\t\t\t"GPUAccelWebViewsV3"\t\t"0"'))
 
     def test_untouched_while_steam_runs(self):
         self.mock("pgrep", "exit 0")

@@ -3747,7 +3747,9 @@ _vdf_set() {
 }
 
 # Big Picture off: no Big Picture at launch (StartupMode 7 = desktop UI), Guide button
-# doesn't open it. Steam rewrites these files on exit, so only edit while it is stopped.
+# doesn't open it. GPUAccelWebViewsV3 0 = GPU web views off: with them on, the Shift+Tab
+# overlay lagged badly (TTS, 2026-11-21). Steam rewrites these files on exit, so only
+# edit while it is stopped.
 _steam_no_bigpicture() {
     local reg="$HOME/.steam/registry.vdf" f
     [[ -f "$reg" ]] || return 0
@@ -3757,12 +3759,14 @@ _steam_no_bigpicture() {
     fi
     _vdf_set "$reg" Registry/HKCU/Software/Valve/Steam StartupMode 7 \
         || { warn "steam: could not set StartupMode in $reg"; return 0; }
+    _vdf_set "$reg" Registry/HKCU/Software/Valve/Steam GPUAccelWebViewsV3 0 \
+        || warn "steam: could not set GPUAccelWebViewsV3 in $reg"
     for f in "$HOME"/.local/share/Steam/userdata/*/config/localconfig.vdf; do
         [[ -f "$f" ]] || continue
         _vdf_set "$f" UserLocalConfigStore Controller_CheckGuideButton 0 \
             || warn "steam: could not set Controller_CheckGuideButton in $f"
     done
-    ok "Steam: Big Picture off at launch and on Guide button"
+    ok "Steam: Big Picture off at launch and on Guide button, GPU web views off"
 }
 
 # Games stay out of the app launcher: removes every Steam game .desktop entry (ours,
