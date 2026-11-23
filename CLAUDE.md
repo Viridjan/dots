@@ -65,7 +65,8 @@ dots/
       fonts/          → ~/.local/share/fonts/  (user fonts)
       gtk-3.0/ gtk-4.0/ micro/ paru/ qt5ct/ qt6ct/ VSCodium/ → ~/.config/<same>/
       mpd/            → ~/.config/mpd/  (deployed since 2026-10-21; was never in the old stow list)
-      mimeapps/       → ~/.config/mimeapps.list  (set via `xdg-mime default`; then `kbuildsycoca6` or KDE apps keep the old handler)
+      mimeapps/       → ~/.config/mimeapps.list  (set via `xdg-mime default`; then `kbuildsycoca6` or KDE apps keep the old handler;
+                        `_vlc_video_defaults` (dotfiles deploy) adds every `video/*` in vlc.desktop)
       niri/           → ~/.config/niri/  (file-level links, see below)
       spotify-player/ → ~/.config/spotify-player/  (app.toml + keymap.toml)
       surface/        → same files as desktop/, for profile surface

@@ -1458,6 +1458,23 @@ class BuildPriorityTests(FixtureCase):
         self.assertTrue(self.calls()[0].startswith("paru NICE=19 LC=C -Syuu"), self.calls())
 
 
+class VlcVideoDefaultsTests(FixtureCase):
+    """Every video/* type in vlc.desktop gets VLC as default; set ones are skipped."""
+
+    def test_adds_only_missing_video_types(self):
+        apps = self.root / "apps"
+        apps.mkdir()
+        (apps / "vlc.desktop").write_text("[Desktop Entry]\nMimeType=video/mp4;audio/ogg;video/ogg;\n")
+        (self.home / ".config").mkdir(exist_ok=True)
+        (self.home / ".config/mimeapps.list").write_text("[Default Applications]\nvideo/mp4=vlc.desktop\n")
+        self.mock("xdg-mime", 'echo "xdg-mime $*" >> "$CALLS"')
+        self.mock("kbuildsycoca6", 'echo kbuildsycoca6 >> "$CALLS"')
+        r = self.shell(f'SYSUP_APPS_DIR="{apps}" _vlc_video_defaults')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(Path(self.env["CALLS"]).read_text(),
+                         "xdg-mime default vlc.desktop video/ogg\nkbuildsycoca6\n")
+
+
 class QbittorrentSavePathTests(FixtureCase):
     """Feature data-partition: qBittorrent's default save path is set, only with it stopped."""
 

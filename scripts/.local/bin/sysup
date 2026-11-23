@@ -1470,6 +1470,22 @@ _qbittorrent_save_path() {
     fi
 }
 
+# VLC opens every video type it declares. mimeapps.list is stowed, so new types land
+# in the repo (commit them). KDE apps keep the old handler until kbuildsycoca6.
+_vlc_video_defaults() {
+    local desktop=${SYSUP_APPS_DIR:-/usr/share/applications}/vlc.desktop  # override: tests
+    local list="$HOME/.config/mimeapps.list" m added=0
+    [[ -f "$desktop" ]] && command -v xdg-mime &>/dev/null || return 0
+    while IFS= read -r m; do
+        grep -qxF "$m=vlc.desktop" "$list" 2>/dev/null && continue
+        xdg-mime default vlc.desktop "$m" && added=$((added + 1)) \
+            || { warn "xdg-mime: could not make VLC the default for $m"; }
+    done < <(sed -n 's/^MimeType=//p' "$desktop" | tr ';' '\n' | grep '^video/')
+    ((added)) || return 0
+    command -v kbuildsycoca6 &>/dev/null && kbuildsycoca6 &>/dev/null
+    ok "VLC default for $added more video types (commit mimeapps.list)"
+}
+
 _stow_niri_cfg() {
     # ~/.config/niri/ must stay a real directory — DMS writes dms/ inside it and
     # stow would fold the whole dir into a symlink, breaking DMS on regeneration.
@@ -1732,6 +1748,7 @@ deploy_dotfiles() {
     fi
 
     _qbittorrent_save_path
+    _vlc_video_defaults
 
     for _pkg in "${_stowed[@]}"; do ok "stowed: $_pkg"; done
     if [[ ${#_conflicts[@]} -gt 0 ]]; then
