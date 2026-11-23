@@ -1464,15 +1464,19 @@ class VlcVideoDefaultsTests(FixtureCase):
     def test_adds_only_missing_video_types(self):
         apps = self.root / "apps"
         apps.mkdir()
-        (apps / "vlc.desktop").write_text("[Desktop Entry]\nMimeType=video/mp4;audio/ogg;video/ogg;\n")
+        (apps / "vlc.desktop").write_text("[Desktop Entry]\nMimeType=video/mp4;audio/ogg;video/ogg;"
+                                          "application/vnd.rn-realmedia;application/x-cue;\n")
+        (apps / "generic-icons").write_text("application/vnd.rn-realmedia:video-x-generic\n"
+                                            "application/x-cue:audio-x-generic\n")
         (self.home / ".config").mkdir(exist_ok=True)
         (self.home / ".config/mimeapps.list").write_text("[Default Applications]\nvideo/mp4=vlc.desktop\n")
         self.mock("xdg-mime", 'echo "xdg-mime $*" >> "$CALLS"')
         self.mock("kbuildsycoca6", 'echo kbuildsycoca6 >> "$CALLS"')
-        r = self.shell(f'SYSUP_APPS_DIR="{apps}" _vlc_video_defaults')
+        r = self.shell(f'SYSUP_APPS_DIR="{apps}" SYSUP_MIME_DIR="{apps}" _vlc_video_defaults')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(Path(self.env["CALLS"]).read_text(),
-                         "xdg-mime default vlc.desktop video/ogg\nkbuildsycoca6\n")
+                         "xdg-mime default vlc.desktop video/ogg\n"
+                         "xdg-mime default vlc.desktop application/vnd.rn-realmedia\nkbuildsycoca6\n")
 
 
 class QbittorrentSavePathTests(FixtureCase):

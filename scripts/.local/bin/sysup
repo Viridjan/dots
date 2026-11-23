@@ -1470,17 +1470,22 @@ _qbittorrent_save_path() {
     fi
 }
 
-# VLC opens every video type it declares. mimeapps.list is stowed, so new types land
-# in the repo (commit them). KDE apps keep the old handler until kbuildsycoca6.
+# VLC opens every video type it declares: video/* plus types shared-mime-info files
+# under video-x-generic (application/vnd.rn-realmedia = .rm, x-matroska, mxf…).
+# mimeapps.list is stowed, so new types land in the repo (commit them). KDE apps
+# keep the old handler until kbuildsycoca6.
 _vlc_video_defaults() {
     local desktop=${SYSUP_APPS_DIR:-/usr/share/applications}/vlc.desktop  # override: tests
+    local icons=${SYSUP_MIME_DIR:-/usr/share/mime}/generic-icons
     local list="$HOME/.config/mimeapps.list" m added=0
     [[ -f "$desktop" ]] && command -v xdg-mime &>/dev/null || return 0
     while IFS= read -r m; do
         grep -qxF "$m=vlc.desktop" "$list" 2>/dev/null && continue
         xdg-mime default vlc.desktop "$m" && added=$((added + 1)) \
             || { warn "xdg-mime: could not make VLC the default for $m"; }
-    done < <(sed -n 's/^MimeType=//p' "$desktop" | tr ';' '\n' | grep '^video/')
+    done < <(sed -n 's/^MimeType=//p' "$desktop" | tr ';' '\n' | awk -F: -v icons="$icons" '
+        FILENAME == icons { if ($2 == "video-x-generic") vid[$1] = 1; next }
+        /^video\// || ($0 in vid)' "$icons" - 2>/dev/null)
     ((added)) || return 0
     command -v kbuildsycoca6 &>/dev/null && kbuildsycoca6 &>/dev/null
     ok "VLC default for $added more video types (commit mimeapps.list)"
