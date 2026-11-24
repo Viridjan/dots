@@ -1194,8 +1194,8 @@ class RunPlanTests(FixtureCase):
         (dotset / "ok/.config/ok").mkdir(parents=True)
         (self.home / ".config/app/sub").mkdir(parents=True)  # unfolded: real dirs
         (self.home / ".config/ok").symlink_to(dotset / "ok/.config/ok")
-        (dotset / "claude/.claude").mkdir(parents=True)
-        (self.home / ".claude").mkdir()  # unfolded on purpose
+        (dotset / "claude/.claude/projects/x").mkdir(parents=True)
+        (self.home / ".claude/projects/x").mkdir(parents=True)  # unfolded on purpose, subdirs too
         r = self.shell(f'cd "{dotset}"; _warn_unfolded app; _warn_unfolded ok; _warn_unfolded claude')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("'app' is unfolded at ~/.config/app ", r.stdout)

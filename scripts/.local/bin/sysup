@@ -1668,8 +1668,9 @@ _warn_unfolded() {
         rel=${d#"$pkg"/}
         [[ -n "$hit" && "$rel" == "$hit"/* ]] && continue
         # Shared parents; systemctl --user enable writes .wants links into user/.
-        # ~/.claude is unfolded on purpose: Claude Code keeps credentials and sessions there.
-        case "$rel" in .claude|.config|.local|.local/share|.local/state|.local/lib|.config/systemd|.config/systemd/user) continue ;; esac
+        # ~/.claude is unfolded on purpose, subdirs included: Claude Code keeps credentials
+        # and sessions there and writes plans/, projects/ itself.
+        case "$rel" in .claude|.claude/*|.config|.local|.local/share|.local/state|.local/lib|.config/systemd|.config/systemd/user) continue ;; esac
         t="$HOME/$rel"
         [[ -d "$t" ]] || continue
         # Folded (directly or through a parent link): resolves into the package.
@@ -3141,8 +3142,10 @@ report_lynis() {
         || ! sudo cat /var/log/lynis-report.dat > "$out"; then
         _record lynis fail "lynis failed"; warn "lynis audit failed"; return 0
     fi
+    # PKGS-7322 fires on any arch-audit advisory, even unfixable ones; check_arch_audit
+    # already warns about the fixable ones, so it is not repeated here.
     while IFS= read -r l; do warn "lynis: $l"; done \
-        < <(sed -n 's/^warning\[\]=\([^|]*\)|\([^|]*\)|.*/\1 \2/p' "$out")
+        < <(sed -n 's/^warning\[\]=\([^|]*\)|\([^|]*\)|.*/\1 \2/p' "$out" | grep -v '^PKGS-7322 ')
     n=$(grep -c '^suggestion\[\]=' "$out" || true)
     ok "Lynis hardening index $(sed -n 's/^hardening_index=//p' "$out")/100, $n suggestion(s) — $out (full log: sudo less /var/log/lynis.log)"
     _record lynis ok

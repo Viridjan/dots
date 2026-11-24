@@ -174,12 +174,14 @@ class MalwareScanTests(ExtrasCase):
 class LynisTests(ExtrasCase):
     def test_report_copied_and_warnings_surface(self):
         self.mock("lynis", "exit 0")
-        self.mock("sudo", '[[ "$1" == cat ]] && { printf "hardening_index=65\\nwarning[]=PKGS-7322|Vulnerable packages found|x|\\n'
+        self.mock("sudo", '[[ "$1" == cat ]] && { printf "hardening_index=65\\nwarning[]=PKGS-7322|Vulnerable packages found|x|\\nwarning[]=AUTH-1|Weak thing|x|\\n'
                           'suggestion[]=A|b|-|-|\\nsuggestion[]=C|d|-|-|\\n"; exit 0; }; "${@:1}"')
         self.mock("mkdir", 'exec /usr/bin/mkdir "$@"')
+        self.mock("grep", 'exec /usr/bin/grep "$@"')
         r = self.shell("report_lynis; printf '%s\\n' \"${WARNINGS[@]}\"")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("lynis: PKGS-7322 Vulnerable packages found", r.stdout)
+        self.assertIn("lynis: AUTH-1 Weak thing", r.stdout)
+        self.assertNotIn("PKGS-7322", r.stdout)   # arch-audit check covers it
         self.assertIn("hardening index 65/100, 2 suggestion(s)", r.stdout)
         self.assertIn("hardening_index=65", Path(self.shell("echo -n $STAMP_DIR").stdout, "lynis-report.dat").read_text())
 
