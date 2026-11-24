@@ -12,3 +12,4 @@ User wants install/upgrade package lists shown one package per row, pacman-style
 
 **Why:** the default wraps every package onto one line, hard to read (2026-11-14).
 **How to apply:** don't re-compact output; for new list-style output in sysup, prefer one item per line.
+Since 2026-11-24 `_pacman_verbose_lists` re-enables it before every upgrade: a machine optimized earlier still showed the wrapped list (user screenshot), because optimize is one-time.

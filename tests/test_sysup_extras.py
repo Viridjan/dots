@@ -314,6 +314,20 @@ optimize_system
                 self.assertEqual(triggers, ["2h"])
 
 
+    def test_verbose_pkg_lists_enabled_before_every_upgrade(self):
+        # Machines optimized before 2026-11-14 had it OFF; optimize never runs again there.
+        conf = self.root / "pacman.conf"
+        conf.write_text("[options]\nColor\n")
+        script = self.root / "sysup"
+        script.write_text(Path(self.env["SCRIPT"]).read_text().replace("/etc/pacman.conf", str(conf)))
+        self.env["SCRIPT"] = str(script)
+        stubs = "".join(f"{n}() {{ :; }}\n" for n in (
+            "_remove_conflicts", "_demote_packages", "_check_disk_space", "_review_aur_updates",
+            "_estimate_aur_builds", "_restart_dms_if_changed", "_dms_versions", "_syuu", "_sync_pinned"))
+        r = self.shell(stubs + 'sudo() { "$@"; }\n_upgrade_system up prog')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(conf.read_text(), "[options]\nVerbosePkgLists\nColor\n")
+
     def test_verbose_pkg_lists_enabled_once(self):
         conf = self.root / "pacman.conf"
         script = self.root / "sysup"

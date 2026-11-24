@@ -351,7 +351,8 @@ sysup --actions automount
 
 # Apply CachyOS tuning (idempotent): CPU governor, disable NM-wait-online,
 # mask lvm2-monitor, rate-mirrors 2h delay, AMD GPU performance udev rule,
-# VerbosePkgLists on in pacman.conf (one package per row; was turned OFF until 2026-11-14)
+# VerbosePkgLists on in pacman.conf (one package per row; was turned OFF until 2026-11-14;
+# since 2026-11-24 also re-checked before every upgrade by _pacman_verbose_lists)
 sysup --actions optimize
 
 # Add pam_gnome_keyring.so to /etc/pam.d/greetd (idempotent; fixes keyring unlock prompt)
