@@ -16,3 +16,5 @@ Set up 2026-11-24 after a Lynis run (hardening index 65):
 **Why rejected (don't re-propose without new reason):** umask 027 (paru/makepkg under user umask → packages with unreadable files), `modules_disabled`, `sysrq=0`, `bpf_jit_harden` (OpenSnitch eBPF), USB-storage block, rkhunter (Arch false positives; `paccheck` covers it), password ageing, /var partition.
 
 **How to apply:** Lynis "Intrusion software" is green via fail2ban. New system /etc config that must apply at early boot → copy from sysup, never stow into /. Related: [[dots-package-preferences]], [[feedback-prefer-reversible-fixes]].
+
+**Docker bypasses ufw (found 2026-11-24 via Lynis report):** published ports (`"8000:8000"`) bind 0.0.0.0 and Docker's own nft rules run before ufw, so they are LAN-reachable despite "deny incoming". Open Notebook exposed SurrealDB (root/root) that way → user removed Open Notebook everywhere. Any compose port must be `127.0.0.1:HOST:CONT` unless LAN access is wanted; check with `docker ps --format '{{.Names}} {{.Ports}}'` for `0.0.0.0`.

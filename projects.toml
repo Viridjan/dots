@@ -20,10 +20,6 @@ name = "Tournaments"
 url = "git@github.com:Viridjan/Tournaments.git"
 
 [[repo]]
-name = "open_notebook"
-url = "git@github.com:Viridjan/open_notebook.git"
-
-[[repo]]
 name = "Plancia_menu"
 url = "git@github.com:Viridjan/Plancia_menu.git"
 

@@ -139,7 +139,7 @@ install = [
     "godot",
     "rust",
 
-    # Containers (Open Notebook)
+    # Containers (Windows VM, Milvus, SuiteCRM)
     "docker",
     "docker-compose",
 

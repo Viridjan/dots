@@ -81,7 +81,7 @@ dots/
                         .githooks/nicotine-clean blanks `passw` + drops [statistics] on commit — the live file
                         keeps both; registered by deploy_dotfiles. A pull that changes it blanks the local password)
       nirinit/        → ~/.config/nirinit/  (skip list: apps the niri autostart already opens)
-  scripts/        → ~/.local/bin/ + ~/.local/lib/sysup/ (sysup.py, automount.sh)  (sysup, vjsurface, start-windows, start-open-notebook, start-battlenet, gamescope-media, social-order,
+  scripts/        → ~/.local/bin/ + ~/.local/lib/sysup/ (sysup.py, automount.sh)  (sysup, vjsurface, start-windows, start-battlenet, gamescope-media, social-order,
                     launcher-ws: Mod+Space (and `launcher-ws run [--app-id RE] CMD` shortcuts) record the workspace, `launcher-ws watch` moves the launched app back
                     unless a rule placed it; apps started by claude/codex go unfocused to the agent terminal's workspace; stowed --no-folding,
                     always from the repo root — tooling, not part of a dotfile set)
@@ -635,7 +635,7 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   `surface-secureboot` (feature `linux-surface`; only with Secure Boot on:
   installs `linux-surface-secureboot-mok`). Each is ok when already done, and
   warns (so it is not stamped) when it needs a terminal or a device. The DMS
-  init step is covered by stow-symlinks + dms-import; Open Notebook,
+  init step is covered by stow-symlinks + dms-import; Open Notebook (removed 2026-11-24),
   gamescope and maintenance hints were dropped.
 - **`vjsurface`** (2026-11-01, Surface only: profile `surface` or DMI "Surface"):
   separate script, run before or after sysup (waits out sysup's flock).

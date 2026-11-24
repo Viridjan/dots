@@ -56,3 +56,5 @@ No Flatpak: `alacritty` (terminal sandboxing issues), `shelly`.
 - [ ] Security (2026-11-24): `sysup --actions install,services,optimize,stow-symlinks` (OpenSnitch, arch-audit,
       lynis, ClamAV + freshclam timer, /etc hardening), log out/in for the OpenSnitch UI, then
       `sysup --actions lynis` once.
+- [ ] Open Notebook removed 2026-11-24 (SurrealDB root/root was LAN-reachable past ufw). Surface/Plancia, if present:
+      `cd ~/Projects/open_notebook && docker compose down --rmi all; cd ~ && sudo rm -rf ~/Projects/open_notebook`.

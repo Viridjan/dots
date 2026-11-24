@@ -69,8 +69,6 @@ repo and "Apply repository DMS settings" imports the overrides.
 Optional, by hand:
 
 ```bash
-# Open Notebook
-cd ~/Projects/Open_notebook && docker compose up -d
 # SuiteCRM — local CRM (http://localhost:8088)
 cd ~/Projects/dots && docker compose -f suitecrm/compose.yaml up -d
 # Windows VM — desktop only (web UI: http://localhost:8006, RDP: localhost:3389)
@@ -493,7 +491,7 @@ build = "git submodule update --init --recursive && make build && make install P
 | `fonts` | `~/.local/share/fonts/` — user fonts (Luminari) |
 | `mpd` | `~/.config/mpd/mpd.conf` |
 | `spotify-player` | `~/.config/spotify-player/keymap.toml` |
-| `scripts` | `~/.local/bin/{sysup,vjsurface,start-windows,start-open-notebook,start-battlenet,gamescope-media,launcher-ws,…}` + `.desktop` launchers — stowed `--no-folding`, so installers own the rest of `~/.local/bin` |
+| `scripts` | `~/.local/bin/{sysup,vjsurface,start-windows,start-battlenet,gamescope-media,launcher-ws,…}` + `.desktop` launchers — stowed `--no-folding`, so installers own the rest of `~/.local/bin` |
 
 **Per-device app config:** copy a package to `<pkg>@<profile>` (e.g.
 `cp -r dotsets/viridjan/alacritty dotsets/viridjan/alacritty@surface`), edit the copy, then
