@@ -221,6 +221,12 @@ class HardeningTests(ExtrasCase):
         self.assertIn("banaction = ufw\n", (etc / "fail2ban/jail.d/dots.local").read_text())
         self.assertIn("skip-test=KRNL-6000:kernel.sysrq\n", (etc / "lynis/custom.prf").read_text())
         self.assertIn("* hard core 0\n", (etc / "security/limits.d/dots-hardening.conf").read_text())
+        import json
+        rule = json.loads((etc / "opensnitchd/rules/dots-allow-timesyncd.json").read_text())
+        self.assertEqual((rule["name"], rule["action"], rule["duration"]), ("dots-allow-timesyncd", "allow", "always"))
+        self.assertEqual(rule["operator"], {"type": "simple", "operand": "process.path", "sensitive": False,
+                                            "data": "/usr/lib/systemd/systemd-timesyncd", "list": []})
+        self.assertEqual(len(list((etc / "opensnitchd/rules").glob("dots-allow-*.json"))), 8)
         self.assertIn("net.ipv4.conf.all.send_redirects = 0\n", sysctl)
         self.assertIn("systemctl", Path(self.env["CALLS"]).read_text())   # fail2ban reloaded
         self.assertIn(f"sysctl -q -p {etc}/sysctl.d/99-dots-hardening.conf", Path(self.env["CALLS"]).read_text())

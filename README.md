@@ -578,6 +578,8 @@ e.g. `check 2d ago: 1 failed (pacman-db)`. Run it now with
   `snitch-report [HOURS]` summarises what connected out (programs new in that window first,
   blocked and root ones tagged); `snitch-report --follow` prints each new program→destination
   live. Events are kept 14 days.
+  System daemons (time sync, DNS, NetworkManager, pacman, ClamAV updates, firmware, gh) are
+  allowed permanently by rules sysup writes (`/etc/opensnitchd/rules/dots-allow-*.json`).
 - **arch-audit** — part of `sysup --check`: warns when an installed package has a security
   fix waiting (run `sysup --update`); advisories without a fix are one info line.
 - **ClamAV** — part of `sysup --check`, once a week: scans `~/Downloads`, `~/Shared` (Windows

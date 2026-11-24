@@ -615,7 +615,9 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   `_opensnitch_defaults` (dotfiles deploy) sets `[global] default_action=1` in
   `~/.config/opensnitch/settings.conf` (0 = deny is the UI's built-in default) so an
   unanswered pop-up allows — user choice, keeps unattended sysup/games working; skipped
-  while the UI runs (it rewrites the file on exit). It also moves the UI's event database from memory
+  while the UI runs (it rewrites the file on exit). Permanent allow rules for system daemons
+  (`_SNITCH_ALLOW`: timesyncd, resolved, NetworkManager, avahi, pacman, freshclam, fwupd, gh; by
+  `process.path`) are written by `_system_hardening` to `/etc/opensnitchd/rules/dots-allow-*.json`. It also moves the UI's event database from memory
   to `~/.local/share/opensnitch/events.db` (`[database] type=1`, 14 days kept) so
   `snitch-report` (scripts; `[HOURS]` summary flagging NEW/DENY/ROOT, `--follow` live new
   program→destination pairs, `SNITCH_DB` override, tests `tests/test_snitch_report.py`) can read it. `lynis` runs via `sysup --actions lynis`.

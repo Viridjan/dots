@@ -2344,18 +2344,56 @@ skip-test=FINT-4350
 skip-test=FILE-7524
 skip-test=BOOT-5264
 '
+# OpenSnitch allow-always rules for system daemons and tools you would allow anyway
+# (2026-11-24): one rule file per program path, matched by executable path only.
+_SNITCH_ALLOW='timesyncd /usr/lib/systemd/systemd-timesyncd
+resolved /usr/lib/systemd/systemd-resolved
+networkmanager /usr/bin/NetworkManager
+avahi /usr/bin/avahi-daemon
+pacman /usr/bin/pacman
+freshclam /usr/bin/freshclam
+fwupd /usr/lib/fwupd/fwupd
+gh /usr/bin/gh'
+_snitch_rule() {
+    printf '{
+    "created": "2026-11-24T00:00:00Z",
+    "updated": "2026-11-24T00:00:00Z",
+    "name": "dots-allow-%s",
+    "description": "sysup (_system_hardening): system daemon, always allowed",
+    "enabled": true,
+    "precedence": false,
+    "nolog": false,
+    "action": "allow",
+    "duration": "always",
+    "operator": {
+        "type": "simple",
+        "operand": "process.path",
+        "sensitive": false,
+        "data": "%s",
+        "list": []
+    }
+}
+' "$1" "$2"
+}
+
 _system_hardening() {
-    local etc=${SYSUP_ETC:-/etc} f var content changed=() spec
-    for spec in "sysctl.d/99-dots-hardening.conf:_HARDEN_SYSCTL" \
-                "modprobe.d/dots-hardening.conf:_HARDEN_MODPROBE" \
-                "systemd/coredump.conf.d/dots-hardening.conf:_HARDEN_COREDUMP" \
-                "fail2ban/jail.d/dots.local:_HARDEN_FAIL2BAN" \
-                "lynis/custom.prf:_HARDEN_LYNIS" \
-                "security/limits.d/dots-hardening.conf:_HARDEN_LIMITS"; do
-        f="$etc/${spec%%:*}"; var=${spec##*:}; content=${!var}
+    local etc=${SYSUP_ETC:-/etc} f rel content changed=() name path
+    local -A etc_files=(
+        [sysctl.d/99-dots-hardening.conf]=$_HARDEN_SYSCTL
+        [modprobe.d/dots-hardening.conf]=$_HARDEN_MODPROBE
+        [systemd/coredump.conf.d/dots-hardening.conf]=$_HARDEN_COREDUMP
+        [fail2ban/jail.d/dots.local]=$_HARDEN_FAIL2BAN
+        [lynis/custom.prf]=$_HARDEN_LYNIS
+        [security/limits.d/dots-hardening.conf]=$_HARDEN_LIMITS
+    )
+    while read -r name path; do
+        etc_files["opensnitchd/rules/dots-allow-$name.json"]=$(_snitch_rule "$name" "$path")$'\n'
+    done <<<"$_SNITCH_ALLOW"
+    for rel in "${!etc_files[@]}"; do
+        f="$etc/$rel"; content=${etc_files[$rel]}
         [[ "$(cat "$f" 2>/dev/null)"$'\n' == "$content" ]] && continue
         if sudo mkdir -p "${f%/*}" && printf '%s' "$content" | sudo tee "$f" >/dev/null; then
-            changed+=("${f#"$etc"/}")
+            changed+=("$rel")
         else
             warn "hardening: could not write $f"
         fi
@@ -2366,6 +2404,7 @@ _system_hardening() {
         || warn "hardening: sysctl apply failed (applies at next boot)"
     [[ " ${changed[*]} " != *" fail2ban/"* ]] \
         || sudo systemctl try-reload-or-restart fail2ban 2>/dev/null || true
+    # opensnitchd watches its rules directory: new rule files load without a restart.
     ok "hardening applied: ${changed[*]}"
 }
 
