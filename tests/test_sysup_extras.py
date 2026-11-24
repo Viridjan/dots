@@ -232,9 +232,10 @@ class HardeningTests(ExtrasCase):
         self.mock("sudo", 'echo "sudo $1" >> "$CALLS"; "$@"')
         self.mock("sysctl", 'echo "sysctl $*" >> "$CALLS"')
         self.mock("systemctl", 'echo "systemctl $*" >> "$CALLS"')
+        self.mock("opensnitchd", "exit 0")
         for tool in ("mkdir", "tee"):
             self.mock(tool, f'exec /usr/bin/{tool} "$@"')
-        r = self.shell("_system_hardening")
+        r = self.shell(f'DOTS_DIR="{Path(__file__).resolve().parent.parent}"; _system_hardening')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         sysctl = (etc / "sysctl.d/99-dots-hardening.conf").read_text()
         self.assertIn("fs.protected_regular = 2\n", sysctl)
@@ -249,12 +250,17 @@ class HardeningTests(ExtrasCase):
         self.assertEqual(rule["operator"], {"type": "simple", "operand": "process.path", "sensitive": False,
                                             "data": "/usr/lib/systemd/systemd-timesyncd", "list": []})
         self.assertEqual(len(list((etc / "opensnitchd/rules").glob("dots-allow-*.json"))), 8)
+        unit = (etc / "systemd/system/snitch-triage.service").read_text()
+        self.assertIn("ExecStart=/usr/bin/python3 -I /etc/opensnitchd/dots-triage.py", unit)
+        self.assertNotIn("Restart=always", unit)   # aur_check's persistence heuristic
+        self.assertIn("def classify(path):", (etc / "opensnitchd/dots-triage.py").read_text())
+        self.assertIn("systemctl enable snitch-triage", Path(self.env["CALLS"]).read_text())
         self.assertIn("net.ipv4.conf.all.send_redirects = 0\n", sysctl)
         self.assertIn("systemctl", Path(self.env["CALLS"]).read_text())   # fail2ban reloaded
         self.assertIn(f"sysctl -q -p {etc}/sysctl.d/99-dots-hardening.conf", Path(self.env["CALLS"]).read_text())
         # Second run: identical content, nothing written or applied.
         Path(self.env["CALLS"]).unlink()
-        r = self.shell("_system_hardening")
+        r = self.shell(f'DOTS_DIR="{Path(__file__).resolve().parent.parent}"; _system_hardening')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertFalse(Path(self.env["CALLS"]).exists(), r.stdout)
 

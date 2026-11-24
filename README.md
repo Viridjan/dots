@@ -582,6 +582,10 @@ e.g. `check 2d ago: 1 failed (pacman-db)`. Run it now with
   allowed permanently by rules sysup writes (`/etc/opensnitchd/rules/dots-allow-*.json`).
   Your own rules: answer pop-ups with **forever** (12h answers are never saved), then
   `sysup --actions snitch-export` and commit — every machine gets them back.
+  **Auto-triage:** a root service (`snitch-triage`) writes permanent rules for each new program:
+  allow = unmodified program from an official package (not interpreters/curl/ssh/git and similar);
+  deny = runs from /tmp, /dev/shm, ~/Downloads, deleted, or an unowned file in /usr. Everything
+  else still asks. Decisions: `/var/log/snitch-triage.log`.
 - **arch-audit** — part of `sysup --check`: warns when an installed package has a security
   fix waiting (run `sysup --update`); advisories without a fix are one info line.
 - **ClamAV** — part of `sysup --check`, once a week: scans `~/Downloads`, `~/Shared` (Windows
