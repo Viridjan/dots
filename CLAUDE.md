@@ -893,6 +893,8 @@ To register by hand: `git -C ~/Projects/dots config core.hooksPath .githooks`
 
 Gotchas when linting these scripts:
 
+- **`< <(…)` inherits the ERR trap** (`set -E`): a grep there that matches nothing
+  fires the trap, whose recap lands in the pipe as data. End such greps in `|| true`.
 - **A comment line starting with `# shellcheck ` parses as a directive.** It caused
   SC1072/SC1073 and made shellcheck skip all 1840 lines of `sysup` while still
   looking like it ran. If output is only SC1072/SC1073, nothing was checked.

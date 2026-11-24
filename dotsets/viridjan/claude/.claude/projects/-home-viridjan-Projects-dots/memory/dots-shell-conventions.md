@@ -53,3 +53,5 @@ pattern, exit 144 (2026-11-24). Hit AGAIN the same day with `pkill -f 'alacritty
 `for p in $(pgrep -x bash); do tr '\0' ' ' </proc/$p/cmdline | grep -q '^bash [^ ]*launcher-ws watch $' && kill $p; done`.
 
 Related: [[feedback-verification-rigor]], [[vjupdate-optimize]].
+
+**Process substitution + ERR trap (2026-11-24):** sysup runs with `set -E`, so `done < <(… | grep …)` inherits the ERR trap. A grep there that matches nothing exits 1 → the trap prints a recap *into the pipe*, and the loop turns each recap line into data (showed up as `[!] lynis: Results …`). Every grep inside `< <(…)` needs `|| true` (wrap as `{ grep … || true; }` mid-pipeline).

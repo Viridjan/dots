@@ -188,6 +188,21 @@ class LynisTests(ExtrasCase):
         self.assertIn("hardening_index=65", Path(self.shell("echo -n $STAMP_DIR").stdout, "lynis-report.dat").read_text())
 
 
+class LynisOnlyFilteredWarningTests(ExtrasCase):
+    def test_only_pkgs_7322_raises_no_trap_inside_the_loop(self):
+        # 2026-11-24: grep -v matched nothing → ERR trap ran in the process substitution
+        # and its recap came back as "lynis:" warnings.
+        self.mock("lynis", "exit 0")
+        self.mock("sudo", '[[ "$1" == cat ]] && { printf "hardening_index=71\\nwarning[]=PKGS-7322|Vulnerable|x|\\n"; exit 0; }; "$@"')
+        for tool in ("mkdir", "grep", "sed"):
+            self.mock(tool, f'exec /usr/bin/{tool} "$@"')
+        r = self.shell("set -E; trap 'echo TRAPPED' ERR; report_lynis; printf 'W:%s\\n' \"${WARNINGS[@]}\"")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("TRAPPED", r.stdout)
+        self.assertNotIn("W:lynis", r.stdout)
+        self.assertIn("hardening index 71/100", r.stdout)
+
+
 class HardeningTests(ExtrasCase):
     def test_hardening_files_written_once_and_sysctl_applied(self):
         etc = self.root / "etc"
