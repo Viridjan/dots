@@ -295,7 +295,7 @@ already-working symlinks.
 
 ### Review and upload changes
 
-Run actions by ID, e.g. `sysup --actions dms-export,dotfiles-export`, or mark them in the bare `sysup` menu.
+Run actions by ID, e.g. `sysup --actions export,dotfiles-export`, or mark them in the bare `sysup` menu.
 
 **Refresh configuration links** starts checked so new tracked settings get linked.
 It does not copy DMS overrides; conflicts remain untouched unless `--adopt` was
@@ -543,7 +543,7 @@ Steam creates on install, Discord's). Tracked launchers such as Battle.net stay.
 Start games from Steam; re-run after installing a game:
 
 ```bash
-sysup --actions steam-launchers
+sysup --actions launchers
 ```
 
 The same action keeps Big Picture off (no Big Picture at launch, Guide button doesn't
@@ -557,7 +557,7 @@ app, deleted script), and reports installed apps not mirrored into
 `/usr/share/applications/`):
 
 ```bash
-sysup --actions app-launchers
+sysup --actions launchers   # same action as the Steam cleanup above
 ```
 
 
@@ -581,7 +581,7 @@ e.g. `check 2d ago: 1 failed (pacman-db)`. Run it now with
   System daemons (time sync, DNS, NetworkManager, pacman, ClamAV updates, firmware, gh) are
   allowed permanently by rules sysup writes (`/etc/opensnitchd/rules/dots-allow-*.json`).
   Your own rules: answer pop-ups with **forever** (12h answers are never saved), then
-  `sysup --actions snitch-export` and commit — every machine gets them back.
+  `sysup --actions export` and commit — every machine gets them back.
 - **arch-audit** — part of `sysup --check`: warns when an installed package has a security
   fix waiting (run `sysup --update`); advisories without a fix are one info line.
 - **ClamAV** — part of `sysup --check`, once a week: scans `~/Downloads`, `~/Shared` (Windows

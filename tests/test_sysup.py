@@ -320,11 +320,28 @@ printf '%s\\n' "${MENU_ORDER[@]}"
         self.assertEqual(r.returncode, 0, r.stderr)
         ids = r.stdout.splitlines()
         self.assertIn('stow-symlinks', ids)
-        self.assertIn('dms-export', ids)
+        self.assertIn('export', ids)
+        self.assertNotIn('dms-export', ids)
         self.assertIn('dotfiles-export', ids)
         self.assertEqual(ids.count('dms-import'), 1)
         self.assertNotIn('dotfiles-import', ids)
         self.assertNotIn('dotfiles', ids)
+
+    def test_old_ids_alias_merged_actions(self):
+        r = self.shell('''
+CONFIGURE_PROMPTED=true
+CONFIGURE_ITEMS=$'export\\nlaunchers'
+dms_export() { echo DMS; }
+export_snitch_rules() { echo SNITCH; }
+setup_steam_launchers() { echo STEAM; }
+check_app_launchers() { echo APPS; }
+phase_configure
+for a in steam-launchers app-launchers python-rebuild dms-export snitch-export; do echo "$a=${ACTION_ALIASES[$a]}"; done
+''')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        for word in ("DMS", "SNITCH", "STEAM", "APPS", "steam-launchers=launchers",
+                     "python-rebuild=rebuild", "snitch-export=export"):
+            self.assertIn(word, r.stdout)
 
     def test_declined_staging_does_not_modify_or_push(self):
         r = self.shell('_confirm() { return 1; }\nexport_dotfiles\nprint_recap')
@@ -364,8 +381,9 @@ printf '%s\\n' "${MENU_ORDER[@]}"
     def test_upload_runs_after_export(self):
         r = self.shell('''
 CONFIGURE_PROMPTED=true
-CONFIGURE_ITEMS=$'dms-export — export\\ndotfiles-export — upload'
+CONFIGURE_ITEMS=$'export — export\\ndotfiles-export — upload'
 dms_export() { echo EXPORTED; }
+export_snitch_rules() { :; }
 export_dotfiles() { echo UPLOADED; }
 phase_configure
 ''')
@@ -473,12 +491,12 @@ print_recap
         (self.home / "Projects/dots").mkdir(parents=True, exist_ok=True)
         with (state / "sysup.lock").open("w") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            r = self.cli("--actions", "app-launchers")
+            r = self.cli("--actions", "launchers")
             self.assertNotEqual(r.returncode, 0)
             self.assertIn("already running", r.stderr)
             self.assertEqual(log.read_text(), "original log")
             self.assertFalse((state / "sysup.log.1").exists())
-        r = self.cli("--actions", "app-launchers")
+        r = self.cli("--actions", "launchers")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual((state / "sysup.log.1").read_text(), "original log")
 
@@ -494,7 +512,7 @@ print_recap
     def test_log_tee_does_not_hold_lock(self):
         (self.home / "Projects/dots").mkdir(parents=True, exist_ok=True)
         self.mock("tee", self.FD_DUMP + 'exec /usr/bin/tee "$@"')
-        r = self.cli("--actions", "app-launchers")
+        r = self.cli("--actions", "launchers")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assert_lock_dropped()
 
@@ -882,7 +900,7 @@ fi
 # Redirect the directory scan into a temporary filesystem fixture.
 fn=$(declare -f check_python_rebuilds)
 eval "${fn//\/usr\/lib/$PYTHON_ROOT}"
-AUDIT_PYTHON_REBUILD=true
+AUDIT_REBUILD=true
 check_python_rebuilds
 ''')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)

@@ -58,7 +58,6 @@ INTERACTIVE=true
 CONFIGURE_ITEMS=""
 CONFIGURE_PROMPTED=false
 AUDIT_ORPHAN_REMOVAL=false
-AUDIT_PYTHON_REBUILD=false
 AUDIT_REBUILD=false
 AUDIT_PACNEW=false
 CLEAN=false
@@ -121,7 +120,6 @@ _protected_conflicts() {
 # unchecked because only two of the four lists had been updated.
 declare -A AUDIT_ACTIONS=(
     [orphan-removal]=AUDIT_ORPHAN_REMOVAL
-    [python-rebuild]=AUDIT_PYTHON_REBUILD
     [rebuild]=AUDIT_REBUILD
     [pacnew-merge]=AUDIT_PACNEW
 )
@@ -2385,7 +2383,7 @@ _system_hardening() {
     while read -r name path; do
         etc_files["opensnitchd/rules/dots-allow-$name.json"]=$(_snitch_rule "$name" "$path")$'\n'
     done <<<"$_SNITCH_ALLOW"
-    # Your own "forever" rules, saved by snitch-export.
+    # Your own "forever" rules, saved by the export action.
     for f in "$DOTS_DIR"/opensnitch/rules/*.json; do
         [[ -f "$f" ]] && etc_files["opensnitchd/rules/${f##*/}"]=$(<"$f")$'\n'
     done
@@ -3318,7 +3316,7 @@ check_python_rebuilds() {
     fi
 
     warn "Packages needing Python rebuild: $unique_packages"
-    if ! $AUDIT_PYTHON_REBUILD; then warn "Python rebuild skipped — enable via configure checklist"; return; fi
+    if ! $AUDIT_REBUILD; then warn "Python rebuild skipped — enable via configure checklist"; return; fi
     # shellcheck disable=SC2086  # word-split intended: multiple package args
     _paru -S --noconfirm $unique_packages
     ok "python packages rebuilt"
@@ -3804,7 +3802,15 @@ phase_sources() {
 phase_install()  { install_all; }
 phase_dotfiles() { deploy_dotfiles; dms_import; }
 # Action IDs for --actions (fish completion reads this line).
-MENU_ORDER=(sources install services snapper automount optimize keyboard kernels greeter keyring-pam nvidia-niri install-scripts fish dms-plugins dms-export claude caveman-code ollama vms steam-launchers app-launchers lostfiles lynis snitch-export dotfiles-export stow-symlinks dms-import audit orphan-removal rebuild python-rebuild pacnew-merge git-identity ssh-key fingerprint bitwarden yubikey-pin surface-secureboot)
+MENU_ORDER=(sources install services snapper automount optimize keyboard kernels greeter keyring-pam nvidia-niri install-scripts fish dms-plugins export claude caveman-code ollama vms launchers lostfiles lynis dotfiles-export stow-symlinks dms-import audit orphan-removal rebuild pacnew-merge git-identity ssh-key fingerprint bitwarden yubikey-pin surface-secureboot)
+# Merged IDs (2026-11-24); old names still work with --actions.
+declare -A ACTION_ALIASES=([steam-launchers]=launchers [app-launchers]=launchers
+    [python-rebuild]=rebuild [dms-export]=export [snitch-export]=export)
+
+# Save live settings to the repo: DMS overrides (not colors) + OpenSnitch "forever" rules.
+export_live_settings() { dms_export; export_snitch_rules; }
+# Steam game launchers out (Big Picture off), then stale app launchers.
+maintain_launchers() { setup_steam_launchers; check_app_launchers; }
 
 # Accept stable IDs; keep legacy programmatic selection payloads compatible.
 _selected_action() {
@@ -3907,7 +3913,7 @@ phase_configure() {
 
     _sel() { _selected_action "$1" "$_selected"; }
 
-    _sel "dms-export"      && _act dms-export dms_export
+    _sel "export"          && _act export export_live_settings
     # Save/export first, then deploy links and copy DMS overrides,
     # before services: it enables user units that are stow links.
     # The old import alias remains accepted in programmatic payloads.
@@ -3941,11 +3947,9 @@ phase_configure() {
     _sel "surface-secureboot" && _act surface-secureboot setup_surface_secureboot
     # Audit-dependent actions are resolved in bootstrap() from the AUDIT_ACTIONS
     # table (which also enables the audit phase); nothing to set here.
-    _sel "steam-launchers" && _act steam-launchers setup_steam_launchers
-    _sel "app-launchers"   && _act app-launchers check_app_launchers
+    _sel "launchers"       && _act launchers maintain_launchers
     _sel "lostfiles"       && _act lostfiles report_unowned_files
     _sel "lynis"           && _act lynis report_lynis
-    _sel "snitch-export"   && _act snitch-export export_snitch_rules
 
     return 0
 }
@@ -3979,8 +3983,9 @@ bootstrap() {
         local _id
         _selected=""
         for _id in ${SYSUP_ACTIONS//,/ }; do
+            _id=${ACTION_ALIASES[$_id]:-$_id}
             [[ " ${MENU_ORDER[*]} " == *" $_id "* ]] || die "unknown action: $_id"
-            _selected+="$_id"$'\n'
+            _selected_action "$_id" "$_selected" || _selected+="$_id"$'\n'
         done
         _ensure_dots_repo
 
@@ -4012,7 +4017,7 @@ bootstrap() {
     # A dotfiles-only run still needs no network. The post-audit scan is too late
     # to guard rebuilds because they execute before it.
     if { ! _skipped install || ! _skipped sources; } \
-        || { ! _skipped "audit" && { $AUDIT_REBUILD || $AUDIT_PYTHON_REBUILD || $AUDIT_ORPHAN_REMOVAL; }; } \
+        || { ! _skipped "audit" && { $AUDIT_REBUILD || $AUDIT_ORPHAN_REMOVAL; }; } \
         || { ! _skipped "configure" && _selected_action kernels "$CONFIGURE_ITEMS"; }; then
         _check_packages_against_malware
         # phase_install runs paru -Syuu, which rebuilds installed AUR packages
