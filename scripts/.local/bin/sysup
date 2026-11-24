@@ -3113,6 +3113,32 @@ report_unowned_files() {
     fi
 }
 
+# Lynis hardening audit (--actions lynis): a few minutes, needs root, report only.
+# The root-only report is copied to $STAMP_DIR so the reminder and you can read it.
+report_lynis() {
+    command -v lynis &>/dev/null || { warn "lynis not found — sysup --actions install"; return 0; }
+    local out="$STAMP_DIR/lynis-report.dat" l n
+    mkdir -p "$STAMP_DIR"
+    info "Lynis: auditing the system (a few minutes)..."
+    # shellcheck disable=SC2024  # the copy belongs to the user, not root
+    if ! sudo lynis audit system --quick --no-colors --quiet >/dev/null 2>&1 \
+        || ! sudo cat /var/log/lynis-report.dat > "$out"; then
+        _record lynis fail "lynis failed"; warn "lynis audit failed"; return 0
+    fi
+    while IFS= read -r l; do warn "lynis: $l"; done \
+        < <(sed -n 's/^warning\[\]=\([^|]*\)|\([^|]*\)|.*/\1 \2/p' "$out")
+    n=$(grep -c '^suggestion\[\]=' "$out" || true)
+    ok "Lynis hardening index $(sed -n 's/^hardening_index=//p' "$out")/100, $n suggestion(s) — $out (full log: sudo less /var/log/lynis.log)"
+    _record lynis ok
+}
+
+# Reminder only: the last Lynis report (above) is older than 90 days.
+check_lynis_age() {
+    command -v lynis &>/dev/null || return 0
+    _needs_run lynis-report.dat $((90 * 86400)) || return 0
+    info "Lynis: no audit in 90 days — sysup --actions lynis"
+}
+
 # ─── Maintenance: foreign packages + orphan removal ──────
 check_foreign_orphans() {
     info "Checking foreign (AUR) packages..."
@@ -3644,7 +3670,7 @@ phase_sources() {
 phase_install()  { install_all; }
 phase_dotfiles() { deploy_dotfiles; dms_import; }
 # Action IDs for --actions (fish completion reads this line).
-MENU_ORDER=(sources install services snapper automount optimize keyboard kernels greeter keyring-pam nvidia-niri install-scripts fish dms-plugins dms-export claude caveman-code ollama vms steam-launchers app-launchers lostfiles dotfiles-export stow-symlinks dms-import audit orphan-removal rebuild python-rebuild pacnew-merge git-identity ssh-key fingerprint bitwarden yubikey-pin surface-secureboot)
+MENU_ORDER=(sources install services snapper automount optimize keyboard kernels greeter keyring-pam nvidia-niri install-scripts fish dms-plugins dms-export claude caveman-code ollama vms steam-launchers app-launchers lostfiles lynis dotfiles-export stow-symlinks dms-import audit orphan-removal rebuild python-rebuild pacnew-merge git-identity ssh-key fingerprint bitwarden yubikey-pin surface-secureboot)
 
 # Accept stable IDs; keep legacy programmatic selection payloads compatible.
 _selected_action() {
@@ -3784,6 +3810,7 @@ phase_configure() {
     _sel "steam-launchers" && _act steam-launchers setup_steam_launchers
     _sel "app-launchers"   && _act app-launchers check_app_launchers
     _sel "lostfiles"       && _act lostfiles report_unowned_files
+    _sel "lynis"           && _act lynis report_lynis
 
     return 0
 }
@@ -3793,7 +3820,7 @@ phase_update()   { system_update; flatpak_update; clean_caches; }
 AUDIT_CHECKS=(check_held_updates check_foreign_orphans check_unused_apps check_rebuilds
               check_python_rebuilds check_pacnew check_modified_configs check_dms_owner check_surface_kernel
               check_logins check_firmware check_aur_malware check_aur_health check_pacman_db
-              check_secureboot_certs check_cpu_vulns check_arch_audit check_malware_scan
+              check_secureboot_certs check_cpu_vulns check_arch_audit check_malware_scan check_lynis_age
               check_package_files)
 _run_audit_checks() { local c; for c in "${AUDIT_CHECKS[@]}"; do "$c"; done; }
 # The audit phase also removes unused flatpak runtimes; --check stays report-only.

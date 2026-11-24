@@ -582,7 +582,8 @@ e.g. `check 2d ago: 1 failed (pacman-db)`. Run it now with
 - **ClamAV** — part of `sysup --check`, once a week: scans `~/Downloads`, `~/Shared` (Windows
   VM share) and `/mnt/data/Downloads`; warns on a hit (report in
   `~/.local/state/dots/clamscan.txt`). Signatures update daily; no always-on daemon.
-- **Lynis** — run by hand now and then: `sudo lynis audit system` (report only).
+- **Lynis** — `sysup --actions lynis` (menu: health): hardening index, warnings, suggestions
+  (report only). `sysup --check` reminds you after 90 days without one.
 - **Hardening** (from Lynis): `sysup --actions optimize`, and every update, writes stricter
   kernel settings (`/etc/sysctl.d/99-dots-hardening.conf`), blocks unused network protocols
   (dccp, sctp, rds, tipc) and turns core dumps off. Delete those files to undo.

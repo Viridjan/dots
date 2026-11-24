@@ -572,6 +572,9 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
     spawn), `check_logins` (gh token, SSH key, claude/codex/spotify_player/
     vesktop credentials — only for installed tools, local checks only).
     `sysup --actions lostfiles` runs `pacreport --unowned-files` (~1 min, report).
+    `sysup --actions lynis` (2026-11-24): `sudo lynis audit system --quick`, report copied to
+    `$STAMP_DIR/lynis-report.dat`; warnings → warn, prints hardening index + suggestion count.
+    `check_lynis_age` (audit) = info line when that copy is over 90 days old.
   - *Preflight*: refuses to run as root; warns under 5 GiB free on `/`
     (`SYSUP_MIN_FREE_GB`); keeps an existing sudo ticket alive (`sudo -n -v`
     loop, terminal runs only, killed in `_cleanup`). `--update`/`--yes` in a terminal
@@ -609,8 +612,7 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   `_opensnitch_defaults` (dotfiles deploy) sets `[global] default_action=1` in
   `~/.config/opensnitch/settings.conf` (0 = deny is the UI's built-in default) so an
   unanswered pop-up allows — user choice, keeps unattended sysup/games working; skipped
-  while the UI runs (it rewrites the file on exit). `lynis` is installed for manual
-  `sudo lynis audit system` runs.
+  while the UI runs (it rewrites the file on exit). `lynis` runs via `sysup --actions lynis`.
 - **Guards added 2026-11-01 (Surface incidents).** `_warn_unfolded` (after each
   home package stows): warns when a target is a real dir instead of a folded
   link (stow then links file by file and new files never reach git; skips

@@ -68,6 +68,7 @@ ACTIONS = {
     "steam-launchers": ("launchers", "Remove Steam game launchers", "Keep games out of the app launcher (start them from Steam), keep Big Picture off."),
     "app-launchers": ("launchers", "Maintain application launchers", "Remove stale app launchers; report apps without local launcher copies."),
     "lostfiles": ("health", "Report files owned by no package", "Run pacreport --unowned-files (about a minute, report only)."),
+    "lynis": ("health", "Run a Lynis security audit", "sudo lynis audit system: hardening index, warnings, suggestions (a few minutes, report only)."),
     "dotfiles-export": ("dotfiles", "Review and upload Git changes", "Review, stage, commit and push repo changes; each step asks for confirmation."),
     "stow-symlinks": ("dotfiles", "Refresh configuration links", "Refresh Stow/niri links. Conflicts stay unless --adopt was passed."),
     "dms-import": ("dotfiles", "Apply repository DMS settings", "Overwrite the live DMS overrides, including colors. No Git pull."),
