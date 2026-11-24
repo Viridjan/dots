@@ -735,8 +735,11 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   conflict. Lutris stays in `[paru].remove`: nothing uses it (Battle.net is umu).
 - **Conflict swaps in `--update`.** `_remove_conflicts` (installed
   `[paru].remove` entries only) + `_demote_packages` run in both `install_all`
-  and `system_update`; `--update` installs nothing, so it warns to run
-  `sysup --actions install` for replacements. The old hardcoded
+  and `system_update`; when `--update` removed one, it then runs `_install_list`
+  on `paru-install.list` (every missing listed package) so the replacement lands in
+  the same run (2026-11-24). A package the machine installs is never in
+  `paru-remove.list` (`resolve` drops it): brightnessctl was in the shared remove list
+  and the Surface profile, so each run removed it. The old hardcoded
   `_swap_pkg libreoffice` is gone.
 - **Automount lives in `scripts/.local/lib/sysup/automount.sh`**, sourced on
   first call by the `automount_disks` stub (path `${BASH_SOURCE%/*}/../lib`, so

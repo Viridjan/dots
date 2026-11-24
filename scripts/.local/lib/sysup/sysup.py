@@ -276,7 +276,9 @@ def resolve(repo: Repo, cfg: dict) -> dict:
         out[f"{src}_install"] = [p for p in _uniq(wanted) if p not in drop]
     # Repo removes are conflict swaps (pacman -Rdd); local removes are demoted
     # to dependencies, so anything still required stays (pacman -D --asdeps).
-    out["paru_remove"] = _uniq(pk.get("paru", {}).get("remove", []))
+    # A package this machine installs is never force-removed: brightnessctl sat in
+    # the shared remove list and the Surface profile, so every run removed it.
+    out["paru_remove"] = [p for p in _uniq(pk.get("paru", {}).get("remove", [])) if p not in out["paru_install"]]
     out["paru_demote"] = _uniq(cfg["paru"]["remove"])
     out["flatpak_remove"] = _uniq(pk.get("flatpak", {}).get("remove", []))
     out["ignore"] = _uniq(cfg["ignored"]["paru"] + cfg["ignored"]["flatpak"])

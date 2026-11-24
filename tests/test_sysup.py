@@ -1347,13 +1347,17 @@ class RunPlanTests(FixtureCase):
         self.mock("sudo", 'echo "sudo $*" >> "$CALLS"')
         r = self.shell('refresh_mirrors() { :; }\n_demote_packages() { echo DEMOTED; }\n'
                        '_check_disk_space() { :; }\n_review_aur_updates() { :; }\n'
-                       '_estimate_aur_builds() { :; }\n_syuu() { return 0; }\nsystem_update')
+                       '_estimate_aur_builds() { :; }\n_syuu() { return 0; }\n'
+                       '_install_list() { echo "INSTALL $1"; }\nsystem_update')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         calls = Path(self.env["CALLS"]).read_text()
         self.assertIn("pacman -Rdd --noconfirm here", calls)
         self.assertNotIn("gone", calls)
         self.assertIn("DEMOTED", r.stdout)
-        self.assertIn("sysup --actions install", r.stdout)
+        # the replacement is installed in the same --update run
+        self.assertIn("INSTALL " + str(self.root), r.stdout)
+        self.assertIn("paru-install.list", r.stdout)
+        self.assertNotIn("sysup --actions install", r.stdout)
 
     def test_check_saves_results_for_vj(self):
         r = self.shell('detect_machine() { :; }\n'

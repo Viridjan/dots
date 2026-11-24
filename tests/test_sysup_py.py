@@ -150,6 +150,12 @@ class ResolveTests(Tmp):
         self.assertEqual(r["paru_demote"], ["steam"])
         self.assertNotIn("fish", r["paru_demote"])
 
+    def test_installed_package_is_not_force_removed(self):
+        self.cfg["paru"] = {"add": ["wine"], "remove": []}
+        r = S.resolve(self.repo, self.cfg)
+        self.assertIn("wine", r["paru_install"])
+        self.assertEqual(r["paru_remove"], [])
+
     def test_features(self):
         self.assertEqual(S.features(self.repo, self.cfg), ["amd-gpu-tuning"])
 

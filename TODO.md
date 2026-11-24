@@ -58,3 +58,4 @@ No Flatpak: `alacritty` (terminal sandboxing issues), `shelly`.
       `sysup --actions lynis` once.
 - [ ] Open Notebook removed 2026-11-24 (SurrealDB root/root was LAN-reachable past ufw). Surface/Plancia, if present:
       `cd ~/Projects/open_notebook && docker compose down --rmi all; cd ~ && sudo rm -rf ~/Projects/open_notebook`.
+- [ ] Craft Anything is desktop-only since 2026-11-24. Surface/Plancia: `flatpak uninstall ai.storyteller.craft-anything`.

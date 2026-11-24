@@ -30,6 +30,10 @@ install = [
     "dux-shell-plugin-hass-git",
 ]
 
+[flatpak]
+# Desktop only (dropped from Surface/Plancia 2026-11-24)
+install = ["ai.storyteller.craft-anything"]
+
 [systemd]
 # limine-snapper-sync: limine machines only (the Surface boots via GRUB)
 enable = ["ollama", "limine-snapper-sync.service"]

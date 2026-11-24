@@ -1082,7 +1082,7 @@ refresh_mirrors() {
 
 # Force-remove [paru].remove packages (conflict swaps) that are installed.
 # -Rdd skips dep checks so replacements (e.g. wine→wine-cachyos) don't block.
-# Sets REMOVED_CONFLICTS so --update can point at the replacement install.
+# Sets REMOVED_CONFLICTS so --update installs the replacements right away.
 REMOVED_CONFLICTS=()
 _remove_conflicts() {
     local _conflicts pkg out
@@ -1106,7 +1106,7 @@ _remove_conflicts() {
     done <<< "$_conflicts"
 }
 
-# _upgrade_system OK-MESSAGE PROGRESS-MESSAGE [warn-conflicts]
+# _upgrade_system OK-MESSAGE PROGRESS-MESSAGE
 # Package lists as pacman's table, one package per row (old/new version, sizes);
 # the default packs every package onto one wrapped line. Checked before every
 # upgrade, not only in the one-time optimize: machines optimized before 2026-11-14
@@ -1152,10 +1152,6 @@ _upgrade_system() {
     _system_hardening
     _remove_conflicts
     _demote_packages
-    if [[ "${3:-}" == warn-conflicts ]]; then
-        ((${#REMOVED_CONFLICTS[@]} == 0)) \
-            || warn "removed ${REMOVED_CONFLICTS[*]}; install replacements with: sysup --actions install"
-    fi
     _check_disk_space
     _review_aur_updates
     _estimate_aur_builds
@@ -3039,7 +3035,17 @@ _record_upgrade_failure() {
 # ─── Maintenance: system update ──────────────────────────
 system_update() {
     refresh_mirrors
-    _upgrade_system "system up to date" "Updating all packages..." warn-conflicts
+    _upgrade_system "system up to date" "Updating all packages..."
+    # A conflict swap removed the old package: install the listed replacement in
+    # this run instead of telling the user to run the install action.
+    ((${#REMOVED_CONFLICTS[@]})) || return 0
+    info "Installing replacements for removed ${REMOVED_CONFLICTS[*]}..."
+    if _install_list "$SYSUP_PLAN_DIR/paru-install.list"; then
+        _record "replacements" ok
+    else
+        _record "replacements" fail "${INSTALL_FAIL_DETAIL:-install failed}"
+        warn "removed ${REMOVED_CONFLICTS[*]} but installing the listed packages failed${INSTALL_FAIL_DETAIL:+: $INSTALL_FAIL_DETAIL} — retry: sysup --actions install"
+    fi
 }
 
 # ─── Maintenance: flatpak update ─────────────────────────
