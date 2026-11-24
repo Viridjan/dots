@@ -41,3 +41,4 @@
 - [focus policy](feedback-focus-policy.md) — focus/placement exceptions only for ⌘Space/keybind launches (launcher-ws run), never script/agent windows
 - [security stack](security-stack.md) — OpenSnitch allow-on-timeout, arch-audit, ClamAV weekly, Lynis action, /etc hardening copied not stowed; rejected items
 - [user commands in fish](feedback-user-commands-fish.md) — wrap POSIX one-liners in bash -c; user runs downloaded binaries
+- [no git pull hint](feedback-no-git-pull-hint.md) — sysup self-pulls in a terminal; give only the sysup command for other machines
