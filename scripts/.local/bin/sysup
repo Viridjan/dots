@@ -2391,30 +2391,6 @@ _system_hardening() {
     while read -r name path; do
         etc_files["opensnitchd/rules/dots-allow-$name.json"]=$(_snitch_rule "$name" "$path")$'\n'
     done <<<"$_SNITCH_ALLOW"
-    # OpenSnitch auto-triage (root service): a root-owned copy, never a link into $HOME.
-    local triage="$DOTS_DIR/scripts/.local/lib/sysup/snitch-triage.py"
-    if command -v opensnitchd &>/dev/null && [[ -f "$triage" ]]; then
-        etc_files[opensnitchd/dots-triage.py]=$(<"$triage")$'\n'
-        etc_files[systemd/system/snitch-triage.service]="[Unit]
-Description=OpenSnitch auto-triage (sysup)
-After=opensnitchd.service
-RequiresMountsFor=$HOME
-
-[Service]
-Environment=SNITCH_DB=$HOME/.local/share/opensnitch/events.db SNITCH_HOME=$HOME
-ExecStart=/usr/bin/python3 -I /etc/opensnitchd/dots-triage.py
-Restart=on-failure
-RestartSec=60
-NoNewPrivileges=yes
-PrivateTmp=yes
-ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths=/etc/opensnitchd/rules /var/log
-
-[Install]
-WantedBy=multi-user.target
-"
-    fi
     # Your own "forever" rules, saved by snitch-export.
     for f in "$DOTS_DIR"/opensnitch/rules/*.json; do
         [[ -f "$f" ]] && etc_files["opensnitchd/rules/${f##*/}"]=$(<"$f")$'\n'
@@ -2434,11 +2410,6 @@ WantedBy=multi-user.target
         || warn "hardening: sysctl apply failed (applies at next boot)"
     [[ " ${changed[*]} " != *" fail2ban/"* ]] \
         || sudo systemctl try-reload-or-restart fail2ban 2>/dev/null || true
-    if [[ " ${changed[*]} " == *" opensnitchd/dots-triage.py "* || " ${changed[*]} " == *"/snitch-triage.service "* ]]; then
-        { sudo systemctl daemon-reload && sudo systemctl enable snitch-triage \
-            && sudo systemctl restart snitch-triage; } 2>/dev/null \
-            || warn "hardening: could not (re)start snitch-triage.service"
-    fi
     # opensnitchd watches its rules directory: new rule files load without a restart.
     ok "hardening applied: ${changed[*]}"
 }

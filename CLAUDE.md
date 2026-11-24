@@ -625,14 +625,7 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   `process.path`) are written by `_system_hardening` to `/etc/opensnitchd/rules/dots-allow-*.json`.
   User rules: pop-up answers with duration "forever" become files in that dir (12h ones stay in
   memory). `sysup --actions snitch-export` copies them (not `dots-allow-*`) to repo
-  `opensnitch/rules/`; `_system_hardening` writes those back to every machine.
-  **Auto-triage** (2026-11-24, user chose automatic): `snitch-triage.py` (scripts/.local/lib/sysup)
-  copied root-owned to `/etc/opensnitchd/dots-triage.py` + `snitch-triage.service` (Restart=on-failure,
-  NOT always/30: aur_check heuristic), enabled by `_system_hardening`. Polls the UI DB; per new
-  program path: allow = repo package unaltered (`-Qkk`) and not GENERIC (interpreters, curl/wget/ssh/
-  git/nc/dig…); deny = /tmp, /dev/shm, /var/tmp, ~/Downloads, deleted binary, unowned file in a system
-  dir; else ask (pop-up). Rules `triage-<verdict>-…json`, deny with precedence. Log
-  `/var/log/snitch-triage.log`. Tests `tests/test_snitch_triage.py`. It also moves the UI's event database from memory
+  `opensnitch/rules/`; `_system_hardening` writes those back to every machine. It also moves the UI's event database from memory
   to `~/.local/share/opensnitch/events.db` (`[database] type=1`, 14 days kept) so
   `snitch-report` (scripts; `[HOURS]` summary flagging NEW/DENY/ROOT, `--follow` live new
   program→destination pairs, `SNITCH_DB` override, tests `tests/test_snitch_report.py`) can read it. `lynis` runs via `sysup --actions lynis`.
