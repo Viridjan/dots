@@ -144,6 +144,28 @@ class SecurityToolTests(ExtrasCase):
         self.assertEqual(conf.read_text(), "[global]\ndefault_action=1\ndefault_timeout=15\n")
 
 
+class HardeningTests(ExtrasCase):
+    def test_hardening_files_written_once_and_sysctl_applied(self):
+        etc = self.root / "etc"
+        self.env["SYSUP_ETC"] = str(etc)
+        self.mock("sudo", 'echo "sudo $1" >> "$CALLS"; "$@"')
+        self.mock("sysctl", 'echo "sysctl $*" >> "$CALLS"')
+        for tool in ("mkdir", "tee"):
+            self.mock(tool, f'exec /usr/bin/{tool} "$@"')
+        r = self.shell("_system_hardening")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        sysctl = (etc / "sysctl.d/99-dots-hardening.conf").read_text()
+        self.assertIn("fs.protected_regular = 2\n", sysctl)
+        self.assertIn("install tipc /bin/false\n", (etc / "modprobe.d/dots-hardening.conf").read_text())
+        self.assertIn("Storage=none\n", (etc / "systemd/coredump.conf.d/dots-hardening.conf").read_text())
+        self.assertIn(f"sysctl -q -p {etc}/sysctl.d/99-dots-hardening.conf", Path(self.env["CALLS"]).read_text())
+        # Second run: identical content, nothing written or applied.
+        Path(self.env["CALLS"]).unlink()
+        r = self.shell("_system_hardening")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse(Path(self.env["CALLS"]).exists(), r.stdout)
+
+
 class ServiceTests(ExtrasCase):
     def test_failed_enable_is_not_recorded_as_managed(self):
         self.plan("systemd-enable.list", "cups\n")
@@ -328,6 +350,8 @@ print_recap
                 r = self.shell('''
 systemctl() { [[ "$1" == list-unit-files ]]; }
 lsblk() { echo LVM2_member; }
+_pacman_verbose_lists() { :; }
+_system_hardening() { :; }
 sudo() {
     if [[ "$1" == tee ]]; then cat > "$TIMER_OUTPUT"; fi
     return 0
@@ -360,7 +384,7 @@ optimize_system
         stubs = "".join(f"{n}() {{ :; }}\n" for n in (
             "_remove_conflicts", "_demote_packages", "_check_disk_space", "_review_aur_updates",
             "_estimate_aur_builds", "_restart_dms_if_changed", "_dms_versions", "_syuu", "_sync_pinned",
-            "_ensure_locales"))
+            "_ensure_locales", "_system_hardening"))
         r = self.shell(stubs + 'sudo() { "$@"; }\n_upgrade_system up prog')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(conf.read_text(), "[options]\nVerbosePkgLists\nColor\n")

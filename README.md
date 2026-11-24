@@ -580,6 +580,9 @@ e.g. `check 2d ago: 1 failed (pacman-db)`. Run it now with
 - **arch-audit** — part of `sysup --check`: warns when an installed package has a security
   fix waiting (run `sysup --update`); advisories without a fix are one info line.
 - **Lynis** — run by hand now and then: `sudo lynis audit system` (report only).
+- **Hardening** (from Lynis): `sysup --actions optimize`, and every update, writes stricter
+  kernel settings (`/etc/sysctl.d/99-dots-hardening.conf`), blocks unused network protocols
+  (dccp, sctp, rds, tipc) and turns core dumps off. Delete those files to undo.
 
 ### Unlisted and unused apps
 

@@ -1149,6 +1149,7 @@ _ensure_locales() {
 _upgrade_system() {
     _pacman_verbose_lists
     _ensure_locales
+    _system_hardening
     _remove_conflicts
     _demote_packages
     if [[ "${3:-}" == warn-conflicts ]]; then
@@ -2261,6 +2262,48 @@ setup_nvidia_niri() {
 # Safe to re-run; each step checks current state and skips if already applied.
 # Skips greetd autologin (conflicts with DMS greeter) and EFI cleanup (needs
 # manual review of efibootmgr output).
+# Lynis-suggested hardening (2026-11-24). Copied, not linked: /home mounts after
+# systemd-sysctl runs at boot, so a link into the repo would be dangling then.
+# Rewritten only when the content differs; also checked before every upgrade.
+_HARDEN_SYSCTL='# sysup (_system_hardening): Lynis KRNL-6000 suggestions
+fs.protected_fifos = 2
+fs.protected_regular = 2
+dev.tty.ldisc_autoload = 0
+fs.suid_dumpable = 0
+net.ipv4.conf.all.log_martians = 1
+net.ipv4.conf.default.log_martians = 1
+'
+_HARDEN_MODPROBE='# sysup (_system_hardening): unused network protocols (Lynis NETW-3200)
+install dccp /bin/false
+install sctp /bin/false
+install rds /bin/false
+install tipc /bin/false
+'
+_HARDEN_COREDUMP='# sysup (_system_hardening): no core dumps (Lynis KRNL-5820)
+[Coredump]
+Storage=none
+ProcessSizeMax=0
+'
+_system_hardening() {
+    local etc=${SYSUP_ETC:-/etc} f var content changed=() spec
+    for spec in "sysctl.d/99-dots-hardening.conf:_HARDEN_SYSCTL" \
+                "modprobe.d/dots-hardening.conf:_HARDEN_MODPROBE" \
+                "systemd/coredump.conf.d/dots-hardening.conf:_HARDEN_COREDUMP"; do
+        f="$etc/${spec%%:*}"; var=${spec##*:}; content=${!var}
+        [[ "$(cat "$f" 2>/dev/null)"$'\n' == "$content" ]] && continue
+        if sudo mkdir -p "${f%/*}" && printf '%s' "$content" | sudo tee "$f" >/dev/null; then
+            changed+=("${f#"$etc"/}")
+        else
+            warn "hardening: could not write $f"
+        fi
+    done
+    ((${#changed[@]})) || return 0
+    [[ " ${changed[*]} " != *" sysctl.d/"* ]] \
+        || sudo sysctl -q -p "$etc/sysctl.d/99-dots-hardening.conf" >/dev/null \
+        || warn "hardening: sysctl apply failed (applies at next boot)"
+    ok "hardening applied: ${changed[*]}"
+}
+
 optimize_system() {
     section "system optimisations"
 
@@ -2330,6 +2373,9 @@ optimize_system() {
 
     # 6. Upgrade list as a table (also checked before every upgrade).
     _pacman_verbose_lists
+
+    # 7. Lynis hardening: sysctl, unused protocols, core dumps (also before every upgrade).
+    _system_hardening
 
     return 0
 }

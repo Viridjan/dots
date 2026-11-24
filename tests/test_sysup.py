@@ -804,7 +804,7 @@ fi
         self.mock("sudo", 'printf "%s\\n" "sudo $*" >> "$CALLS"')
         stubs = "".join(f"{n}() {{ :; }}\n" for n in (
             "_remove_conflicts", "_demote_packages", "_check_disk_space", "_review_aur_updates",
-            "_estimate_aur_builds", "_restart_dms_if_changed", "_dms_versions", "_pacman_verbose_lists", "_ensure_locales"))
+            "_estimate_aur_builds", "_restart_dms_if_changed", "_dms_versions", "_pacman_verbose_lists", "_ensure_locales", "_system_hardening"))
         r = self.shell(stubs + '_upgrade_system up prog; printf "%s\\n" "${WARNINGS[@]}"')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(self.calls(), ["paru -Syuu --noconfirm --ignore vectorcraft-bin,go",

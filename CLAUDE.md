@@ -354,7 +354,11 @@ sysup --actions automount
 # mask lvm2-monitor, rate-mirrors 2h delay, AMD GPU performance udev rule,
 # VerbosePkgLists on in pacman.conf (one package per row; was turned OFF until 2026-11-14;
 # since 2026-11-24 also re-checked before every upgrade by _pacman_verbose_lists;
-# _ensure_locales there too: generates locales /etc/locale.conf names but locale -a lacks)
+# _ensure_locales there too: generates locales /etc/locale.conf names but locale -a lacks;
+# _system_hardening too (2026-11-24, Lynis): /etc/sysctl.d/99-dots-hardening.conf,
+# modprobe.d (dccp/sctp/rds/tipc off), coredump.conf.d (no core dumps). COPIED, not stowed:
+# /home mounts after systemd-sysctl at boot. Skipped: umask 027 (AUR builds would ship
+# files others can't read), modules_disabled, sysrq=0, bpf_jit_harden (OpenSnitch eBPF))
 sysup --actions optimize
 
 # Add pam_gnome_keyring.so to /etc/pam.d/greetd (idempotent; fixes keyring unlock prompt)
