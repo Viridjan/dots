@@ -251,7 +251,9 @@ window-rule {
     draw-border-with-background false
 }
 window-rule {
-    match app-id="brave-browser" title="^Picture-in-Picture$"
+    // Brave's app-id is brave-origin; PiP title depends on UI language: en-GB "Picture-in-picture",
+    // en-US/it "Picture in picture" (read from /opt/brave-origin-bin/locales/*.pak).
+    match app-id=r#"^brave-"# title=r#"(?i)^picture[- ]in[- ]picture$"#
     open-floating true
 }
 // Per-app column widths
@@ -270,7 +272,7 @@ window-rule {
     default-column-width { proportion 0.4; }
 }
 window-rule {
-    match app-id="brave-browser"
+    match app-id=r#"^brave-"#
     default-column-width { proportion 0.5; }
 }
 window-rule {
