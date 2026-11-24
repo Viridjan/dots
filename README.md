@@ -483,7 +483,7 @@ build = "git submodule update --init --recursive && make build && make install P
 | `qt5ct` | `~/.config/qt5ct/` |
 | `qt6ct` | `~/.config/qt6ct/` |
 | `vesktop` | `~/.config/vesktop/` — settings.json + settings/ (Vencord config + quickCss) |
-| `mimeapps` | `~/.config/mimeapps.list` |
+| `mimeapps` | `~/.config/mimeapps.list` — VLC opens every video type it declares (sysup adds new ones on deploy) |
 | `paru` | `~/.config/paru/paru.conf` |
 | `claude` | `~/.claude/settings.json` + `statusline.sh` + skills (incl. `pixel-art-studio`) |
 | `caveman` | `~/.config/caveman/config.json` — caveman plugin `defaultMode: ultra` |
@@ -493,7 +493,7 @@ build = "git submodule update --init --recursive && make build && make install P
 | `fonts` | `~/.local/share/fonts/` — user fonts (Luminari) |
 | `mpd` | `~/.config/mpd/mpd.conf` |
 | `spotify-player` | `~/.config/spotify-player/keymap.toml` |
-| `scripts` | `~/.local/bin/{sysup,vjsurface,start-windows,start-open-notebook,start-battlenet,gamescope-media}` + `.desktop` launchers — stowed `--no-folding`, so installers own the rest of `~/.local/bin` |
+| `scripts` | `~/.local/bin/{sysup,vjsurface,start-windows,start-open-notebook,start-battlenet,gamescope-media,launcher-ws,…}` + `.desktop` launchers — stowed `--no-folding`, so installers own the rest of `~/.local/bin` |
 
 **niri note:** `cfg/display.kdl`, `cfg/input.kdl`, and `cfg/surface-layout.kdl` are NOT in the `niri` package —
 they come from `dotsets/viridjan/desktop/`, `…/surface/` or `…/plancia/`, matching the profile name.
@@ -519,6 +519,13 @@ except `Mod+.` (expel, to undo a drag-and-drop stack). Helpers from
 - **nirius** — `Mod+Alt+B/S/D/W/T/M` focus Brave/Spotify/Vesktop/WhatSie/Telegram/Thunderbird, launching it if not open.
 - **nirinit** — saves the window layout every 5 min and restores it at login; apps the autostart already opens are in `dotsets/viridjan/nirinit/` skip list.
 - **iio-niri** (Surface) — rotates the screen with the accelerometer.
+
+Where new apps open (`launcher-ws`, started in `config.kdl`):
+
+- **⌘Space launcher** — the app opens on the workspace where you pressed ⌘Space, even if you
+  switched away while it loaded. Apps with their own workspace (above) still go there.
+- **Started by Claude Code or Codex** — the app opens unfocused on the workspace of the agent's
+  terminal, rules included. An app that is already running opens its new window where you are.
 
 ## Gaming
 

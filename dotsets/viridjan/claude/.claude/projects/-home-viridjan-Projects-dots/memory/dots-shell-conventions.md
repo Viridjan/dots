@@ -42,4 +42,9 @@ offset, and `~/.local/bin/vjupdate` links to the repo file. An in-place write
 if it's live, write a temp file and `mv`/`os.replace` it over (new inode). Long AUR
 runs (e.g. 12 ArtCraft Rust builds ≈ 75 min, 2026-10-18) make this common.
 
+**Killing a session daemon from the Bash tool:** `pkill -f 'launcher-ws watch'` (even with
+a `[h]` regex trick) killed the tool's own shell — its zsh command line contains the
+pattern, exit 144 (2026-11-24). Match the exact cmdline per pid instead:
+`for p in $(pgrep -x bash); do tr '\0' ' ' </proc/$p/cmdline | grep -q '^bash [^ ]*launcher-ws watch $' && kill $p; done`.
+
 Related: [[feedback-verification-rigor]], [[vjupdate-optimize]].

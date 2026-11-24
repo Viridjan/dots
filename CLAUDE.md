@@ -916,6 +916,7 @@ Failed npm/uv installs now print their output tail and put the last line in the 
 | Screenshot path | ~/Pictures/Screenshots/ | config.kdl (inline `screenshot-path`) |
 | Terminal keybind | ⌘⏎ | dms/binds.kdl |
 | App keybinds (Brave / Spotify / Vesktop / Whatsie / Telegram / Thunderbird; ⌘⌥E file manager commented out 2026-11-10) | ⌘⌥B / ⌘⌥S / ⌘⌥D / ⌘⌥W / ⌘⌥T / ⌘⌥M — `nirius focus-or-spawn` (jump to open window, else launch; 2026-10-28) | dms/binds.kdl |
+| App launcher keybind | ⌘Space → `launcher-ws` (records the focused workspace, then `dms ipc call spotlight toggle`) | dms/binds.kdl |
 | Overview keybind | ⌘D | dms/binds.kdl |
 | Power menu keybind | ⌘X | dms/binds.kdl |
 | Lock screen keybind | ⌘⌥L | dms/binds.kdl |
