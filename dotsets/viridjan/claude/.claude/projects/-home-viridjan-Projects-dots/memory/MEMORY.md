@@ -37,3 +37,4 @@
 - [vertical package lists](feedback-vertical-pkg-lists.md) — VerbosePkgLists ON (one package per row); old compact choice reversed 2026-11-14
 - [data partition storage](data-partition-storage.md) — root 586G fills; bulk media/downloads → /mnt/data; qBittorrent → /mnt/data/Downloads; held-open deleted files
 - [no silent focus moves](feedback-no-focus-moves.md) — announce workspace switches in live niri tests; move user, act, move back after delay
+- [shared vs per-device](feedback-shared-vs-per-device.md) — settings shared by default; per-profile (feature / <pkg>@<profile>) only when device-specific
