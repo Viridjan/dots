@@ -23,3 +23,5 @@ Set up 2026-11-24 after a Lynis run (hardening index 65):
 
 **aur_check false positive (2026-11-24):** its systemd heuristic (Restart=always + RestartSec=30 in /etc/systemd) matched the enabled opensnitchd link and aborted `--update`. sysup clears only links to unaltered repo-package units (`_benign_systemd_hit`). Before calling any scanner hit a false positive, verify ownership + `pacman -Qkk` as done here. Lynis screen lines like NONE/NOT FOUND/NON DEFAULT are inventory; user walked through many — `sysup --actions lynis` now copies `lynis.log` to `~/.local/state/dots/` for line-by-line review.
 
+**OpenSnitch rules in git (2026-11-24):** only "forever" pop-up answers become files in /etc/opensnitchd/rules; 12h ones are memory-only (the user had used 12h for everything, so nothing was savable). `sysup --actions snitch-export` → repo `opensnitch/rules/` (commit), `_system_hardening` restores them everywhere. User interrupted a status check when they only asked a name — answer the literal question first.
+
