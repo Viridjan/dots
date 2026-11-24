@@ -338,7 +338,7 @@ bash scripts/.local/bin/sysup
 # Same, non-interactive (no prompts)
 sysup --yes
 
-# Update packages + clean caches
+# Update = the install action (upgrade + install every missing listed package/flatpak/tool) + clean caches
 sysup --update
 
 # Audit installed software: orphans, rebuilds, pacnew, firmware
@@ -733,11 +733,12 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   renamed DMS: `dms-shell` → `dux-shell`, `dgop` → `dux-gop` (same `dms` binary
   and `dms.service`); listing the old name made the install phase fail on the
   conflict. Lutris stays in `[paru].remove`: nothing uses it (Battle.net is umu).
-- **Conflict swaps in `--update`.** `_remove_conflicts` (installed
-  `[paru].remove` entries only) + `_demote_packages` run in both `install_all`
-  and `system_update`; when `--update` removed one, it then runs `_install_list`
-  on `paru-install.list` (every missing listed package) so the replacement lands in
-  the same run (2026-11-24). A package the machine installs is never in
+- **`--update` = install action (2026-11-24).** `update()` = `check_aur_malware`,
+  `refresh_mirrors`, `install_all` (the `install` action), `check_held_updates`,
+  `check_flatpak_orphans`. So newly listed packages and conflict replacements land in
+  `--update`; `system_update`/`flatpak_update`/`phase_update` were deleted.
+  `_remove_conflicts` (installed `[paru].remove` entries only) + `_demote_packages`
+  run inside `_upgrade_system`. A package the machine installs is never in
   `paru-remove.list` (`resolve` drops it): brightnessctl was in the shared remove list
   and the Surface profile, so each run removed it. The old hardcoded
   `_swap_pkg libreoffice` is gone.

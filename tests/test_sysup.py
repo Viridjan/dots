@@ -1026,10 +1026,12 @@ fi
 
     def test_update_preserves_failure_detail(self):
         r = self.shell('''
+detect_machine() { :; }
+check_aur_malware() { :; }
 refresh_mirrors() { :; }
+_install_list() { :; }
 _syuu() { SYUU_FAIL_DETAIL="AUR build failed: example"; return 1; }
-system_update
-print_recap
+update
 ''')
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("(AUR build failed: example)", r.stdout)
@@ -1343,18 +1345,21 @@ class RunPlanTests(FixtureCase):
 
     def test_update_removes_only_installed_conflicts_and_demotes(self):
         self.plan("paru-remove.list", "gone\nhere\n")
+        self.plan("flatpak-install.list", "")
+        self.mock("flatpak", "exit 0")
         self.mock("pacman", '[[ "$1" == -Qq ]] && { [[ "$2" == here ]] && echo here || exit 1; }; exit 0')
         self.mock("sudo", 'echo "sudo $*" >> "$CALLS"')
-        r = self.shell('refresh_mirrors() { :; }\n_demote_packages() { echo DEMOTED; }\n'
+        r = self.shell('detect_machine() { :; }\ncheck_aur_malware() { :; }\n'
+                       'refresh_mirrors() { :; }\n_demote_packages() { echo DEMOTED; }\n'
                        '_check_disk_space() { :; }\n_review_aur_updates() { :; }\n'
                        '_estimate_aur_builds() { :; }\n_syuu() { return 0; }\n'
-                       '_install_list() { echo "INSTALL $1"; }\nsystem_update')
+                       '_install_list() { echo "INSTALL $1"; }\nupdate')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         calls = Path(self.env["CALLS"]).read_text()
         self.assertIn("pacman -Rdd --noconfirm here", calls)
         self.assertNotIn("gone", calls)
         self.assertIn("DEMOTED", r.stdout)
-        # the replacement is installed in the same --update run
+        # --update runs the install action: listed packages (replacements too) in the same run
         self.assertIn("INSTALL " + str(self.root), r.stdout)
         self.assertIn("paru-install.list", r.stdout)
         self.assertNotIn("sysup --actions install", r.stdout)

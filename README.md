@@ -105,7 +105,7 @@ summary (log: `~/.local/state/dots/vjsurface.log`).
 ## sysup — command line
 
 ```bash
-sysup --update                  # upgrade packages (installs replacements for removed conflicts), clean caches (the common one)
+sysup --update                  # upgrade + install every missing listed package (= --actions install), clean caches (the common one)
 sysup --check                   # audit only, report
 sysup --actions install,audit   # run exactly these action IDs
 sysup --status                  # profile, features, one-time actions + dates, backups

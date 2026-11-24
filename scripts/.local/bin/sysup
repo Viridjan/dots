@@ -1082,8 +1082,6 @@ refresh_mirrors() {
 
 # Force-remove [paru].remove packages (conflict swaps) that are installed.
 # -Rdd skips dep checks so replacements (e.g. wine→wine-cachyos) don't block.
-# Sets REMOVED_CONFLICTS so --update installs the replacements right away.
-REMOVED_CONFLICTS=()
 _remove_conflicts() {
     local _conflicts pkg out
     if [[ -f "$SYSUP_PLAN_DIR/paru-remove.list" ]] && ! _conflicts=$(_pkg_list "$SYSUP_PLAN_DIR/paru-remove.list"); then
@@ -1099,7 +1097,7 @@ _remove_conflicts() {
         if _is_protected "$pkg"; then
             warn "protected, not removed: $pkg"
         elif out=$(sudo pacman -Rdd --noconfirm "$pkg" 2>&1); then
-            ok "removed: $pkg"; REMOVED_CONFLICTS+=("$pkg")
+            ok "removed: $pkg"
         else
             warn "failed to remove: $pkg — $out"
         fi
@@ -3032,33 +3030,6 @@ _record_upgrade_failure() {
     warn "Full upgrade failed: $detail"
 }
 
-# ─── Maintenance: system update ──────────────────────────
-system_update() {
-    refresh_mirrors
-    _upgrade_system "system up to date" "Updating all packages..."
-    # A conflict swap removed the old package: install the listed replacement in
-    # this run instead of telling the user to run the install action.
-    ((${#REMOVED_CONFLICTS[@]})) || return 0
-    info "Installing replacements for removed ${REMOVED_CONFLICTS[*]}..."
-    if _install_list "$SYSUP_PLAN_DIR/paru-install.list"; then
-        _record "replacements" ok
-    else
-        _record "replacements" fail "${INSTALL_FAIL_DETAIL:-install failed}"
-        warn "removed ${REMOVED_CONFLICTS[*]} but installing the listed packages failed${INSTALL_FAIL_DETAIL:+: $INSTALL_FAIL_DETAIL} — retry: sysup --actions install"
-    fi
-}
-
-# ─── Maintenance: flatpak update ─────────────────────────
-flatpak_update() {
-    if ! command -v flatpak &>/dev/null; then
-        warn "flatpak not installed — skipping"
-        return
-    fi
-    info "Updating flatpak apps..."
-    flatpak update -y
-    ok "flatpaks up to date"
-}
-
 # ─── Maintenance: flatpak unused runtimes ────────────────
 check_flatpak_orphans() {
     if ! command -v flatpak &>/dev/null; then
@@ -3978,7 +3949,6 @@ phase_configure() {
 
     return 0
 }
-phase_update()   { system_update; flatpak_update; clean_caches; }
 # One list for the audit phase and --check, so they can't drift. Each check
 # only reports unless its AUDIT_ACTIONS flag was set (orphans, rebuilds, pacnew).
 AUDIT_CHECKS=(check_held_updates check_foreign_orphans check_unused_apps check_rebuilds
@@ -4112,14 +4082,12 @@ update() {
     # --update runs paru -Syuu, which rebuilds AUR packages from upstream
     # PKGBUILDs. Gate it the same way bootstrap does, before anything is pulled.
     check_aur_malware
-    system_update
+    refresh_mirrors
+    # The install action: upgrade, then every listed package/flatpak/tool that is
+    # missing (replacements for removed conflicts too), ollama/projects/plugins, caches.
+    install_all
     check_held_updates
-    flatpak_update
-    update_ollama
-    update_projects
-    update_claude_plugins
     check_flatpak_orphans
-    clean_caches
     print_recap
 }
 
@@ -4257,7 +4225,7 @@ _menu() {
     local self="${BASH_SOURCE[0]}" mode ids opts=()
     while :; do
         mode=$(printf '%s\t%s\n' \
-                update  "Update packages + clean caches" \
+                update  "Upgrade + install listed packages, clean caches" \
                 first   "First run: new-machine setup" \
                 check   "Audit, report only" \
                 actions "Choose actions…" \
@@ -4347,7 +4315,7 @@ usage() {
     echo "  (no args)           Menu (in a terminal, needs fzf); this help otherwise"
     echo "  --yes, -y           Full bootstrap, non-interactive"
     echo "  --actions, -a A,B   Run exactly these action IDs (list: --help-actions)"
-    echo "  --update, -u        Update packages + clean caches"
+    echo "  --update, -u        Upgrade + install listed packages, clean caches"
     echo "  --check, -c         Audit: orphans, rebuilds, pacnew, firmware"
     echo ""
     echo "Configuration (edit config files only, run nothing):"
