@@ -3466,6 +3466,20 @@ check_pacnew() {
 }
 
 # ─── Security: AUR malware check ─────────────────────────
+# aur_check flags any /etc/systemd unit with Restart=always + RestartSec=30 (a campaign's
+# persistence pattern). OpenSnitch's packaged unit has exactly that, and enabling it puts a
+# link in /etc (false positive, 2026-11-24). A hit is benign only if it is a link to a unit
+# under /usr/lib/systemd owned by a repo (not AUR) package that pacman -Qkk says is unaltered.
+_benign_systemd_hit() {
+    local hit=$1 t pkg
+    [[ -L "$hit" ]] || return 1
+    t=$(realpath -e -- "$hit" 2>/dev/null) || return 1
+    [[ "$t" == "${SYSUP_UNIT_ROOT:-/usr/lib/systemd}"/* ]] || return 1
+    pkg=$(pacman -Qoq -- "$t" 2>/dev/null) || return 1
+    ! pacman -Qmq -- "$pkg" &>/dev/null || return 1      # foreign = AUR
+    ! pacman -Qkk -- "$pkg" 2>&1 | grep -qF -- "$t"       # listed = altered
+}
+
 check_aur_malware() {
     local repo_dir="$HOME/.local/share/aur-malware-check"
     info "Checking AUR malware (supply chain attack scan)..."
@@ -3515,6 +3529,17 @@ check_aur_malware() {
             [[ -n "$detail" ]] && printf '%s\n' "$detail"
             die "aur malware check: verification INCOMPLETE (${kinds:-unspecified warnings}) — no indicators found, but the scan was not conclusive; aborting" ;;
         2)
+            # Only systemd hits, all packaged and unaltered → not an infection.
+            local others hits h benign=()
+            others=$(jq -r '(.infected_found // 1) - ((.systemd_hits // []) | length)' <<< "$result" 2>/dev/null) || others=1
+            mapfile -t hits < <(jq -r '(.systemd_hits // [])[]' <<< "$result" 2>/dev/null)
+            if [[ "$others" == 0 ]] && (( ${#hits[@]} )); then
+                for h in "${hits[@]}"; do _benign_systemd_hit "$h" && benign+=("$h"); done
+                if (( ${#benign[@]} == ${#hits[@]} )); then
+                    ok "aur malware check: clean (packaged unit(s) matching the restart pattern: ${hits[*]##*/})"
+                    return 0
+                fi
+            fi
             echo "$result"
             die "aur malware check: POSSIBLE INFECTION DETECTED — aborting" ;;
         3)

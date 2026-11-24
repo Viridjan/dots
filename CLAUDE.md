@@ -590,6 +590,11 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   `~/.steam/registry.vdf` HKCU (plus `GPUAccelWebViewsV3 "0"`: GPU web views made
   the Shift+Tab overlay lag, 2026-11-21) and `Controller_CheckGuideButton "0"` in each
   `localconfig.vdf`. Skipped while Steam runs (it rewrites both on exit).
+- **aur_check systemd false positive (2026-11-24).** aur_check flags every
+  `/etc/systemd` unit with `Restart=always` + `RestartSec=30`; OpenSnitch's packaged unit has both,
+  so enabling it aborted every run. `check_aur_malware` treats exit 2 as clean only when the hits
+  are all systemd hits and each passes `_benign_systemd_hit`: a link → `/usr/lib/systemd/…`
+  (`SYSUP_UNIT_ROOT`), owned by a non-foreign package, not listed by `pacman -Qkk`.
 - **Supply chain, from pasadoorian/Linux_Hacks (2026-11-10).** `check_aur_health`:
   one `paru -Sai` over `pacman -Qmq` (`_aur_info`); warns on maintainers in the
   aur-malware-check `accounts.json` files (aur_check ignores them), packages gone

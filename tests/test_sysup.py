@@ -2,6 +2,7 @@
 import os
 import fcntl
 from pathlib import Path
+import json
 import shlex
 import shutil
 import subprocess
@@ -578,6 +579,51 @@ done
                 r = self.shell(body + 'check_aur_malware')
                 self.assertEqual(r.returncode == 0, verdict == 0 and rc == 0)
                 self.assertIn(message, r.stdout + r.stderr)
+
+
+class SystemdFalsePositiveTests(FixtureCase):
+    """aur_check's Restart=always+RestartSec=30 heuristic hits OpenSnitch's packaged unit."""
+
+    def run_hit(self, *, link=True, foreign=False, altered=False, others=0):
+        (self.home / ".local/share/aur-malware-check").mkdir(parents=True, exist_ok=True)
+        for name in ("realpath", "grep"):
+            if not (self.bin / name).exists():
+                (self.bin / name).symlink_to(Path("/usr/bin") / name)
+        units = self.root / "usr/lib/systemd/system"
+        units.mkdir(parents=True, exist_ok=True)
+        unit = units / "opensnitchd.service"
+        unit.write_text("[Service]\nRestart=always\nRestartSec=30\n")
+        wants = self.root / "etc/systemd/system/multi-user.target.wants"
+        wants.mkdir(parents=True, exist_ok=True)
+        hit = wants / "opensnitchd.service"
+        hit.unlink(missing_ok=True)
+        if link:
+            hit.symlink_to(unit)
+        else:
+            hit.write_text(unit.read_text())
+        self.mock("pacman", "\n".join([
+            'case "$1" in',
+            '  -Qoq) echo opensnitch ;;',
+            f'  -Qmq) exit {0 if foreign else 1} ;;',
+            f'  -Qkk) {"echo \"warning: opensnitch: " + str(unit) + " (Modification time mismatch)\"" if altered else "echo \"opensnitch: 425 total files, 0 altered files\""} ;;',
+            'esac']))
+        result = json.dumps({"exit_code": 2, "warnings": [], "infected_found": 1 + others,
+                             "systemd_hits": [str(hit)], "current_packages": ["evil"] if others else []})
+        self.env["SYSUP_UNIT_ROOT"] = str(self.root / "usr/lib/systemd")
+        body = "_update_malware_defs() { :; }\npython() { printf '%s' " + shlex.quote(result) + "; return 2; }\ncheck_aur_malware"
+        return self.shell(body)
+
+    def test_packaged_unaltered_unit_link_is_clean(self):
+        r = self.run_hit()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("clean (packaged unit(s) matching the restart pattern: opensnitchd.service)", r.stdout)
+
+    def test_anything_else_still_aborts(self):
+        for kw in ({"link": False}, {"foreign": True}, {"altered": True}, {"others": 1}):
+            with self.subTest(**kw):
+                r = self.run_hit(**kw)
+                self.assertNotEqual(r.returncode, 0, r.stdout)
+                self.assertIn("POSSIBLE INFECTION", r.stdout + r.stderr)
 
 
 class ScannerJsonTests(FixtureCase):
