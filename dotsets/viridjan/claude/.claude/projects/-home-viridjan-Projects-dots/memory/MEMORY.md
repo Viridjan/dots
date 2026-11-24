@@ -36,3 +36,4 @@
 - [go pinned to extra](go-pinned-extra.md) — cachyos-v3 go 1.27.4-2 is a v4 binary; [paru].pin extra/go, drop when fixed
 - [vertical package lists](feedback-vertical-pkg-lists.md) — VerbosePkgLists ON (one package per row); old compact choice reversed 2026-11-14
 - [data partition storage](data-partition-storage.md) — root 586G fills; bulk media/downloads → /mnt/data; qBittorrent → /mnt/data/Downloads; held-open deleted files
+- [no silent focus moves](feedback-no-focus-moves.md) — announce workspace switches in live niri tests; move user, act, move back after delay
