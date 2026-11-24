@@ -1121,8 +1121,34 @@ _pacman_verbose_lists() {
         || warn "pacman: could not enable VerbosePkgLists in /etc/pacman.conf"
 }
 
+# Every locale /etc/locale.conf names must exist: the Surface had LC_TIME=it_IT.UTF-8
+# without it in locale.gen (a pacnew overwrite resets that file), so apps fell back to C
+# and bash warned "setlocale: LC_TIME: cannot change locale" around each LC_TIME=C paru
+# call (2026-11-24). Uncomments the missing ones in locale.gen and runs locale-gen.
+_ensure_locales() {
+    local l n have absent=()
+    command -v locale &>/dev/null || return 0   # can't tell what exists
+    have=$(locale -a 2>/dev/null | tr 'A-Z' 'a-z' | tr -d '-')
+    for l in $(sed -n 's/^[A-Z_]*=//p' /etc/locale.conf 2>/dev/null | tr -d '"' | sort -u); do
+        [[ "$l" == C || "$l" == C.* || "$l" == POSIX ]] && continue
+        n=$(tr 'A-Z' 'a-z' <<<"$l" | tr -d '-')   # locale -a spells it_IT.UTF-8 as it_IT.utf8
+        grep -qxF "$n" <<<"$have" || absent+=("$l")
+    done
+    ((${#absent[@]})) || return 0
+    for l in "${absent[@]}"; do
+        if grep -q "^#\?${l//./\\.} " /etc/locale.gen; then
+            sudo sed -i "s/^#\(${l//./\\.} \)/\1/" /etc/locale.gen
+        else
+            warn "locale $l (in /etc/locale.conf) is not in /etc/locale.gen — add it by hand"
+        fi
+    done
+    sudo locale-gen >/dev/null && ok "generated missing locales: ${absent[*]}" \
+        || warn "locale-gen failed — missing locales: ${absent[*]}"
+}
+
 _upgrade_system() {
     _pacman_verbose_lists
+    _ensure_locales
     _remove_conflicts
     _demote_packages
     if [[ "${3:-}" == warn-conflicts ]]; then

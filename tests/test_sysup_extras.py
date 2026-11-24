@@ -323,10 +323,33 @@ optimize_system
         self.env["SCRIPT"] = str(script)
         stubs = "".join(f"{n}() {{ :; }}\n" for n in (
             "_remove_conflicts", "_demote_packages", "_check_disk_space", "_review_aur_updates",
-            "_estimate_aur_builds", "_restart_dms_if_changed", "_dms_versions", "_syuu", "_sync_pinned"))
+            "_estimate_aur_builds", "_restart_dms_if_changed", "_dms_versions", "_syuu", "_sync_pinned",
+            "_ensure_locales"))
         r = self.shell(stubs + 'sudo() { "$@"; }\n_upgrade_system up prog')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(conf.read_text(), "[options]\nVerbosePkgLists\nColor\n")
+
+    def test_missing_locale_from_locale_conf_is_generated(self):
+        # Surface 2026-11-24: LC_TIME=it_IT.UTF-8 set but never generated.
+        conf, gen = self.root / "locale.conf", self.root / "locale.gen"
+        conf.write_text('LANG=en_GB.UTF-8\nLC_TIME="it_IT.UTF-8"\nLC_COLLATE=C\n')
+        gen.write_text("en_GB.UTF-8 UTF-8\n#it_IT.UTF-8 UTF-8\n#it_IT ISO-8859-1\n")
+        script = self.root / "sysup"
+        script.write_text(Path(self.env["SCRIPT"]).read_text()
+                          .replace("/etc/locale.conf", str(conf)).replace("/etc/locale.gen", str(gen)))
+        self.env["SCRIPT"] = str(script)
+        r = self.shell('locale() { printf "C\\nC.utf8\\nen_GB.utf8\\nPOSIX\\n"; }\n'
+                       'sudo() { [[ "$1" == locale-gen ]] && { echo GEN >> "$CALLS"; return 0; }; "$@"; }\n'
+                       '_ensure_locales')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(gen.read_text(), "en_GB.UTF-8 UTF-8\nit_IT.UTF-8 UTF-8\n#it_IT ISO-8859-1\n")
+        self.assertEqual(Path(self.env["CALLS"]).read_text(), "GEN\n")
+        self.assertIn("generated missing locales: it_IT.UTF-8", r.stdout)
+        # All present: nothing runs.
+        Path(self.env["CALLS"]).unlink()
+        r = self.shell('locale() { printf "en_GB.utf8\\nit_IT.utf8\\n"; }\n'
+                       'sudo() { echo "sudo $*" >> "$CALLS"; }\n_ensure_locales')
+        self.assertFalse(Path(self.env["CALLS"]).exists(), r.stdout)
 
     def test_verbose_pkg_lists_enabled_once(self):
         conf = self.root / "pacman.conf"
