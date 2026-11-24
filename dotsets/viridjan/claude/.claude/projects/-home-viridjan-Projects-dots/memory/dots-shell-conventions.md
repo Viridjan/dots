@@ -42,6 +42,11 @@ offset, and `~/.local/bin/vjupdate` links to the repo file. An in-place write
 if it's live, write a temp file and `mv`/`os.replace` it over (new inode). Long AUR
 runs (e.g. 12 ArtCraft Rust builds ≈ 75 min, 2026-10-18) make this common.
 
+**`cmd | head` under pipefail:** when cmd writes more than head reads, head exits, cmd
+dies of SIGPIPE, pipefail makes the pipeline fail and `set -e` exits 141. Hit by
+`git log | head -n 10` in `_check_repo_current` with 11 incoming commits (2026-11-24).
+Limit at the source (`git log -n 10`, `sed '…;q'`) or end the pipeline with `|| true`.
+
 **Killing a session daemon from the Bash tool:** `pkill -f 'launcher-ws watch'` (even with
 a `[h]` regex trick) killed the tool's own shell — its zsh command line contains the
 pattern, exit 144 (2026-11-24). Match the exact cmdline per pid instead:

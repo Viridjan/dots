@@ -207,7 +207,7 @@ _fix_stow() {
             _ask "$pkg: ${live/#"$HOME"/\~} is identical to the repo copy. Replace with a link? [Y/n]"
             [[ "$FIX_REPLY" == n ]] && continue
         else
-            diff -u --label "repo/$t" --label "live/$t" -- "$repo" "$live" | head -n 40
+            diff -u --label "repo/$t" --label "live/$t" -- "$repo" "$live" | head -n 40 || true  # diff exits 1; long diffs SIGPIPE
             _ask "$pkg: ${live/#"$HOME"/\~} differs. [r]epo wins / [l]ive wins (copied into the repo) / [s]kip"
             [[ "$FIX_REPLY" == r || "$FIX_REPLY" == l ]] || continue
             [[ -n "$bak" ]] || bak=$(mktemp -d "$STAMP_DIR/fix-backup-$(date '+%Y%m%d-%H%M%S')-XXXXXX") \
@@ -326,7 +326,8 @@ _check_repo_current() {
     local behind
     behind=$(git -C "$DOTS_DIR" rev-list --count 'HEAD..@{u}' 2>/dev/null) || return 0
     (( behind > 0 )) || return 0
-    git -C "$DOTS_DIR" log --oneline 'HEAD..@{u}' | head -n 10 | sed 's/^/    /'
+    # -n, not `| head`: head closing the pipe early SIGPIPEs git → pipefail exit 141.
+    git -C "$DOTS_DIR" log --oneline -n 10 'HEAD..@{u}' | sed 's/^/    /'
     _ask "dots is $behind commit(s) behind. [p]ull and relaunch / [c]ontinue with this version"
     [[ "$FIX_REPLY" == p ]] || return 0
     if git -C "$DOTS_DIR" pull --ff-only; then

@@ -2036,6 +2036,7 @@ class RepoCurrentTests(FixtureCase):
 case "$*" in
   *"rev-parse"*) echo origin/main ;;
   *"rev-list"*) echo {behind} ;;
+  *" log "*) i=0; while ((i++ < 100000)); do echo "$i commit"; done ;;   # long output: a pipe closed early would SIGPIPE it
   *" pull "*) echo pull >> "$CALLS" ;;
 esac''')
         self.mock("timeout", 'shift; "$@"')
@@ -2052,6 +2053,12 @@ esac''')
         r = self.run_check(3, "c\n")
         self.assertFalse(Path(self.env["CALLS"]).exists())
         self.assertNotIn("EXEC", r.stdout)
+        self.assertIn("DONE", r.stdout)
+
+    def test_many_commits_behind_does_not_die_of_sigpipe(self):
+        # 2026-11-24: 11 incoming commits + `git log | head -n 10` → exit 141.
+        r = self.run_check(5000, "c\n")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("DONE", r.stdout)
 
     def test_current_repo_asks_nothing(self):
