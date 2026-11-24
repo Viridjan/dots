@@ -1,8 +1,8 @@
 $1`.                     .\
 .+o:.               .-\o:
  .\sso+:.       .:+oss+-
-   \ossss\     +ssso\-
-    :osss\     osss+`
+   \ossss\     +ssso\-.
+    :osss\     ossssss+
      -osso`...\oss+sss+
       `\ossooosss++sss+
        .\+ooooo\. +sss+
