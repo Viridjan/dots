@@ -1,10 +1,10 @@
 $1`.                           .\
-.++`                       .\+\
- .+so+:-               `-\+oo:
-   \osssssss\      +sssooo\-.
+.++:.                      .-\+\
+ .+sso+:-.            .-:\+oso:
+   \osss+\:-       -:\+ssoo\-.
     :ossssss\      ossso+++sssss+
      -ossssso     :sssssso`+ssss+
-      `osssss-....osssss+. +ssss+
+      `osssss-...\osssss+. +ssss+
        `ooossso++osssss+.  +ssss+
         .\++++++++++++:    +ssss+
          .\+++\++++++:     +ssss+
