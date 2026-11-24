@@ -327,9 +327,8 @@ _check_repo_current() {
     behind=$(git -C "$DOTS_DIR" rev-list --count 'HEAD..@{u}' 2>/dev/null) || return 0
     (( behind > 0 )) || return 0
     # -n, not `| head`: head closing the pipe early SIGPIPEs git → pipefail exit 141.
+    info "dots is $behind commit(s) behind — pulling"
     git -C "$DOTS_DIR" log --oneline -n 10 'HEAD..@{u}' | sed 's/^/    /'
-    _ask "dots is $behind commit(s) behind. [p]ull and relaunch / [c]ontinue with this version"
-    [[ "$FIX_REPLY" == p ]] || return 0
     if git -C "$DOTS_DIR" pull --ff-only; then
         ok "pulled — relaunching"
         export SYSUP_SELF_UPDATED=1

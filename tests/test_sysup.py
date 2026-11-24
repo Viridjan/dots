@@ -2040,24 +2040,29 @@ case "$*" in
   *" pull "*) echo pull >> "$CALLS" ;;
 esac''')
         self.mock("timeout", 'shift; "$@"')
+        return self.run_check_raw(answer)
+
+    def run_check_raw(self, answer):
         return subprocess.run(["/usr/bin/bash", "-c", 'source "$SCRIPT"\n_fix_tty() { return 0; }\n'
                                'exec() { echo "EXEC $*"; }\n_check_repo_current --update\necho DONE'],
                               env=self.env, text=True, capture_output=True, timeout=10, input=answer)
 
-    def test_behind_pull_relaunches(self):
-        r = self.run_check(3, "p\n")
+    def test_behind_pulls_and_relaunches_without_asking(self):
+        r = self.run_check(3, "")
         self.assertIn("pull", Path(self.env["CALLS"]).read_text())
         self.assertIn("EXEC " + str(self.home / "Projects/dots/scripts/.local/bin/sysup") + " --update", r.stdout)
 
-    def test_behind_continue_does_not_pull(self):
-        r = self.run_check(3, "c\n")
-        self.assertFalse(Path(self.env["CALLS"]).exists())
+    def test_failed_pull_continues_with_this_version(self):
+        self.run_check(3, "")   # writes the mock; make pull fail
+        self.mock("git", Path(self.bin / "git").read_text().replace('echo pull >> "$CALLS" ;;', 'exit 1 ;;'))
+        r = self.run_check_raw("")
         self.assertNotIn("EXEC", r.stdout)
+        self.assertIn("pull failed", r.stdout + r.stderr)
         self.assertIn("DONE", r.stdout)
 
     def test_many_commits_behind_does_not_die_of_sigpipe(self):
         # 2026-11-24: 11 incoming commits + `git log | head -n 10` → exit 141.
-        r = self.run_check(5000, "c\n")
+        r = self.run_check(5000, "")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("DONE", r.stdout)
 
