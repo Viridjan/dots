@@ -2,12 +2,13 @@ $1`.                     .\
 .+o:.               .-\o:
  .\sso+:.       .:+oss+-
    \ossss\     +ssso\-
-    :osss\     oss+sss+
+    :osss\     osss+`
      -osso`...\oss+sss+
       `\ossooosss++sss+
        .\+ooooo\. +sss+
         .\++++:   +sss+
-         .+oo:    +sss:
-          .o.    .osso`
+         .+oo:    +sss+
+          .o.     +sss:
+                 .osso`
               .:+sss-
               -:++:`
