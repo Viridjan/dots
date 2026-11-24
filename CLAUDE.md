@@ -576,7 +576,7 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
     vesktop credentials — only for installed tools, local checks only).
     `sysup --actions lostfiles` runs `pacreport --unowned-files` (~1 min, report).
     `sysup --actions lynis` (2026-11-24): `sudo lynis audit system --quick`, report copied to
-    `$STAMP_DIR/lynis-report.dat`; warnings → warn, prints hardening index + suggestion count.
+    `$STAMP_DIR/lynis-report.dat` (+ `lynis.log`); warnings → warn, prints hardening index + suggestion count.
     `check_lynis_age` (audit) = info line when that copy is over 90 days old.
   - *Preflight*: refuses to run as root; warns under 5 GiB free on `/`
     (`SYSUP_MIN_FREE_GB`); keeps an existing sudo ticket alive (`sudo -n -v`

@@ -3230,7 +3230,8 @@ report_lynis() {
     info "Lynis: auditing the system (a few minutes)..."
     # shellcheck disable=SC2024  # the copy belongs to the user, not root
     if ! sudo lynis audit system --quick --no-colors --quiet >/dev/null 2>&1 \
-        || ! sudo cat /var/log/lynis-report.dat > "$out"; then
+        || ! sudo cat /var/log/lynis-report.dat > "$out" \
+        || ! sudo cat /var/log/lynis.log > "${out%-report.dat}.log"; then
         _record lynis fail "lynis failed"; warn "lynis audit failed"; return 0
     fi
     # PKGS-7322 fires on any arch-audit advisory, even unfixable ones; check_arch_audit
@@ -3238,7 +3239,7 @@ report_lynis() {
     while IFS= read -r l; do warn "lynis: $l"; done \
         < <(sed -n 's/^warning\[\]=\([^|]*\)|\([^|]*\)|.*/\1 \2/p' "$out" | { grep -v '^PKGS-7322 ' || true; })
     n=$(grep -c '^suggestion\[\]=' "$out" || true)
-    ok "Lynis hardening index $(sed -n 's/^hardening_index=//p' "$out")/100, $n suggestion(s) — $out (full log: sudo less /var/log/lynis.log)"
+    ok "Lynis hardening index $(sed -n 's/^hardening_index=//p' "$out")/100, $n suggestion(s) — $out, full log ${out%-report.dat}.log"
     _record lynis ok
 }
 

@@ -186,6 +186,7 @@ class LynisTests(ExtrasCase):
         self.assertNotIn("PKGS-7322", r.stdout)   # arch-audit check covers it
         self.assertIn("hardening index 65/100, 2 suggestion(s)", r.stdout)
         self.assertIn("hardening_index=65", Path(self.shell("echo -n $STAMP_DIR").stdout, "lynis-report.dat").read_text())
+        self.assertTrue(Path(self.shell("echo -n $STAMP_DIR").stdout, "lynis.log").exists())
 
 
 class LynisOnlyFilteredWarningTests(ExtrasCase):
