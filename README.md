@@ -579,6 +579,9 @@ e.g. `check 2d ago: 1 failed (pacman-db)`. Run it now with
   working. Rules: `opensnitch-ui` → Rules.
 - **arch-audit** — part of `sysup --check`: warns when an installed package has a security
   fix waiting (run `sysup --update`); advisories without a fix are one info line.
+- **ClamAV** — part of `sysup --check`, once a week: scans `~/Downloads`, `~/Shared` (Windows
+  VM share) and `/mnt/data/Downloads`; warns on a hit (report in
+  `~/.local/state/dots/clamscan.txt`). Signatures update daily; no always-on daemon.
 - **Lynis** — run by hand now and then: `sudo lynis audit system` (report only).
 - **Hardening** (from Lynis): `sysup --actions optimize`, and every update, writes stricter
   kernel settings (`/etc/sysctl.d/99-dots-hardening.conf`), blocks unused network protocols

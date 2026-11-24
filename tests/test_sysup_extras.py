@@ -144,6 +144,33 @@ class SecurityToolTests(ExtrasCase):
         self.assertEqual(conf.read_text(), "[global]\ndefault_action=1\ndefault_timeout=15\n")
 
 
+class MalwareScanTests(ExtrasCase):
+    def scan(self, clamscan):
+        d = self.root / "dl"
+        d.mkdir(exist_ok=True)
+        self.env["SYSUP_SCAN_DIRS"] = f"{d} {self.root}/missing"
+        for tool in ("nice", "ionice"):
+            self.mock(tool, 'while [[ "$1" == -* ]]; do shift 2; done; "$@"')
+        for tool in ("touch", "date"):
+            self.mock(tool, f'exec /usr/bin/{tool} "$@"')
+        self.mock("clamscan", f'echo "clamscan $*" >> "$CALLS"; {clamscan}')
+        return self.shell("check_malware_scan; echo STAMP=$( [[ -f $STAMP_DIR/clamscan ]] && echo y )")
+
+    def test_hit_warns_and_scan_runs_weekly(self):
+        r = self.scan('echo "$5/x.exe: Win.Trojan.Agent FOUND"; exit 1')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("ClamAV: 1 infected file(s)", r.stdout)
+        self.assertIn(f"-r -i --no-summary {self.root}/dl\n", Path(self.env["CALLS"]).read_text())
+        self.assertIn("STAMP=y", r.stdout)
+        r = self.shell("check_malware_scan")   # stamped: not again within 6 days
+        self.assertEqual(Path(self.env["CALLS"]).read_text().count("clamscan"), 1)
+
+    def test_missing_signatures_wait_without_stamp(self):
+        r = self.scan('echo "LibClamAV Error: cli_loaddbdir(): No supported database files found"; exit 2')
+        self.assertIn("no signatures yet", r.stdout)
+        self.assertIn("STAMP=\n", r.stdout)
+
+
 class HardeningTests(ExtrasCase):
     def test_hardening_files_written_once_and_sysctl_applied(self):
         etc = self.root / "etc"

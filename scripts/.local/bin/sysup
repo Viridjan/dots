@@ -3506,6 +3506,34 @@ check_package_files() {
     _mark_done paccheck
 }
 
+# ClamAV scan of the folders files arrive in (2026-11-24): downloads and the Windows VM
+# share. No clamd daemon; clamav-freshclam-once.timer keeps the signatures current.
+# At most every 6 days (the weekly check timer runs it); a hit only warns.
+check_malware_scan() {
+    command -v clamscan &>/dev/null || return 0
+    _needs_run clamscan $((6 * 86400)) || return 0
+    local d dirs=() out="$STAMP_DIR/clamscan.txt" rc=0 n
+    for d in ${SYSUP_SCAN_DIRS:-"$HOME/Downloads" "$HOME/Shared" /mnt/data/Downloads}; do
+        [[ -d "$d" ]] && dirs+=("$d")
+    done
+    ((${#dirs[@]})) || return 0
+    mkdir -p "$STAMP_DIR"
+    info "ClamAV: scanning ${dirs[*]} (weekly, lowest priority)..."
+    nice -n 19 ionice -c 3 clamscan -r -i --no-summary "${dirs[@]}" >"$out" 2>&1 || rc=$?
+    n=$(grep -c ' FOUND$' "$out" || true)
+    if (( n )); then
+        warn "ClamAV: $n infected file(s) — see $out"
+    elif (( rc == 0 )); then
+        ok "ClamAV: nothing found"
+    elif grep -q 'No supported database files' "$out"; then
+        info "ClamAV: no signatures yet (clamav-freshclam-once.timer downloads them) — scan waits"
+        return 0
+    else
+        warn "ClamAV scan failed (exit $rc) — see $out"
+    fi
+    _mark_done clamscan
+}
+
 # Microsoft's 2011 Secure Boot CAs expired in 2026 (KEK + UEFI CA in June,
 # Windows PCA in October). Shims and option ROMs signed only with the 2023
 # CAs fail to boot until the firmware db/KEK carry them. linux-surface
@@ -3765,7 +3793,8 @@ phase_update()   { system_update; flatpak_update; clean_caches; }
 AUDIT_CHECKS=(check_held_updates check_foreign_orphans check_unused_apps check_rebuilds
               check_python_rebuilds check_pacnew check_modified_configs check_dms_owner check_surface_kernel
               check_logins check_firmware check_aur_malware check_aur_health check_pacman_db
-              check_secureboot_certs check_cpu_vulns check_arch_audit check_package_files)
+              check_secureboot_certs check_cpu_vulns check_arch_audit check_malware_scan
+              check_package_files)
 _run_audit_checks() { local c; for c in "${AUDIT_CHECKS[@]}"; do "$c"; done; }
 # The audit phase also removes unused flatpak runtimes; --check stays report-only.
 # sysup --status shows this (the weekly timer runs --check too).
