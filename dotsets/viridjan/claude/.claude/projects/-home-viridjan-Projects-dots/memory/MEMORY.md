@@ -39,3 +39,5 @@
 - [no silent focus moves](feedback-no-focus-moves.md) — announce workspace switches in live niri tests; move user, act, move back after delay
 - [shared vs per-device](feedback-shared-vs-per-device.md) — settings shared by default; per-profile (feature / <pkg>@<profile>) only when device-specific
 - [focus policy](feedback-focus-policy.md) — focus/placement exceptions only for ⌘Space/keybind launches (launcher-ws run), never script/agent windows
+- [security stack](security-stack.md) — OpenSnitch allow-on-timeout, arch-audit, ClamAV weekly, Lynis action, /etc hardening copied not stowed; rejected items
+- [user commands in fish](feedback-user-commands-fish.md) — wrap POSIX one-liners in bash -c; user runs downloaded binaries

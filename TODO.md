@@ -53,4 +53,6 @@ No Flatpak: `alacritty` (terminal sandboxing issues), `shelly`.
       `--update` generates `it_IT.UTF-8` if missing (the `setlocale: LC_TIME` warning on the Surface).
 - [ ] `sysup --actions stow-symlinks,dms-import`, then log out/in: `launcher-ws` binds + watcher.
 - [ ] Ctrl+N in Brave opens a focused window; PiP opens floating.
-
+- [ ] Security (2026-11-24): `sysup --actions install,services,optimize,stow-symlinks` (OpenSnitch, arch-audit,
+      lynis, ClamAV + freshclam timer, /etc hardening), log out/in for the OpenSnitch UI, then
+      `sysup --actions lynis` once.
