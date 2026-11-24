@@ -180,6 +180,7 @@ install = [
     # Security audits: arch-audit runs in sysup --check; lynis by hand (sudo lynis audit system)
     "arch-audit",
     "lynis",
+    "fail2ban",  # bans repeated failed logins via ufw (jail: sshd); config from sysup _system_hardening
     "clamav",  # weekly scan of Downloads/Shared in sysup --check; no clamd daemon
     "networkmanager-openvpn",
     "proton-vpn-gtk-app",
@@ -316,6 +317,7 @@ enable = [
     "dmemcg-booster-system", "systemd-oomd", "power-profiles-daemon",
     "snapper-timeline.timer", "snapper-cleanup.timer", "opensnitchd",
     "clamav-freshclam-once.timer",  # daily ClamAV signature update
+    "fail2ban",
     "greetd", "docker",
 ]
 # User units (systemctl --user). sysup-check.timer: weekly report-only

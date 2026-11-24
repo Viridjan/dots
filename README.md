@@ -587,6 +587,9 @@ e.g. `check 2d ago: 1 failed (pacman-db)`. Run it now with
 - **Hardening** (from Lynis): `sysup --actions optimize`, and every update, writes stricter
   kernel settings (`/etc/sysctl.d/99-dots-hardening.conf`), blocks unused network protocols
   (dccp, sctp, rds, tipc) and turns core dumps off. Delete those files to undo.
+- **fail2ban** — bans an address after 5 failed logins in 10 minutes (1 hour, through ufw).
+  Only SSH is watched, and no SSH server runs now, so it only matters if one is enabled.
+  Config: `/etc/fail2ban/jail.d/dots.local` (written by sysup); `sudo fail2ban-client status`.
 
 ### Unlisted and unused apps
 

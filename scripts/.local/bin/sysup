@@ -2284,11 +2284,25 @@ _HARDEN_COREDUMP='# sysup (_system_hardening): no core dumps (Lynis KRNL-5820)
 Storage=none
 ProcessSizeMax=0
 '
+# fail2ban (Lynis "intrusion software", 2026-11-24): bans via ufw, reads the journal.
+# Only sshd is jailed: nothing else listens through ufw. Read by fail2ban, not at early boot.
+_HARDEN_FAIL2BAN='# sysup (_system_hardening): fail2ban defaults
+[DEFAULT]
+backend = systemd
+banaction = ufw
+bantime = 1h
+findtime = 10m
+maxretry = 5
+
+[sshd]
+enabled = true
+'
 _system_hardening() {
     local etc=${SYSUP_ETC:-/etc} f var content changed=() spec
     for spec in "sysctl.d/99-dots-hardening.conf:_HARDEN_SYSCTL" \
                 "modprobe.d/dots-hardening.conf:_HARDEN_MODPROBE" \
-                "systemd/coredump.conf.d/dots-hardening.conf:_HARDEN_COREDUMP"; do
+                "systemd/coredump.conf.d/dots-hardening.conf:_HARDEN_COREDUMP" \
+                "fail2ban/jail.d/dots.local:_HARDEN_FAIL2BAN"; do
         f="$etc/${spec%%:*}"; var=${spec##*:}; content=${!var}
         [[ "$(cat "$f" 2>/dev/null)"$'\n' == "$content" ]] && continue
         if sudo mkdir -p "${f%/*}" && printf '%s' "$content" | sudo tee "$f" >/dev/null; then
@@ -2301,6 +2315,8 @@ _system_hardening() {
     [[ " ${changed[*]} " != *" sysctl.d/"* ]] \
         || sudo sysctl -q -p "$etc/sysctl.d/99-dots-hardening.conf" >/dev/null \
         || warn "hardening: sysctl apply failed (applies at next boot)"
+    [[ " ${changed[*]} " != *" fail2ban/"* ]] \
+        || sudo systemctl try-reload-or-restart fail2ban 2>/dev/null || true
     ok "hardening applied: ${changed[*]}"
 }
 

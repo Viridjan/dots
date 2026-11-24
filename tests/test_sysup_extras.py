@@ -190,6 +190,7 @@ class HardeningTests(ExtrasCase):
         self.env["SYSUP_ETC"] = str(etc)
         self.mock("sudo", 'echo "sudo $1" >> "$CALLS"; "$@"')
         self.mock("sysctl", 'echo "sysctl $*" >> "$CALLS"')
+        self.mock("systemctl", 'echo "systemctl $*" >> "$CALLS"')
         for tool in ("mkdir", "tee"):
             self.mock(tool, f'exec /usr/bin/{tool} "$@"')
         r = self.shell("_system_hardening")
@@ -198,6 +199,8 @@ class HardeningTests(ExtrasCase):
         self.assertIn("fs.protected_regular = 2\n", sysctl)
         self.assertIn("install tipc /bin/false\n", (etc / "modprobe.d/dots-hardening.conf").read_text())
         self.assertIn("Storage=none\n", (etc / "systemd/coredump.conf.d/dots-hardening.conf").read_text())
+        self.assertIn("banaction = ufw\n", (etc / "fail2ban/jail.d/dots.local").read_text())
+        self.assertIn("systemctl", Path(self.env["CALLS"]).read_text())   # fail2ban reloaded
         self.assertIn(f"sysctl -q -p {etc}/sysctl.d/99-dots-hardening.conf", Path(self.env["CALLS"]).read_text())
         # Second run: identical content, nothing written or applied.
         Path(self.env["CALLS"]).unlink()
