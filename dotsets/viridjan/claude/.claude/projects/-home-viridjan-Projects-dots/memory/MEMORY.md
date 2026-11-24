@@ -17,7 +17,7 @@
 - [working with codex in dots](working-with-codex-in-dots.md) — Codex edits the repo between turns; git diff first, verify its claims, expect my scratchpad tests to go stale
 - [~/.local/bin unfolded](local-bin-unfolded.md) — scripts stowed --no-folding 2026-09-25; **Surface: run migration before git pull**
 - [offline runbooks](feedback-offline-runbooks.md) — deferred/other-machine work → standalone tested script + manual-confirm TODO checklist
-- [pacman no progress under tee](pacman-no-progress-under-tee.md) — tee pipe kills pacman bars/candy; script-pty fix proposed, not applied
+- [pacman progress under tee](pacman-no-progress-under-tee.md) — fixed 2026-11-24: _paru runs paru in a script pty; _clean_log before log parsing
 - [device missing after kernel upgrade](device-missing-after-kernel-upgrade.md) — "not detected" → compare uname -r vs /usr/lib/modules; reboot after kernel upgrade
 - [package preferences](dots-package-preferences.md) — -bin AUR fine (source rule was update misconception, dropped 2026-10-25); no third-party repos; swap via [paru].remove; give `! paru` cmds
 - [sysup rename](sysup-rename.md) — 2026-11-08 vjupdate→sysup, vj deleted; Surface/Plancia runbook pending (vj-tui-rewrite.md is history)

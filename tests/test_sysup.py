@@ -1465,6 +1465,26 @@ class BuildPriorityTests(FixtureCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("paru NICE=19", self.calls()[0])
 
+    def test_terminal_run_uses_a_pty_and_keeps_args(self):
+        # pacman draws progress bars only on a tty; stdout is the log tee.
+        self.mock("script", 'echo "script $1 SHELL=$SHELL" >> "$CALLS"; bash -c "$2"')
+        r = self.shell('_pty_ok() { true; }\n_paru -S --ignore "a b" one')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        lines = Path(self.env["CALLS"]).read_text().splitlines()
+        self.assertEqual(lines[0], "script -qefc SHELL=/bin/bash")
+        self.assertTrue(lines[1].startswith("paru NICE=19 ") and lines[1].endswith(" -S --ignore a b one"), lines)
+
+    def test_pty_output_is_cleaned_before_failure_parsing(self):
+        # colour codes and \r redraws must not hide "error: packages failed to build".
+        self.mock("paru", 'printf "(1/2) x  10%%\\r(1/2) x 100%%\\r\\n'
+                          '\\033[1;31merror:\\033[0m packages failed to build: foo-1\\r\\n"; exit 1')
+        r = self.shell('_syuu || true\necho "DETAIL=$SYUU_FAIL_DETAIL"')
+        self.assertIn("DETAIL=AUR build failed: foo-1", r.stdout)
+        log = self.root / "log"
+        log.write_bytes(b"a\x1b[1;34mb\x1b[0m\r\n(1/2) x  10%\r(1/2) x 100%\r\nplain\n")
+        self.shell(f'_clean_log "{log}"')
+        self.assertEqual(log.read_text(), "ab\n(1/2) x 100%\nplain\n")
+
     def test_upgrade_runs_at_lowest_priority_with_c_time(self):
         r = self.shell('_estimate_aur_builds() { :; }\n_syuu')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)

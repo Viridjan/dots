@@ -348,6 +348,7 @@ _cleanup() {
     if [[ -n "${_TEE_PID:-}" ]]; then
         exec 1>&- 2>&- || true
         wait "$_TEE_PID" 2>/dev/null || true
+        _clean_log "${LOG_FILE:-}" 2>/dev/null || true   # pty redraws from _paru
     fi
     return $_rc
 }
@@ -675,7 +676,37 @@ _estimate_aur_builds() {
 # and idle I/O, so AUR builds never outrank a game. `nice -n` is relative and
 # shells started from alacritty inherit ananicy-cpp's negative niceness (-4),
 # so compute the step that lands on an absolute 19.
-_paru() { nice -n "$(( 19 - $(nice) ))" ionice -c 3 paru "$@"; }
+#
+# With a terminal it runs in a pseudo-terminal (util-linux `script`): pacman draws
+# progress bars and colour only when stdout is a tty, and sysup's stdout is the log
+# tee. -e keeps paru's exit status. SHELL: script runs the command with $SHELL -c,
+# and the quoting below is bash's (fish rejects it). Logs then carry colour codes
+# and \r redraws — _clean_log them before grepping.
+_pty_ok() { [[ -t 0 ]] && command -v script &>/dev/null; }
+_paru() {
+    local cmd=(nice -n "$(( 19 - $(nice) ))" ionice -c 3 paru "$@")
+    if _pty_ok; then
+        SHELL=/bin/bash script -qefc "$(printf '%q ' "${cmd[@]}")" /dev/null
+    else
+        "${cmd[@]}"
+    fi
+}
+
+# Strip colour/cursor escapes and keep only the last redraw of each \r-overwritten
+# line (pty output ends lines with \r\n), so logs read like plain text again.
+_clean_log() {
+    [[ -f "$1" ]] || return 0
+    sed -i -e 's/\x1b\[[0-9;?]*[A-Za-z]//g' -e 's/\x1b[()][A-Z0-9]//g' \
+        -e 's/\r$//' -e 's/.*\r//' -- "$1"
+}
+
+# paru with output shown and saved to log $1 (cleaned); returns paru's status.
+_paru_log() {
+    local log=$1 rc=0; shift
+    _paru "$@" 2>&1 | tee "$log" || rc=$?
+    _clean_log "$log"
+    return "$rc"
+}
 
 # A mirror that answers a missing file with an HTML error page fails the whole
 # transaction ("Maximum file size exceeded" on a .sig) instead of pacman moving
@@ -710,7 +741,7 @@ _syuu() {
     [[ -n "$held" ]] && args+=(--ignore "$held")
     local logfile; logfile=$(mktemp)
     local rc=0
-    LC_TIME=C _paru "${args[@]}" 2>&1 | tee "$logfile" || rc=$?
+    LC_TIME=C _paru_log "$logfile" "${args[@]}" || rc=$?
     if (( rc != 0 )); then
         local out; out=$(<"$logfile")
         if { grep -q "is unknown trust" <<<"$out" && _fix_untrusted_keys "$out"; } \
@@ -719,7 +750,7 @@ _syuu() {
             rc=0
             # Retry output is tee'd too — it used to be discarded, so a failure
             # here left nothing to report.
-            LC_TIME=C _paru "${args[@]}" 2>&1 | tee "$logfile" || rc=$?
+            LC_TIME=C _paru_log "$logfile" "${args[@]}" || rc=$?
         fi
     fi
     # Partial runs still recorded: every finished build is a valid data point.
@@ -884,9 +915,9 @@ _install_list() {
         fi
         install_log=$(mktemp) || return 1
         local paru_args=(-S --needed --noconfirm "${ask[@]}" "${to_install[@]}")
-        if ! LC_ALL=C _paru "${paru_args[@]}" 2>&1 | tee "$install_log" \
+        if ! LC_ALL=C _paru_log "$install_log" "${paru_args[@]}" \
             && ! { _drop_failed_mirrors "$install_log" && info "Retrying install..." \
-                   && LC_ALL=C _paru "${paru_args[@]}" 2>&1 | tee "$install_log"; }; then
+                   && LC_ALL=C _paru_log "$install_log" "${paru_args[@]}"; }; then
             INSTALL_FAIL_DETAIL=$(_syuu_fail_detail "$install_log")
             _queue_aur_fails "$install_log"
             # pacman's wording, then paru's own AUR conflict check.

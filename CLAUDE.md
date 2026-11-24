@@ -812,6 +812,11 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   alacritty inherit ananicy-cpp's nice −4, so an unwrapped AUR build (rustc on
   all cores) outranked games — MTG Arena lagged during an update (2026-10-21).
   Use `_paru` for any new build call; plain `nice -n 19` is relative (→ 15).
+  With a terminal, `_paru` runs paru in a pty (`script -qefc`, `SHELL=/bin/bash`) so
+  pacman draws progress bars/colour despite the log tee (2026-11-24). Logs then hold
+  ANSI codes and `\r` redraws: `_paru_log LOG args…` tees and `_clean_log`s before any
+  grep (`_syuu_fail_detail`, build times, mirrors, conflicts); `_cleanup` cleans the
+  main log. Ctrl-C in a pty build goes to paru only, recorded as a failure.
 - **Exit status is meaningful.** Phases record ok/fail/skip; `print_recap`
   prints the table and returns non-zero if anything failed. Unexpected phase
   failures abort and print a recap through the runtime ERR trap. Never wrap

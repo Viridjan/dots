@@ -1,6 +1,6 @@
 ---
 name: pacman-no-progress-under-tee
-description: Why vjupdate shows no pacman progress bars/ILoveCandy; proposed script-pty fix (not implemented as of 2026-09-29)
+description: pacman progress bars under sysup's log tee — fixed 2026-11-24 with a script pty in _paru
 metadata:
   node_type: memory
   type: project
@@ -14,3 +14,8 @@ Proposed 2026-09-29, user did NOT yet accept: `_pty` helper wrapping paru in `sc
 
 **Why:** user asked for pacman graphics during installs.
 **How to apply:** if implemented, must strip ANSI/`\r` before `_syuu_fail_detail`'s `^error:` sed match, or build-failure detection silently breaks; log gets progress-redraw noise. Related: [[vjupdate-log-triage]], [[dots-shell-conventions]].
+
+**Implemented 2026-11-24** (user asked): `_paru` uses `script -qefc` when `_pty_ok` (stdin tty +
+`script` present), `SHELL=/bin/bash` because script runs `$SHELL -c` and the user's shell is fish.
+`_paru_log` + `_clean_log` (strip ANSI, drop trailing `\r`, keep text after last `\r`) run before
+every log parse; `_cleanup` cleans the main log. Direct `sudo pacman` calls are not wrapped.
