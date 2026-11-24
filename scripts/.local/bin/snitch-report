@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""OpenSnitch connection report, from the UI's event database (set to a file by sysup).
+
+  snitch-report [HOURS]     summary of the last HOURS (default 24): per program, its
+                            destinations; NEW = program not seen before that window
+  snitch-report --follow    live: one line per new program→destination pair, as it happens
+
+Flags: NEW program, DENY (blocked), ROOT (uid 0). Database: SNITCH_DB or the UI default.
+"""
+import os
+import sqlite3
+import sys
+import time
+from collections import defaultdict
+from datetime import datetime, timedelta
+
+DB = os.environ.get("SNITCH_DB", os.path.expanduser("~/.local/share/opensnitch/events.db"))
+
+
+def connect():
+    if not os.path.exists(DB):
+        sys.exit(f"no OpenSnitch database at {DB} — run: sysup --actions stow-symlinks, then restart opensnitch-ui")
+    return sqlite3.connect(f"file:{DB}?mode=ro", uri=True, timeout=5)
+
+
+def dest(host, ip, port, proto):
+    return f"{host or ip}:{port}/{proto}"
+
+
+def flags(action, uid):
+    return " ".join(f for f, on in (("DENY", action != "allow"), ("ROOT", uid == "0")) if on)
+
+
+def summary(hours):
+    since = str(datetime.now() - timedelta(hours=hours))
+    db = connect()
+    seen_before = {r[0] for r in db.execute("SELECT DISTINCT process FROM connections WHERE time < ?", (since,))}
+    procs = defaultdict(lambda: {"n": 0, "dests": defaultdict(int), "flags": set(), "first": None})
+    for t, action, proto, ip, host, port, uid, proc in db.execute(
+            "SELECT time, action, protocol, dst_ip, dst_host, dst_port, uid, process FROM connections "
+            "WHERE time >= ? ORDER BY time", (since,)):
+        p = procs[proc]
+        p["n"] += 1
+        p["dests"][dest(host, ip, port, proto)] += 1
+        p["first"] = p["first"] or t[:16]
+        p["flags"].update(flags(action, uid).split())
+    if not procs:
+        print(f"no connections recorded in the last {hours}h ({DB})")
+        return
+    print(f"OpenSnitch, last {hours}h: {sum(p['n'] for p in procs.values())} connections, {len(procs)} programs\n")
+    for proc, p in sorted(procs.items(), key=lambda kv: (kv[0] in seen_before, -kv[1]["n"])):
+        tags = sorted(p["flags"] | ({"NEW"} if proc not in seen_before else set()))
+        print(f"{proc}  ({p['n']}, first {p['first']}){'  [' + ' '.join(tags) + ']' if tags else ''}")
+        top = sorted(p["dests"].items(), key=lambda kv: -kv[1])
+        for d, n in top[:6]:
+            print(f"    {n:5}  {d}")
+        if len(top) > 6:
+            print(f"           … {len(top) - 6} more destinations")
+
+
+def follow(poll=float(os.environ.get("SNITCH_POLL", 2))):
+    db = connect()
+    pairs = {(r[0], r[1]) for r in db.execute(
+        "SELECT DISTINCT process, COALESCE(NULLIF(dst_host, ''), dst_ip) FROM connections")}
+    procs = {p for p, _ in pairs}
+    last = db.execute("SELECT COALESCE(MAX(time), '') FROM connections").fetchone()[0]
+    print(f"following {DB} — new program→destination pairs (Ctrl+C stops)", flush=True)
+    while True:
+        rows = db.execute(
+            "SELECT time, action, protocol, dst_ip, dst_host, dst_port, uid, process, process_args "
+            "FROM connections WHERE time > ? ORDER BY time", (last,)).fetchall()
+        for t, action, proto, ip, host, port, uid, proc, args in rows:
+            last = max(last, t)
+            if (proc, host or ip) in pairs:
+                continue
+            pairs.add((proc, host or ip))
+            tags = flags(action, uid).split() + (["NEW"] if proc not in procs else [])
+            procs.add(proc)
+            print(f"{t[11:19]}  {proc} → {dest(host, ip, port, proto)}"
+                  f"{'  [' + ' '.join(tags) + ']' if tags else ''}\n          {args[:150]}", flush=True)
+        time.sleep(poll)
+
+
+if __name__ == "__main__":
+    try:
+        if sys.argv[1:2] == ["--follow"]:
+            follow()
+        elif sys.argv[1:2] in (["-h"], ["--help"]):
+            print(__doc__)
+        else:
+            summary(float(sys.argv[1]) if len(sys.argv) > 1 else 24)
+    except KeyboardInterrupt:
+        pass

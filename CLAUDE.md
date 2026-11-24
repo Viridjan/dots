@@ -613,7 +613,10 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   `_opensnitch_defaults` (dotfiles deploy) sets `[global] default_action=1` in
   `~/.config/opensnitch/settings.conf` (0 = deny is the UI's built-in default) so an
   unanswered pop-up allows — user choice, keeps unattended sysup/games working; skipped
-  while the UI runs (it rewrites the file on exit). `lynis` runs via `sysup --actions lynis`.
+  while the UI runs (it rewrites the file on exit). It also moves the UI's event database from memory
+  to `~/.local/share/opensnitch/events.db` (`[database] type=1`, 14 days kept) so
+  `snitch-report` (scripts; `[HOURS]` summary flagging NEW/DENY/ROOT, `--follow` live new
+  program→destination pairs, `SNITCH_DB` override, tests `tests/test_snitch_report.py`) can read it. `lynis` runs via `sysup --actions lynis`.
 - **Guards added 2026-11-01 (Surface incidents).** `_warn_unfolded` (after each
   home package stows): warns when a target is a real dir instead of a folded
   link (stow then links file by file and new files never reach git; skips

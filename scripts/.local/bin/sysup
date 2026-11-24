@@ -1543,12 +1543,16 @@ _opensnitch_defaults() {
     command -v opensnitch-ui &>/dev/null || return 0
     local conf="$HOME/.config/opensnitch/settings.conf"
     if pgrep -x opensnitch-ui >/dev/null; then
-        grep -qx 'default_action=1' "$conf" 2>/dev/null \
+        grep -qx 'default_action=1' "$conf" 2>/dev/null && grep -qx 'type=1' "$conf" \
             || info "OpenSnitch UI running — timeout action not checked (quit it and rerun)"
         return 0
     fi
-    if mkdir -p "${conf%/*}" && : >>"$conf" && _ini_set "$conf" global default_action 1; then
-        ok "OpenSnitch: unanswered pop-ups allow"
+    # Events go to a file (14 days kept), not memory, so snitch-report can read them.
+    local db="$HOME/.local/share/opensnitch/events.db"
+    if mkdir -p "${conf%/*}" "${db%/*}" && : >>"$conf" && _ini_set "$conf" global default_action 1 \
+        && _ini_set "$conf" database type 1 && _ini_set "$conf" database file "$db" \
+        && _ini_set "$conf" database purge_oldest true && _ini_set "$conf" database max_days 14; then
+        ok "OpenSnitch: unanswered pop-ups allow; events kept in $db"
     else
         warn "OpenSnitch: could not set default_action in $conf"
     fi

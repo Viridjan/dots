@@ -141,7 +141,9 @@ class SecurityToolTests(ExtrasCase):
         self.mock("pgrep", "exit 1")
         r = self.shell("_opensnitch_defaults")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertEqual(conf.read_text(), "[global]\ndefault_action=1\ndefault_timeout=15\n")
+        self.assertTrue(conf.read_text().startswith("[global]\ndefault_action=1\ndefault_timeout=15\n"))
+        self.assertIn(f"[database]\ntype=1\nfile={self.home}/.local/share/opensnitch/events.db\n"
+                      "purge_oldest=true\nmax_days=14\n", conf.read_text())
 
 
 class MalwareScanTests(ExtrasCase):
