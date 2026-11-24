@@ -24,16 +24,29 @@ class LauncherWsTests(unittest.TestCase):
 case "$*" in
   "msg --json event-stream") cat "{self.tmp}/events" ;;
   "msg --json workspaces") cat "{self.tmp}/ws.json" ;;
+  "msg --json windows") cat "{self.tmp}/windows.json" ;;
   *) echo "niri $*" >> "{self.calls}" ;;
 esac
 """)
         niri.chmod(0o755)
-        for tool in ("bash", "jq", "date", "rm", "cat"):
+        # Process tree: 100 alacritty (window 1 on workspace 4) > 101 fish > 102 claude > 103 app;
+        # 200 is an app nobody's agent started.
+        self.proc = self.tmp / "proc"
+        for pid, comm, ppid in ((100, "alacritty", 1), (101, "fish", 100), (102, "claude", 101),
+                                (103, "app", 102), (200, "app", 1)):
+            (self.proc / str(pid)).mkdir(parents=True)
+            (self.proc / str(pid) / "comm").write_text(comm + "\n")
+            (self.proc / str(pid) / "status").write_text(f"Name:\t{comm}\nPPid:\t{ppid}\n")
+        (self.tmp / "windows.json").write_text(json.dumps([{"id": 1, "pid": 100, "workspace_id": 4}]))
+        for tool in ("bash", "jq", "date", "rm", "cat", "awk"):
             os.symlink(subprocess.check_output(["which", tool], text=True).strip(), bin_ / tool)
-        self.env = {"PATH": str(bin_), "XDG_RUNTIME_DIR": str(self.tmp)}
+        self.env = {"PATH": str(bin_), "XDG_RUNTIME_DIR": str(self.tmp), "LAUNCHER_WS_PROC": str(self.proc)}
 
-    def run_watch(self, windows, age=0):
-        (self.tmp / "launcher-ws").write_text(f"4 {int(time.time()) - age}\n")
+    def run_watch(self, windows, age=0, record=True):
+        rec = self.tmp / "launcher-ws"
+        rec.unlink(missing_ok=True)
+        if record:
+            rec.write_text(f"4 {int(time.time()) - age}\n")
         (self.tmp / "events").write_text("".join(
             json.dumps({"WindowOpenedOrChanged": {"window": w}}) + "\n" for w in windows))
         r = subprocess.run(["bash", str(SCRIPT), "watch"], env=self.env, capture_output=True, text=True)
@@ -51,6 +64,18 @@ esac
         self.assertEqual(self.run_watch([{"id": 10, "workspace_id": 3, "app_id": "x"}], age=120), "")
         self.assertEqual(self.run_watch([{"id": 11, "workspace_id": 3, "app_id": "com.danklinux.dms"}]), "")
         self.assertTrue((self.tmp / "launcher-ws").exists())   # DMS window did not consume the record
+
+
+    def test_agent_window_goes_to_agent_terminal_workspace(self):
+        # Even rule-placed (workspace 1) and with no launcher record; record stays for the launcher's app.
+        move = "niri msg action move-window-to-workspace --window-id {} --focus false 4\n"
+        self.assertEqual(self.run_watch([{"id": 5, "workspace_id": 1, "app_id": "spotify", "pid": 103}],
+                                        record=False), move.format(5))
+        self.calls.unlink()
+        self.assertEqual(self.run_watch([{"id": 6, "workspace_id": 4, "app_id": "x", "pid": 103}]), "")
+        self.assertTrue((self.tmp / "launcher-ws").exists())
+        self.assertEqual(self.run_watch([{"id": 7, "workspace_id": 1, "app_id": "x", "pid": 200}],
+                                        record=False), "")
 
 
 if __name__ == "__main__":
