@@ -2277,6 +2277,11 @@ dev.tty.ldisc_autoload = 0
 fs.suid_dumpable = 0
 net.ipv4.conf.all.log_martians = 1
 net.ipv4.conf.default.log_martians = 1
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.default.send_redirects = 0
+'
+_HARDEN_LIMITS='# sysup (_system_hardening): no core dumps (Lynis KRNL-5820; coredump.conf.d does the rest)
+* hard core 0
 '
 _HARDEN_MODPROBE='# sysup (_system_hardening): unused network protocols (Lynis NETW-3200)
 install dccp /bin/false
@@ -2305,6 +2310,8 @@ enabled = true
 # Lynis: suggestions decided against (2026-11-24) — the rest stays actionable.
 # Reasons: memory security-stack / CLAUDE.md; sysrq kept, umask 027 breaks AUR builds,
 # compilers needed by paru, USB drives in use, single-user desktop, greeter home is /.
+# forwarding: Docker needs it; arch-audit = the package audit tool; deleted files = PipeWire
+# memfd/flatpak caches; paccheck instead of AIDE; sshd_config 644 with no sshd; BOOT-5264 generic.
 _HARDEN_LYNIS='# sysup (_system_hardening): Lynis tests skipped on purpose
 skip-test=KRNL-6000:kernel.modules_disabled
 skip-test=KRNL-6000:kernel.sysrq
@@ -2330,6 +2337,12 @@ skip-test=NAME-4404
 skip-test=PKGS-7308
 skip-test=HOME-9304
 skip-test=HOME-9306
+skip-test=KRNL-6000:net.ipv4.conf.all.forwarding
+skip-test=PKGS-7398
+skip-test=LOGG-2190
+skip-test=FINT-4350
+skip-test=FILE-7524
+skip-test=BOOT-5264
 '
 _system_hardening() {
     local etc=${SYSUP_ETC:-/etc} f var content changed=() spec
@@ -2337,7 +2350,8 @@ _system_hardening() {
                 "modprobe.d/dots-hardening.conf:_HARDEN_MODPROBE" \
                 "systemd/coredump.conf.d/dots-hardening.conf:_HARDEN_COREDUMP" \
                 "fail2ban/jail.d/dots.local:_HARDEN_FAIL2BAN" \
-                "lynis/custom.prf:_HARDEN_LYNIS"; do
+                "lynis/custom.prf:_HARDEN_LYNIS" \
+                "security/limits.d/dots-hardening.conf:_HARDEN_LIMITS"; do
         f="$etc/${spec%%:*}"; var=${spec##*:}; content=${!var}
         [[ "$(cat "$f" 2>/dev/null)"$'\n' == "$content" ]] && continue
         if sudo mkdir -p "${f%/*}" && printf '%s' "$content" | sudo tee "$f" >/dev/null; then

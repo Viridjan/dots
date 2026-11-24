@@ -356,7 +356,8 @@ sysup --actions automount
 # since 2026-11-24 also re-checked before every upgrade by _pacman_verbose_lists;
 # _ensure_locales there too: generates locales /etc/locale.conf names but locale -a lacks;
 # _system_hardening too (2026-11-24, Lynis): /etc/sysctl.d/99-dots-hardening.conf,
-# modprobe.d (dccp/sctp/rds/tipc off), coredump.conf.d (no core dumps), fail2ban/jail.d/dots.local
+# modprobe.d (dccp/sctp/rds/tipc off), coredump.conf.d + security/limits.d (no core dumps),
+# fail2ban/jail.d/dots.local
 # (backend systemd, banaction ufw, sshd jail; fail2ban in [systemd].enable), lynis/custom.prf
 # (skip-test for every suggestion decided against). COPIED, not stowed:
 # /home mounts after systemd-sysctl at boot. Skipped: umask 027 (AUR builds would ship
