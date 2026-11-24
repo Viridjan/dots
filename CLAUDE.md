@@ -593,6 +593,16 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   terminal or sudo ticket it waits). `check_secureboot_certs` (`linux-surface`,
   Secure Boot on): mokutil KEK/db lack the 2023 Microsoft CAs → warn.
   `check_cpu_vulns`: `/sys/devices/system/cpu/vulnerabilities/*` saying `Vulnerable`.
+  `check_arch_audit` (2026-11-24): `arch-audit -u` = advisories with a fixed version →
+  warn per package; the rest (`-q -q` minus fixable) = one info line. Offline → warn.
+- **OpenSnitch (2026-11-24).** `opensnitch` in `[paru].install`, `opensnitchd` in
+  `[systemd].enable`, `opensnitch-ui` started by `config.kdl` (the package has no
+  autostart). Without a UI the daemon allows everything (`DefaultAction: allow`).
+  `_opensnitch_defaults` (dotfiles deploy) sets `[global] default_action=1` in
+  `~/.config/opensnitch/settings.conf` (0 = deny is the UI's built-in default) so an
+  unanswered pop-up allows — user choice, keeps unattended sysup/games working; skipped
+  while the UI runs (it rewrites the file on exit). `lynis` is installed for manual
+  `sudo lynis audit system` runs.
 - **Guards added 2026-11-01 (Surface incidents).** `_warn_unfolded` (after each
   home package stows): warns when a target is a real dir instead of a folded
   link (stow then links file by file and new files never reach git; skips
@@ -846,7 +856,7 @@ sources → install → dotfiles → configure → audit
 | `install` | conflict removal, demotions, disk check, AUR review, full upgrade, install pacman/flatpak/AUR packages, flatpak update, npm/uv tools, cache cleanup |
 | `dotfiles` | stow symlinks, DMS config import |
 | `configure` | system services, snapper, keyboard, greeter, keyring-pam (user-prompted); DMS plugins, install scripts, fish, claude, VMs (first-run prompted) |
-| `audit` | (`AUDIT_CHECKS`) orphan packages, unlisted/unused apps (report only), flatpak cleanup, rebuild check, pacnew files, modified configs, DMS owner, logins, firmware updates, AUR malware + health, pacman db, Secure Boot certs (surface), CPU vulns, package files (60 days) |
+| `audit` | (`AUDIT_CHECKS`) orphan packages, unlisted/unused apps (report only), flatpak cleanup, rebuild check, pacnew files, modified configs, DMS owner, logins, firmware updates, AUR malware + health, pacman db, Secure Boot certs (surface), CPU vulns, arch-audit advisories, package files (60 days) |
 
 Bare `sysup` opens the menu in a terminal (help otherwise); `--help` lists the action IDs.
 `--yes` runs the legacy full bootstrap, `--update` and `--check` stay direct.

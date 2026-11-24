@@ -176,6 +176,10 @@ install = [
     # Network / firewall
     "ufw",
     "ufw-extras",
+    "opensnitch",  # per-app outbound firewall; unanswered pop-ups allow (sysup sets it)
+    # Security audits: arch-audit runs in sysup --check; lynis by hand (sudo lynis audit system)
+    "arch-audit",
+    "lynis",
     "networkmanager-openvpn",
     "proton-vpn-gtk-app",
     "samba",
@@ -309,7 +313,7 @@ remove = []
 enable = [
     "NetworkManager", "bluetooth", "cups", "bpftune", "ananicy-cpp",
     "dmemcg-booster-system", "systemd-oomd", "power-profiles-daemon",
-    "snapper-timeline.timer", "snapper-cleanup.timer",
+    "snapper-timeline.timer", "snapper-cleanup.timer", "opensnitchd",
     "greetd", "docker",
 ]
 # User units (systemctl --user). sysup-check.timer: weekly report-only

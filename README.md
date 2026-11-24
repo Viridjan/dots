@@ -571,6 +571,16 @@ notification if anything failed. `sysup --status` shows the last result,
 e.g. `check 2d ago: 1 failed (pacman-db)`. Run it now with
 `systemctl --user start sysup-check.service`.
 
+### Security tools
+
+- **ufw** — inbound firewall; openings in `packages.toml` `[ufw] allow`.
+- **OpenSnitch** — asks per app before it connects out. The pop-up UI starts with niri;
+  an unanswered pop-up **allows** (set by sysup), so unattended updates and games keep
+  working. Rules: `opensnitch-ui` → Rules.
+- **arch-audit** — part of `sysup --check`: warns when an installed package has a security
+  fix waiting (run `sysup --update`); advisories without a fix are one info line.
+- **Lynis** — run by hand now and then: `sudo lynis audit system` (report only).
+
 ### Unlisted and unused apps
 
 The audit (`sysup --check`, or action `audit`) reports, never removes:

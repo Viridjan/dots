@@ -376,6 +376,7 @@ recent-windows {
 spawn-at-startup "niriusd"
 spawn-at-startup "nirinit"
 spawn-at-startup "launcher-ws" "watch"  // launcher apps open where Mod+Space was pressed
+spawn-at-startup "opensnitch-ui"  // OpenSnitch pop-ups (the daemon allows everything while no UI runs)
 
 // Machine-specific overrides (surface vs desktop)
 include "cfg/autostart-machine.kdl"

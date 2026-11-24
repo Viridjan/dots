@@ -108,6 +108,42 @@ class FirewallTests(ExtrasCase):
         self.assertNotIn("ufw", self.calls() if Path(self.env["CALLS"]).exists() else "")
 
 
+class SecurityToolTests(ExtrasCase):
+    def setUp(self):
+        super().setUp()
+        self.mock("timeout", 'shift; "$@"')
+
+    def test_arch_audit_warns_only_on_fixable_advisories(self):
+        self.mock("arch-audit", 'case "$*" in *"-u -q -q"*) echo zlib ;;'
+                                ' *-u*) echo "zlib High risk, fixed in 1.3-2 (arbitrary code execution)" ;;'
+                                ' *"-q -q"*) printf "zlib\\nlibxml2\\npam\\n" ;; esac')
+        r = self.shell("check_arch_audit; printf '%s\\n' \"${WARNINGS[@]}\"")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("security fix pending — zlib High risk, fixed in 1.3-2", r.stdout)
+        self.assertIn("2 package(s) with advisories not fixed upstream yet", r.stdout)
+
+    def test_arch_audit_clean_and_offline(self):
+        self.mock("arch-audit", "exit 0")
+        self.assertIn("no pending security fixes", self.shell("check_arch_audit").stdout)
+        self.mock("arch-audit", "exit 1")
+        r = self.shell("check_arch_audit")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("could not read the Arch security tracker", r.stdout)
+
+    def test_opensnitch_timeout_allows_only_while_ui_is_stopped(self):
+        self.mock("opensnitch-ui", "exit 0")
+        conf = self.home / ".config/opensnitch/settings.conf"
+        conf.parent.mkdir(parents=True)
+        conf.write_text("[global]\ndefault_action=0\ndefault_timeout=15\n")
+        self.mock("pgrep", "exit 0")   # UI running: untouched
+        self.shell("_opensnitch_defaults")
+        self.assertIn("default_action=0", conf.read_text())
+        self.mock("pgrep", "exit 1")
+        r = self.shell("_opensnitch_defaults")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(conf.read_text(), "[global]\ndefault_action=1\ndefault_timeout=15\n")
+
+
 class ServiceTests(ExtrasCase):
     def test_failed_enable_is_not_recorded_as_managed(self):
         self.plan("systemd-enable.list", "cups\n")

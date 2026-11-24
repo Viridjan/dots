@@ -1534,6 +1534,25 @@ _ini_set() {
         && mv "$tmp" "$file" || { rm -f "$tmp"; return 1; }
 }
 
+# OpenSnitch: an unanswered connection pop-up allows instead of denying (user, 2026-11-24),
+# so unattended sysup runs, the weekly check and games are never blocked by a missed
+# prompt. QSettings key global/default_action: 0 deny (built-in default), 1 allow.
+# The UI rewrites its settings on exit, so only edit while it is stopped.
+_opensnitch_defaults() {
+    command -v opensnitch-ui &>/dev/null || return 0
+    local conf="$HOME/.config/opensnitch/settings.conf"
+    if pgrep -x opensnitch-ui >/dev/null; then
+        grep -qx 'default_action=1' "$conf" 2>/dev/null \
+            || info "OpenSnitch UI running — timeout action not checked (quit it and rerun)"
+        return 0
+    fi
+    if mkdir -p "${conf%/*}" && : >>"$conf" && _ini_set "$conf" global default_action 1; then
+        ok "OpenSnitch: unanswered pop-ups allow"
+    else
+        warn "OpenSnitch: could not set default_action in $conf"
+    fi
+}
+
 # Feature data-partition: qBittorrent downloads to /mnt/data/Downloads instead of the
 # main disk. qBittorrent rewrites its config on exit, so only edit while it is stopped.
 _qbittorrent_save_path() {
@@ -1839,6 +1858,7 @@ deploy_dotfiles() {
 
     _qbittorrent_save_path
     _vlc_video_defaults
+    _opensnitch_defaults
 
     for _pkg in "${_stowed[@]}"; do ok "stowed: $_pkg"; done
     if [[ ${#_conflicts[@]} -gt 0 ]]; then
@@ -3479,6 +3499,28 @@ check_cpu_vulns() {
     fi
 }
 
+# Arch security tracker (arch-audit): installed packages whose advisory already has a
+# fixed version → warn (an upgrade fixes it). Advisories without a fix are info only.
+check_arch_audit() {
+    command -v arch-audit &>/dev/null || return 0
+    local fixed open rc=0
+    fixed=$(timeout 60 arch-audit -C never -u -f '%n %s, fixed in %v (%t)') || rc=$?
+    if (( rc != 0 )); then
+        warn "arch-audit: could not read the Arch security tracker (exit $rc)"; return 0
+    fi
+    local all=() fixable=()
+    mapfile -t all < <(timeout 60 arch-audit -C never -q -q 2>/dev/null)
+    mapfile -t fixable < <(timeout 60 arch-audit -C never -u -q -q 2>/dev/null)
+    open=$(( ${#all[@]} - ${#fixable[@]} ))
+    if [[ -n "$fixed" ]]; then
+        local l
+        while IFS= read -r l; do warn "security fix pending — $l: run sysup --update"; done <<<"$fixed"
+    else
+        ok "arch-audit: no pending security fixes"
+    fi
+    (( open <= 0 )) || info "arch-audit: $open package(s) with advisories not fixed upstream yet (arch-audit lists them)"
+}
+
 # ─── Warnings recap ──────────────────────────────────────
 print_recap() {
     if [[ ${#_RESULT_NAMES[@]} -gt 0 ]]; then
@@ -3677,7 +3719,7 @@ phase_update()   { system_update; flatpak_update; clean_caches; }
 AUDIT_CHECKS=(check_held_updates check_foreign_orphans check_unused_apps check_rebuilds
               check_python_rebuilds check_pacnew check_modified_configs check_dms_owner check_surface_kernel
               check_logins check_firmware check_aur_malware check_aur_health check_pacman_db
-              check_secureboot_certs check_cpu_vulns check_package_files)
+              check_secureboot_certs check_cpu_vulns check_arch_audit check_package_files)
 _run_audit_checks() { local c; for c in "${AUDIT_CHECKS[@]}"; do "$c"; done; }
 # The audit phase also removes unused flatpak runtimes; --check stays report-only.
 # sysup --status shows this (the weekly timer runs --check too).
