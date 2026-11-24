@@ -204,6 +204,7 @@ class HardeningTests(ExtrasCase):
         self.assertIn("install tipc /bin/false\n", (etc / "modprobe.d/dots-hardening.conf").read_text())
         self.assertIn("Storage=none\n", (etc / "systemd/coredump.conf.d/dots-hardening.conf").read_text())
         self.assertIn("banaction = ufw\n", (etc / "fail2ban/jail.d/dots.local").read_text())
+        self.assertIn("skip-test=KRNL-6000:kernel.sysrq\n", (etc / "lynis/custom.prf").read_text())
         self.assertIn("systemctl", Path(self.env["CALLS"]).read_text())   # fail2ban reloaded
         self.assertIn(f"sysctl -q -p {etc}/sysctl.d/99-dots-hardening.conf", Path(self.env["CALLS"]).read_text())
         # Second run: identical content, nothing written or applied.

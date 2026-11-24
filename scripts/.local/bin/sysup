@@ -2302,12 +2302,42 @@ maxretry = 5
 [sshd]
 enabled = true
 '
+# Lynis: suggestions decided against (2026-11-24) — the rest stays actionable.
+# Reasons: memory security-stack / CLAUDE.md; sysrq kept, umask 027 breaks AUR builds,
+# compilers needed by paru, USB drives in use, single-user desktop, greeter home is /.
+_HARDEN_LYNIS='# sysup (_system_hardening): Lynis tests skipped on purpose
+skip-test=KRNL-6000:kernel.modules_disabled
+skip-test=KRNL-6000:kernel.sysrq
+skip-test=KRNL-6000:kernel.unprivileged_bpf_disabled
+skip-test=KRNL-6000:net.core.bpf_jit_harden
+skip-test=AUTH-9230
+skip-test=AUTH-9262
+skip-test=AUTH-9282
+skip-test=AUTH-9286
+skip-test=AUTH-9328
+skip-test=FILE-6310
+skip-test=LOGG-2154
+skip-test=ACCT-9622
+skip-test=ACCT-9626
+skip-test=ACCT-9628
+skip-test=USB-1000
+skip-test=STRG-1846
+skip-test=BANN-7126
+skip-test=HRDN-7222
+skip-test=TOOL-5002
+skip-test=NAME-4028
+skip-test=NAME-4404
+skip-test=PKGS-7308
+skip-test=HOME-9304
+skip-test=HOME-9306
+'
 _system_hardening() {
     local etc=${SYSUP_ETC:-/etc} f var content changed=() spec
     for spec in "sysctl.d/99-dots-hardening.conf:_HARDEN_SYSCTL" \
                 "modprobe.d/dots-hardening.conf:_HARDEN_MODPROBE" \
                 "systemd/coredump.conf.d/dots-hardening.conf:_HARDEN_COREDUMP" \
-                "fail2ban/jail.d/dots.local:_HARDEN_FAIL2BAN"; do
+                "fail2ban/jail.d/dots.local:_HARDEN_FAIL2BAN" \
+                "lynis/custom.prf:_HARDEN_LYNIS"; do
         f="$etc/${spec%%:*}"; var=${spec##*:}; content=${!var}
         [[ "$(cat "$f" 2>/dev/null)"$'\n' == "$content" ]] && continue
         if sudo mkdir -p "${f%/*}" && printf '%s' "$content" | sudo tee "$f" >/dev/null; then
