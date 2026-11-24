@@ -2391,6 +2391,10 @@ _system_hardening() {
     while read -r name path; do
         etc_files["opensnitchd/rules/dots-allow-$name.json"]=$(_snitch_rule "$name" "$path")$'\n'
     done <<<"$_SNITCH_ALLOW"
+    # Your own "forever" rules, saved by snitch-export.
+    for f in "$DOTS_DIR"/opensnitch/rules/*.json; do
+        [[ -f "$f" ]] && etc_files["opensnitchd/rules/${f##*/}"]=$(<"$f")$'\n'
+    done
     for rel in "${!etc_files[@]}"; do
         f="$etc/$rel"; content=${etc_files[$rel]}
         [[ "$(cat "$f" 2>/dev/null)"$'\n' == "$content" ]] && continue
@@ -3219,6 +3223,23 @@ report_unowned_files() {
     fi
 }
 
+# Saves your own OpenSnitch rules (pop-up answers with duration "forever" become files in
+# /etc/opensnitchd/rules) into the repo; _system_hardening restores them on every machine.
+# The generated dots-allow-* rules are skipped. Commit afterwards.
+export_snitch_rules() {
+    local src=${SYSUP_ETC:-/etc}/opensnitchd/rules dst="$DOTS_DIR/opensnitch/rules" f n=0
+    mkdir -p "$dst"
+    for f in "$src"/*.json; do
+        [[ -f "$f" && "${f##*/}" != dots-allow-* ]] || continue
+        cp -- "$f" "$dst/" && n=$((n + 1))
+    done
+    if (( n )); then
+        ok "saved $n OpenSnitch rule(s) to $dst — commit them"
+    else
+        info "no OpenSnitch rules of your own yet — answer pop-ups with duration \"forever\" to create them"
+    fi
+}
+
 # Note: process substitutions inherit the ERR trap (set -E): a grep that matches nothing
 # there must end in || true, or the trap prints a recap into the pipe.
 # Lynis hardening audit (--actions lynis): a few minutes, needs root, report only.
@@ -3806,7 +3827,7 @@ phase_sources() {
 phase_install()  { install_all; }
 phase_dotfiles() { deploy_dotfiles; dms_import; }
 # Action IDs for --actions (fish completion reads this line).
-MENU_ORDER=(sources install services snapper automount optimize keyboard kernels greeter keyring-pam nvidia-niri install-scripts fish dms-plugins dms-export claude caveman-code ollama vms steam-launchers app-launchers lostfiles lynis dotfiles-export stow-symlinks dms-import audit orphan-removal rebuild python-rebuild pacnew-merge git-identity ssh-key fingerprint bitwarden yubikey-pin surface-secureboot)
+MENU_ORDER=(sources install services snapper automount optimize keyboard kernels greeter keyring-pam nvidia-niri install-scripts fish dms-plugins dms-export claude caveman-code ollama vms steam-launchers app-launchers lostfiles lynis snitch-export dotfiles-export stow-symlinks dms-import audit orphan-removal rebuild python-rebuild pacnew-merge git-identity ssh-key fingerprint bitwarden yubikey-pin surface-secureboot)
 
 # Accept stable IDs; keep legacy programmatic selection payloads compatible.
 _selected_action() {
@@ -3947,6 +3968,7 @@ phase_configure() {
     _sel "app-launchers"   && _act app-launchers check_app_launchers
     _sel "lostfiles"       && _act lostfiles report_unowned_files
     _sel "lynis"           && _act lynis report_lynis
+    _sel "snitch-export"   && _act snitch-export export_snitch_rules
 
     return 0
 }

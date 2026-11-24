@@ -622,7 +622,10 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   unanswered pop-up allows — user choice, keeps unattended sysup/games working; skipped
   while the UI runs (it rewrites the file on exit). Permanent allow rules for system daemons
   (`_SNITCH_ALLOW`: timesyncd, resolved, NetworkManager, avahi, pacman, freshclam, fwupd, gh; by
-  `process.path`) are written by `_system_hardening` to `/etc/opensnitchd/rules/dots-allow-*.json`. It also moves the UI's event database from memory
+  `process.path`) are written by `_system_hardening` to `/etc/opensnitchd/rules/dots-allow-*.json`.
+  User rules: pop-up answers with duration "forever" become files in that dir (12h ones stay in
+  memory). `sysup --actions snitch-export` copies them (not `dots-allow-*`) to repo
+  `opensnitch/rules/`; `_system_hardening` writes those back to every machine. It also moves the UI's event database from memory
   to `~/.local/share/opensnitch/events.db` (`[database] type=1`, 14 days kept) so
   `snitch-report` (scripts; `[HOURS]` summary flagging NEW/DENY/ROOT, `--follow` live new
   program→destination pairs, `SNITCH_DB` override, tests `tests/test_snitch_report.py`) can read it. `lynis` runs via `sysup --actions lynis`.

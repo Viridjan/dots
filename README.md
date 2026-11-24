@@ -580,6 +580,8 @@ e.g. `check 2d ago: 1 failed (pacman-db)`. Run it now with
   live. Events are kept 14 days.
   System daemons (time sync, DNS, NetworkManager, pacman, ClamAV updates, firmware, gh) are
   allowed permanently by rules sysup writes (`/etc/opensnitchd/rules/dots-allow-*.json`).
+  Your own rules: answer pop-ups with **forever** (12h answers are never saved), then
+  `sysup --actions snitch-export` and commit — every machine gets them back.
 - **arch-audit** — part of `sysup --check`: warns when an installed package has a security
   fix waiting (run `sysup --update`); advisories without a fix are one info line.
 - **ClamAV** — part of `sysup --check`, once a week: scans `~/Downloads`, `~/Shared` (Windows

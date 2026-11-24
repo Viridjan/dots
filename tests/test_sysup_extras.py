@@ -204,6 +204,27 @@ class LynisOnlyFilteredWarningTests(ExtrasCase):
         self.assertIn("hardening index 71/100", r.stdout)
 
 
+class SnitchRuleTests(ExtrasCase):
+    def test_export_skips_generated_rules_and_hardening_restores(self):
+        etc, dots = self.root / "etc", self.root / "dots"
+        rules = etc / "opensnitchd/rules"
+        rules.mkdir(parents=True)
+        (rules / "dots-allow-gh.json").write_text("{}")
+        (rules / "allow-steam.json").write_text('{"name": "allow-steam"}')
+        self.env["SYSUP_ETC"] = str(etc)
+        for tool in ("mkdir", "cp", "tee", "cat"):
+            self.mock(tool, f'exec /usr/bin/{tool} "$@"')
+        r = self.shell(f'DOTS_DIR="{dots}"; export_snitch_rules')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(sorted(x.name for x in (dots / "opensnitch/rules").iterdir()), ["allow-steam.json"])
+        (rules / "allow-steam.json").unlink()   # a fresh machine
+        self.mock("sudo", '"$@"')
+        self.mock("sysctl", ":"); self.mock("systemctl", ":")
+        r = self.shell(f'DOTS_DIR="{dots}"; _system_hardening')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual((rules / "allow-steam.json").read_text(), '{"name": "allow-steam"}\n')
+
+
 class HardeningTests(ExtrasCase):
     def test_hardening_files_written_once_and_sysctl_applied(self):
         etc = self.root / "etc"
