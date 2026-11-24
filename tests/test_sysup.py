@@ -1391,6 +1391,19 @@ class DotsetTests(FixtureCase):
         self.assertIn(f"{dotset} --restow -t {self.home} alpha", calls)
         self.assertFalse(any("beta" in c for c in calls), calls)
 
+    def test_swap_to_profile_variant_unlinks_old_package_first(self):
+        repo, dotset = self.setup_set()
+        (dotset / "alpha@surface").mkdir()
+        state = self.home / ".state/dots"
+        state.mkdir(parents=True, exist_ok=True)
+        (state / "stowed-pkgs").write_text("alpha\n")
+        self.plan("stow.list", "alpha@surface\n")
+        r = self.shell(f'git() {{ :; }}\nSYSUP_DOTSET_DIR={shlex.quote(str(dotset))}\ndeploy_dotfiles')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        calls = [c for c in Path(self.env["CALLS"]).read_text().splitlines() if "scripts" not in c]
+        self.assertEqual(calls[:2], [f"{dotset} -D -d {dotset} -t {self.home} alpha",
+                                     f"{dotset} --restow -t {self.home} alpha@surface"])
+
     def test_dead_links_are_pruned_before_stow(self):
         # Stale links from the pre-dotsets layout made stow fail with "not owned".
         repo, dotset = self.setup_set()

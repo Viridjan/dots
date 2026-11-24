@@ -1740,16 +1740,20 @@ deploy_dotfiles() {
     else
         cd "$SYSUP_DOTSET_DIR" || die "cannot cd to dotfile set $SYSUP_DOTSET_DIR"
         local pkg
+        # First: a swap to a profile variant (alacritty → alacritty@surface) must drop the
+        # old package's links before stowing the new one over the same targets.
+        _unstow_unticked
+        # `<pkg>@<profile>` is the profile's variant of <pkg> (sysup.py stow_pkgs): same handling.
         while IFS= read -r pkg; do
             [[ -n "$pkg" && -d "$pkg" ]] || continue
             case "$pkg" in
                 niri)         _stow_niri_cfg; _stowed+=("niri") ;;
-                ollama)       _deploy_root_pkg "$pkg" || return 1; _reload_ollama ;;
-                brave)        _deploy_root_pkg "$pkg" || return 1 ;;
+                niri@*)       warn "$pkg: niri has no package variants — machine files go in dotsets/<set>/<profile>/" ;;
+                ollama|ollama@*) _deploy_root_pkg "$pkg" || return 1; _reload_ollama ;;
+                brave|brave@*)   _deploy_root_pkg "$pkg" || return 1 ;;
                 *)            _deploy_pkg --restow -t "$HOME" "$pkg" "$pkg" && _warn_unfolded "$pkg" ;;
             esac
         done < <([[ -f "$SYSUP_PLAN_DIR/stow.list" ]] && cat "$SYSUP_PLAN_DIR/stow.list")
-        _unstow_unticked
     fi
 
     _qbittorrent_save_path
@@ -1781,7 +1785,7 @@ _unstow_unticked() {
             grep -qxF "$pkg" <<< "$now" && continue
             case "$pkg" in
                 niri) warn "niri is unticked but stays linked (unlinking would leave niri without config)"; continue ;;
-                ollama|brave) sudo stow -D -d "$SYSUP_DOTSET_DIR" -t / "$pkg" ;;
+                ollama|brave|ollama@*|brave@*) sudo stow -D -d "$SYSUP_DOTSET_DIR" -t / "$pkg" ;;
                 *) stow -D -d "$SYSUP_DOTSET_DIR" -t "$HOME" "$pkg" ;;
             esac && ok "unlinked (unticked): $pkg" || warn "could not unlink unticked package: $pkg"
         done < "$state"

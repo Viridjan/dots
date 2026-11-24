@@ -162,7 +162,13 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
   actions whose `ONCE_FEATURE` (sysup.py) the profile lacks). New machine-dependent behaviour → new feature
   name in the profile + `_has_feature <name>` in sysup.
 - **Stow** deploys `stow.list` (local `[select] dotfiles`, default every package in
-  the set) from `SYSUP_DOTSET_DIR`; `scripts` always from the repo root. Dotset
+  the set) from `SYSUP_DOTSET_DIR`; `scripts` always from the repo root.
+  **Profile variants:** a package dir `<pkg>@<profile>` (e.g. `alacritty@surface/`) is
+  stowed INSTEAD of `<pkg>/` on that profile (`stow_pkgs`); with no `<pkg>/` it is a
+  profile-only package. Whole-package copy, not an overlay: stow can't put one file over
+  a folded dir. `[select] dotfiles` names the base. `deploy_dotfiles` runs
+  `_unstow_unticked` before stowing, so a swap drops the old links first. niri has no
+  variants (machine files: `dotsets/<set>/<profile>/`). Dotset
   `none` → only `scripts`; DMS import/export warn and skip.
 - **`--actions A,B`** runs exactly those action IDs (`MENU_ORDER`),
   no menu; unknown IDs die. `_record` also appends `name\tstate` to

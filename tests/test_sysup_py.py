@@ -184,6 +184,16 @@ class ResolveTests(Tmp):
         self.assertEqual((out / "projects.list").read_text().split(), [])
         self.assertEqual((out / "project-builds.list").read_text(), "")
 
+    def test_profile_variant_replaces_package(self):
+        mine = self.dots / "dotsets/mine"
+        for d in ("alacritty@surface", "fish@desktop", "mpd@surface"):
+            (mine / d).mkdir()
+        self.assertEqual(self.repo.stow_pkgs("mine", "surface"), ["alacritty@surface", "fish", "mpd@surface"])
+        self.assertEqual(self.repo.stow_pkgs("mine", "desktop"), ["alacritty", "fish@desktop"])
+        out = self.root / "plan"
+        S.write_plan(self.repo, {**self.cfg, "profile": "surface"}, out, stow_selected=["alacritty"])
+        self.assertEqual((out / "stow.list").read_text(), "alacritty@surface\n")
+
     def test_write_plan_dotset_none(self):
         self.cfg["dotset"] = "none"
         out = self.root / "plan"

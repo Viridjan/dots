@@ -114,12 +114,17 @@ class Repo:
     projects: list = field(default_factory=list)
     dotsets: list = field(default_factory=list)
 
-    def stow_pkgs(self, dotset):
-        """Stow packages in a set; profile-named dirs hold machine files, not packages."""
+    def stow_pkgs(self, dotset, profile=None):
+        """Stow packages in a set; profile-named dirs hold machine files, not packages.
+        `<pkg>@<profile>` replaces `<pkg>` on that profile (alone if no `<pkg>`);
+        variants for other profiles are skipped."""
         d = self.root / "dotsets" / str(dotset)
         if dotset in (None, "none") or not d.is_dir():
             return []
-        return sorted(p.name for p in d.iterdir() if p.is_dir() and p.name not in self.profiles)
+        names = [p.name for p in d.iterdir() if p.is_dir() and p.name not in self.profiles]
+        mine = {n.split("@", 1)[0]: n for n in names if n.endswith(f"@{profile}")}
+        return sorted(mine.get(n, n) for n in names if "@" not in n) \
+            + sorted(v for b, v in mine.items() if b not in names)
 
 
 def load_repo(dots: Path = DOTS) -> Repo:
@@ -294,9 +299,9 @@ def write_plan(repo: Repo, cfg: dict, outdir: Path, stow_selected=None, repos_se
     outdir.mkdir(parents=True, exist_ok=True)
     r = resolve(repo, cfg)
     dotset = cfg.get("dotset")
-    stow = repo.stow_pkgs(dotset)
-    if stow_selected is not None:
-        stow = [p for p in stow if p in stow_selected]
+    stow = repo.stow_pkgs(dotset, cfg.get("profile"))
+    if stow_selected is not None:   # selections name the base package
+        stow = [p for p in stow if p.split("@", 1)[0] in stow_selected]
     projects = [p for p in repo.projects if repos_selected is None or p["name"] in repos_selected]
     # Audit membership ignores [declined]: a declined package is still known.
     prof = repo.profiles.get(cfg.get("profile"), {})
