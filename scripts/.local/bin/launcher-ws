@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Apps started from the DMS launcher (Mod+Space) open on the workspace where
+# Mod+Space was pressed, even if you switched away while they loaded. Apps with
+# an open-on-workspace rule (social/media/games) keep their own workspace.
+#   launcher-ws         remember the focused workspace, then toggle the launcher (Mod+Space)
+#   launcher-ws watch   session daemon (config.kdl spawn-at-startup)
+set -u
+REC="${XDG_RUNTIME_DIR:-/tmp}/launcher-ws"
+MAX_AGE=${LAUNCHER_WS_MAX_AGE:-60}   # seconds: a later window is not the launched app
+
+_focused_ws() { niri msg --json workspaces | jq -r '.[] | select(.is_focused) | .id'; }
+
+if [[ "${1:-}" != watch ]]; then
+    printf '%s %s\n' "$(_focused_ws)" "$(date +%s)" >"$REC"
+    exec dms ipc call spotlight toggle
+fi
+
+declare -A seen
+niri msg --json event-stream |
+  jq --unbuffered -r '.WindowOpenedOrChanged.window? // empty | "\(.id)\t\(.workspace_id // "")\t\(.app_id // "")"' |
+  while IFS=$'\t' read -r id ws app; do
+    [[ -n "${seen[$id]:-}" ]] && continue   # title changes re-send the window
+    seen[$id]=1
+    [[ "$app" == com.danklinux.dms ]] && continue   # the launcher's own windows
+    read -r want at <"$REC" 2>/dev/null || continue
+    rm -f "$REC"   # only the first window after a launch
+    (( $(date +%s) - at <= MAX_AGE )) || continue
+    # A window not on the focused workspace was placed by a rule: leave it.
+    # shortcut: a rule targeting the workspace you switched to looks rule-less and is moved
+    # back; matching rules by app-id would fix it if that ever matters.
+    [[ -n "$ws" && "$ws" != "$want" && "$ws" == "$(_focused_ws)" ]] || continue
+    # shortcut: move by index of the remembered workspace, correct on one output only
+    # (every profile has one); multi-monitor needs a per-output reference.
+    idx=$(niri msg --json workspaces | jq -r --argjson w "$want" '.[] | select(.id == $w) | .idx')
+    [[ -n "$idx" ]] && niri msg action move-window-to-workspace --window-id "$id" --focus false "$idx"
+  done

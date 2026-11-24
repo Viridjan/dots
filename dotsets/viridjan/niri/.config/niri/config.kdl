@@ -372,6 +372,7 @@ recent-windows {
 // niri IPC helpers, both machines (packages.toml).
 spawn-at-startup "niriusd"
 spawn-at-startup "nirinit"
+spawn-at-startup "launcher-ws" "watch"  // launcher apps open where Mod+Space was pressed
 
 // Machine-specific overrides (surface vs desktop)
 include "cfg/autostart-machine.kdl"

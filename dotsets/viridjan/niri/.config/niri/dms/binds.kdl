@@ -15,7 +15,7 @@ binds {
     Mod+Alt+T hotkey-overlay-title="Telegram" { spawn "nirius" "focus-or-spawn" "--app-id" "^org\\.telegram\\.desktop$" "Telegram"; }
     Mod+Alt+M hotkey-overlay-title="Mail" { spawn "nirius" "focus-or-spawn" "--app-id" "^org\\.mozilla\\.Thunderbird$" "thunderbird"; }
     Mod+Space hotkey-overlay-title="Application Launcher" {
-        spawn "dms" "ipc" "call" "spotlight" "toggle";
+        spawn "launcher-ws";  // remembers the workspace, then toggles spotlight
     }
     Mod+V hotkey-overlay-title="Clipboard Manager" {
         spawn "dms" "ipc" "call" "clipboard" "toggle";
