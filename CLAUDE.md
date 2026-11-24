@@ -761,7 +761,8 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   Confirmed on the desktop 2026-10-11: `brave://policy` shows the policy with
   status OK, and invite links now open the join dialog in Vesktop.
   The same file (`discord-loopback.json`) also forces spell check on with
-  `SpellcheckLanguage: ["en-GB", "it"]` (2026-11-10).
+  `SpellcheckLanguage: ["en-GB", "it"]` (2026-11-10), and `EnableMediaRouter: false` (2026-11-24: no
+  Cast; stops its SSDP discovery to 239.255.255.250:1900, which OpenSnitch flagged).
 - **Italian spell check (2026-11-10).** `hunspell-it/en_gb/en_us` in `[paru].install`
   (wordcraft, Thunderbird, enchant/GTK apps read `/usr/share/hunspell`; qt6-webengine's pacman
   hook converts them to `.bdic` in `/usr/share/qt6/qtwebengine_dictionaries` for Whatsie).
