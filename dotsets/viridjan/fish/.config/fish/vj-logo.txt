@@ -8,11 +8,9 @@ $1'.                                 .\
        'oossssso-....\ossssss+. +sssss+
         '\ooosssso++osssssso+.  +sssss+
          .\+++ooooooooooooo\.   +sssss+
-          .\++++++++++++++:     +sssss+
            .\++++\+++++++:      +sssss+
             .\:-:++oooo+:       +sssss+
               -+oooooo+:        +sssss+
-              .+oooooo:         +sssss+
                .+oooo:          +sssss+
                 .ooo\           +sssss:
                  'o+.          .osssso'
