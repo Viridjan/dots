@@ -486,7 +486,7 @@ build = "git submodule update --init --recursive && make build && make install P
 | `claude` | `~/.claude/settings.json` + `statusline.sh` + skills (incl. `pixel-art-studio`) |
 | `caveman` | `~/.config/caveman/config.json` — caveman plugin `defaultMode: ultra` |
 | `cave` | `~/.cave/` — Cave AI agent config + ollama extension |
-| `brave` | `/etc/brave/policies/managed/` — Brave managed policy (stowed to `/` with sudo) |
+| `brave` | `/etc/brave/policies/managed/` — Brave managed policy (stowed to `/` with sudo): Discord loopback, spell check, Cast off, 1clickVPN extension blocked |
 | `ollama` | `/etc/systemd/system/ollama.service.d/` — ROCm + 40% resource-limit drop-ins (stowed to `/` with sudo) |
 | `fonts` | `~/.local/share/fonts/` — user fonts (Luminari) |
 | `mpd` | `~/.config/mpd/mpd.conf` |
