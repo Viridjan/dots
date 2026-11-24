@@ -38,3 +38,4 @@
 - [data partition storage](data-partition-storage.md) — root 586G fills; bulk media/downloads → /mnt/data; qBittorrent → /mnt/data/Downloads; held-open deleted files
 - [no silent focus moves](feedback-no-focus-moves.md) — announce workspace switches in live niri tests; move user, act, move back after delay
 - [shared vs per-device](feedback-shared-vs-per-device.md) — settings shared by default; per-profile (feature / <pkg>@<profile>) only when device-specific
+- [focus policy](feedback-focus-policy.md) — focus/placement exceptions only for ⌘Space/keybind launches (launcher-ws run), never script/agent windows

@@ -49,7 +49,7 @@ Limit at the source (`git log -n 10`, `sed '…;q'`) or end the pipeline with `|
 
 **Killing a session daemon from the Bash tool:** `pkill -f 'launcher-ws watch'` (even with
 a `[h]` regex trick) killed the tool's own shell — its zsh command line contains the
-pattern, exit 144 (2026-11-24). Match the exact cmdline per pid instead:
+pattern, exit 144 (2026-11-24). Hit AGAIN the same day with `pkill -f 'alacritty --title lws-shortcut'` — applies to ANY `pkill -f` whose pattern appears in the same command. For test windows close via niri: `niri msg action close-window --id N`. Match the exact cmdline per pid instead:
 `for p in $(pgrep -x bash); do tr '\0' ' ' </proc/$p/cmdline | grep -q '^bash [^ ]*launcher-ws watch $' && kill $p; done`.
 
 Related: [[feedback-verification-rigor]], [[vjupdate-optimize]].
