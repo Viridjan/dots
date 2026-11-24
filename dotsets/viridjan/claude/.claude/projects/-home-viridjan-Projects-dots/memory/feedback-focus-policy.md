@@ -9,4 +9,4 @@ New windows never take focus (global niri `open-focused false`). Exceptions the 
 
 **Why:** a first attempt used a niri `open-focused true` rule by app-id; that also focused script-opened terminals/browsers, which the user rejected.
 
-**How to apply:** don't express such exceptions as niri window rules (they can't see who launched a window). Route the keybind through `launcher-ws run [--app-id RE] CMD` and act in `launcher-ws watch` on the first window after the record. Apps opened by Claude/Codex go unfocused to the agent's workspace. Related: [[feedback-no-focus-moves]], [[niri-gaming]].
+**How to apply:** don't express such exceptions as niri window rules (they can't see who launched a window). Route the keybind through `launcher-ws run [--app-id RE] CMD` and act in `launcher-ws watch` on the first window after the record. Apps opened by Claude/Codex go unfocused to the agent's workspace. Also user actions inside an app count: a non-floating Brave/terminal window opened while the same app is focused (Ctrl+N, Ctrl+Shift+N) takes focus (2026-11-24); PiP/dialogs (floating) don't. Related: [[feedback-no-focus-moves]], [[niri-gaming]].

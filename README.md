@@ -149,8 +149,8 @@ ends sysup with that run's exit status. Outside a terminal it prints the help.
 - **Fixes after a run:** problems with a known fix (stow conflicts, unlisted
   packages, install conflicts, failed AUR builds, pacnew files, orphans) are
   offered one by one after the recap, in a terminal only. Enter skips.
-- **Update check:** before a run, sysup fetches the dots repo and offers to
-  pull and relaunch when it is behind.
+- **Update check:** as soon as sysup starts (before the menu, in a terminal), it fetches
+  the dots repo and, when behind, pulls and relaunches without asking.
 - **Dotset backups:** two local git tags per set, `backup/<set>/1` (newest) and
   `/2`, taken before deploy, dms-import and git export; the oldest is dropped.
   Only when the set changed. Never pushed. `sysup --restore 1|2` puts one back
@@ -530,6 +530,8 @@ Where new apps open (`launcher-ws`, started in `config.kdl`):
 - **⌘Space launcher, ⌘⏎, ⌘⌥B** — the app opens on the workspace where you pressed ⌘Space, even if you
   switched away while it loaded. Apps with their own workspace (above) still go there.
   A terminal or browser opened this way also takes focus; opened by scripts, it doesn't.
+  So does a new Brave/terminal window you open from inside the app (Ctrl+N, Ctrl+Shift+N);
+  Picture-in-Picture and dialogs stay unfocused.
 - **Started by Claude Code or Codex** — the app opens unfocused on the workspace of the agent's
   terminal, rules included. An app that is already running opens its new window where you are.
 

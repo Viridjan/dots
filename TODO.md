@@ -46,3 +46,11 @@ deleted files. Run by full path once:
 - [ ] Telegram: Settings → Advanced → Spell checker → Manage dictionaries → Italiano.
 
 No Flatpak: `alacritty` (terminal sandboxing issues), `shelly`.
+
+## 2026-11-24 changes — Surface and Plancia, once each
+
+- [ ] `sysup --actions install`: swaps `dsearch-bin` (gone from the AUR) for `dux-search-bin`; next
+      `--update` generates `it_IT.UTF-8` if missing (the `setlocale: LC_TIME` warning on the Surface).
+- [ ] `sysup --actions stow-symlinks,dms-import`, then log out/in: `launcher-ws` binds + watcher.
+- [ ] Ctrl+N in Brave opens a focused window; PiP opens floating.
+
