@@ -25,6 +25,7 @@ case "$*" in
   "msg --json event-stream") cat "{self.tmp}/events" ;;
   "msg --json workspaces") cat "{self.tmp}/ws.json" ;;
   "msg --json windows") cat "{self.tmp}/windows.json" ;;
+  "msg --json focused-window") cat "{self.tmp}/focused.json" 2>/dev/null || echo null ;;
   *) echo "niri $*" >> "{self.calls}" ;;
 esac
 """)
@@ -88,6 +89,16 @@ esac
         # No launcher/shortcut record (a script opened it): old rule, no focus.
         self.assertEqual(self.run_watch([{"id": 52, "workspace_id": 4, "app_id": "brave-origin", "pid": 200}],
                                         record=False), "")
+
+    def test_new_window_from_focused_same_app_gets_focus(self):
+        # Ctrl+N in Brave: focus stays on the old Brave window (open-focused false).
+        (self.tmp / "focused.json").write_text(json.dumps({"id": 12, "app_id": "brave-origin"}))
+        w = lambda i, **k: {"id": i, "workspace_id": 3, "app_id": "brave-origin", "pid": 200, **k}
+        self.assertEqual(self.run_watch([w(60)], record=False), "niri msg action focus-window --id 60\n")
+        self.calls.unlink()
+        self.assertEqual(self.run_watch([w(61, is_floating=True)], record=False), "")   # PiP
+        (self.tmp / "focused.json").write_text(json.dumps({"id": 23, "app_id": "Alacritty"}))
+        self.assertEqual(self.run_watch([w(62)], record=False), "")   # Brave opened while in a terminal
 
     def test_run_records_only_when_it_will_spawn(self):
         (self.tmp / "windows.json").write_text(json.dumps([{"id": 1, "app_id": "brave-origin", "workspace_id": 4}]))

@@ -4,6 +4,7 @@
 # an open-on-workspace rule (social/media/games) keep their own workspace.
 # Opened that way (launcher or a shortcut), a terminal or browser also takes focus;
 # everything else, and anything opened by scripts, follows niri's open-focused false.
+# So does a terminal/browser window opened from a focused window of the same app (Ctrl+N).
 #   launcher-ws                          remember the workspace, then toggle the launcher (Mod+Space)
 #   launcher-ws run [--app-id RE] CMD…   same for a shortcut; with --app-id, an already-open
 #                                        match means CMD only focuses it (nirius): no record
@@ -77,8 +78,8 @@ declare -A seen
 # \x1f separates fields: a tab is IFS whitespace, so an empty field would shift the rest.
 niri msg --json event-stream |
   jq --unbuffered -r '.WindowOpenedOrChanged.window? // empty
-    | "\(.id)\u001f\(.workspace_id // "")\u001f\(.app_id // "")\u001f\(.pid // "")"' |
-  while IFS=$'\x1f' read -r id ws app pid; do
+    | "\(.id)\u001f\(.workspace_id // "")\u001f\(.app_id // "")\u001f\(.pid // "")\u001f\(.is_floating)"' |
+  while IFS=$'\x1f' read -r id ws app pid floating; do
     [[ -n "${seen[$id]:-}" ]] && continue   # title changes re-send the window
     seen[$id]=1
     [[ "$app" == com.danklinux.dms ]] && continue   # the launcher's own windows
@@ -87,6 +88,14 @@ niri msg --json event-stream |
     if [[ -n "$aws" ]]; then
         [[ "$aws" != "$ws" ]] && _move "$id" "$aws"
         continue   # an agent's window is not the launcher's app
+    fi
+    # Ctrl+N / Ctrl+Shift+N: a terminal/browser window opened while that same app has
+    # focus is your own action, so it takes focus. Floating ones (PiP, dialogs) don't.
+    if [[ "$app" =~ $FOCUS_APPS && "$floating" != true ]] \
+        && [[ "$(niri msg --json focused-window | jq -r --argjson n "$id" \
+                'select(.id != $n) | .app_id // empty')" == "$app" ]]; then
+        niri msg action focus-window --id "$id"
+        continue
     fi
     read -r want at <"$REC" 2>/dev/null || continue
     rm -f "$REC"   # only the first window after a launch
