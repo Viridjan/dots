@@ -278,7 +278,7 @@ hold = [
 # "repo/name": always installed and upgraded from that repo (held from -Syu,
 # then pacman -S --needed repo/name, which also swaps a build from another repo).
 pin = [
-    "extra/go",  # cachyos-v3 go 1.27.4-2 (2026-11-13) is an x86-64-v4 binary: dies on this v3 CPU
+    # "extra/go" until 2026-11-24: cachyos-v3 go 1.27.4-2 was an x86-64-v4 binary; -3 runs on v3
 ]
 
 # Skipped by install and audit even if listed above.

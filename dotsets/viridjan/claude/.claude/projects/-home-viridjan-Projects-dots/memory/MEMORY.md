@@ -33,7 +33,7 @@
 - [Vesktop Vencord patch](vesktop-vencord-patch.md) — blank window = Vencord wreq.d vs 3-arg d(); local patch, lost on Vencord update
 - [LightRAG instances](lightrag-instances.md) — lightrag@summit :9621 / lightrag@dots :9622, `lightrag-index <project>` indexer, EMBEDDING_TIMEOUT=600
 - [Linux_Hacks upstream](linux-hacks-upstream.md) — sysup origin; reviewed to 3c5109a on 2026-11-10, ported/skipped list
-- [go pinned to extra](go-pinned-extra.md) — cachyos-v3 go 1.27.4-2 is a v4 binary; [paru].pin extra/go, drop when fixed
+- [go pin history](go-pinned-extra.md) — extra/go pin 2026-11-13..24 (cachyos-v3 v4 binary), removed; temp-extract test recipe
 - [vertical package lists](feedback-vertical-pkg-lists.md) — VerbosePkgLists ON (one package per row); old compact choice reversed 2026-11-14
 - [data partition storage](data-partition-storage.md) — root 586G fills; bulk media/downloads → /mnt/data; qBittorrent → /mnt/data/Downloads; held-open deleted files
 - [no silent focus moves](feedback-no-focus-moves.md) — announce workspace switches in live niri tests; move user, act, move back after delay

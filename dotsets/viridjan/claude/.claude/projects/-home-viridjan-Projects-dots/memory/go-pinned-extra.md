@@ -1,6 +1,6 @@
 ---
 name: go-pinned-extra
-description: "go pinned to extra/ via [paru].pin since cachyos-v3 go 1.27.4-2 shipped a v4 binary; drop pin when fixed"
+description: "go was pinned to extra/ 2026-11-13..24 (cachyos-v3 1.27.4-2 v4 binary); pin removed, -3 works; test recipe for v4 breakage"
 metadata:
   node_type: memory
   type: project
@@ -12,3 +12,5 @@ metadata:
 
 **Why:** a CachyOS packaging bug, not ours; Arch's generic build works.
 **How to apply:** when a later cachyos-v3 go works (`pacman -Si cachyos-v3/go` newer than 1.27.4-2, test on a v3 CPU), remove the pin. Same pattern for any future "v4 binary in v3 repo" breakage. Related: [[dots-package-preferences]].
+
+**Resolved 2026-11-24:** cachyos-v3 `go 2:1.27.4-3` runs on the desktop (user ran it from a temp extract: `go version go1.27.4`). Pin removed; `[paru].pin` is empty. Test recipe without installing (bash, not fish): `d=$(mktemp -d) && curl -fsSL "$(pacman -Sp cachyos-v3/go | tail -1)" | tar -C "$d" --zstd -x && GOROOT=$d/usr/lib/go "$d/usr/lib/go/bin/go" version; rm -rf "$d"` — the auto-mode classifier blocks Claude from running downloaded binaries, so give it to the user.
