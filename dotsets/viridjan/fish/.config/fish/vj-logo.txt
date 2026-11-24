@@ -1,12 +1,13 @@
 $1`.                     .\
-.+o:.               .+ssss+
- .\sso+:.       .:+os+ssss+
-   \ossss\     +ssso\+ssss+
-    :osss\     osss+`+ssss+
-     -osso`...\osss. +ssss+
-      `\ossooosss+.  +ssss+
-       .\+ooooo\.    +ssss+
-        .\++++:      +ssss:
-         .+oo:      .ossso`
-          .o.    .:+sssso-
-                 -:++:-`
+.+o:.               .-\o:
+ .\sso+:.       .:+oss+-
+   \ossss\     +ssso\-
+    :osss\     osss++sss+
+     -osso`...\osss.+sss+
+      `\ossooosss+. +sss+
+       .\+ooooo\.   +sss+
+        .\++++:     +sss+
+         .+oo:      +sss:
+          .o.      .osso`
+                .:+sss-
+                -:++:`
