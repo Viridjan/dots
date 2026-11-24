@@ -43,3 +43,4 @@
 - [user commands in fish](feedback-user-commands-fish.md) — wrap POSIX one-liners in bash -c; user runs downloaded binaries
 - [no git pull hint](feedback-no-git-pull-hint.md) — sysup self-pulls in a terminal; give only the sysup command for other machines
 - [update does all](feedback-update-does-all.md) — --update runs the install action; no separate install hints; fewer merged actions preferred
+- [Vj logo](vj-logo.md) — fish fastfetch logo = exact flipped Arch logo + joined j; . → ', resize by dropping rows only
