@@ -2,8 +2,12 @@
 # Apps started from the DMS launcher (Mod+Space) open on the workspace where
 # Mod+Space was pressed, even if you switched away while they loaded. Apps with
 # an open-on-workspace rule (social/media/games) keep their own workspace.
-#   launcher-ws         remember the focused workspace, then toggle the launcher (Mod+Space)
-#   launcher-ws watch   session daemon (config.kdl spawn-at-startup)
+# Opened that way (launcher or a shortcut), a terminal or browser also takes focus;
+# everything else, and anything opened by scripts, follows niri's open-focused false.
+#   launcher-ws                          remember the workspace, then toggle the launcher (Mod+Space)
+#   launcher-ws run [--app-id RE] CMD…   same for a shortcut; with --app-id, an already-open
+#                                        match means CMD only focuses it (nirius): no record
+#   launcher-ws watch                    session daemon (config.kdl spawn-at-startup)
 # The daemon also sends apps started by Claude Code or Codex to the workspace of the
 # terminal the agent runs in, unfocused (rules included: the agent's workspace wins).
 set -u
@@ -13,10 +17,24 @@ MAX_AGE=${LAUNCHER_WS_MAX_AGE:-60}   # seconds: a later window is not the launch
 
 _focused_ws() { niri msg --json workspaces | jq -r '.[] | select(.is_focused) | .id'; }
 
-if [[ "${1:-}" != watch ]]; then
-    printf '%s %s\n' "$(_focused_ws)" "$(date +%s)" >"$REC"
-    exec dms ipc call spotlight toggle
-fi
+FOCUS_APPS='^(Alacritty|brave-.*)$'   # opened by you: take focus
+
+_record() { printf '%s %s\n' "$(_focused_ws)" "$(date +%s)" >"$REC"; }
+
+case "${1:-}" in
+    watch) ;;
+    run)
+        shift
+        if [[ "${1:-}" == --app-id ]]; then
+            niri msg --json windows | jq -e --arg re "$2" 'any(.[]; (.app_id // "") | test($re))' >/dev/null \
+                || _record
+            shift 2
+        else
+            _record
+        fi
+        exec "$@" ;;
+    *) _record; exec dms ipc call spotlight toggle ;;
+esac
 
 # Move window $1 to workspace id $2 without focusing it.
 # shortcut: moves by the workspace's index, correct on one output only (every profile
@@ -56,30 +74,17 @@ _agent_ws() {
 }
 
 declare -A seen
-cur='' prev=''   # focused window and the one before it (WindowFocusChanged)
 # \x1f separates fields: a tab is IFS whitespace, so an empty field would shift the rest.
 niri msg --json event-stream |
-  jq --unbuffered -r '
-    if .WindowFocusChanged then "F\u001f\(.WindowFocusChanged.id // "")"
-    elif .WindowOpenedOrChanged then .WindowOpenedOrChanged.window
-      | "W\u001f\(.id)\u001f\(.workspace_id // "")\u001f\(.app_id // "")\u001f\(.pid // "")\u001f\(.is_focused)"
-    else empty end' |
-  while IFS=$'\x1f' read -r kind id ws app pid focused; do
-    if [[ "$kind" == F ]]; then
-        [[ "$id" != "$cur" ]] && { prev=$cur; cur=$id; }
-        continue
-    fi
+  jq --unbuffered -r '.WindowOpenedOrChanged.window? // empty
+    | "\(.id)\u001f\(.workspace_id // "")\u001f\(.app_id // "")\u001f\(.pid // "")"' |
+  while IFS=$'\x1f' read -r id ws app pid; do
     [[ -n "${seen[$id]:-}" ]] && continue   # title changes re-send the window
     seen[$id]=1
     [[ "$app" == com.danklinux.dms ]] && continue   # the launcher's own windows
     aws=
     for p in $(_pids "$pid" "$app"); do aws=$(_agent_ws "$p"); [[ -n "$aws" ]] && break; done
     if [[ -n "$aws" ]]; then
-        # Terminals/browsers open focused (config.kdl rule), but not when an agent opened them.
-        if [[ "$focused" == true ]]; then
-            back=$cur; [[ "$back" == "$id" ]] && back=$prev
-            [[ -n "$back" ]] && niri msg action focus-window --id "$back"
-        fi
         [[ "$aws" != "$ws" ]] && _move "$id" "$aws"
         continue   # an agent's window is not the launcher's app
     fi
@@ -89,6 +94,9 @@ niri msg --json event-stream |
     # A window not on the focused workspace was placed by a rule: leave it.
     # shortcut: a rule targeting the workspace you switched to looks rule-less and is moved
     # back; matching rules by app-id would fix it if that ever matters.
-    [[ -n "$ws" && "$ws" != "$want" && "$ws" == "$(_focused_ws)" ]] || continue
-    _move "$id" "$want"
+    if [[ -n "$ws" && "$ws" != "$want" && "$ws" == "$(_focused_ws)" ]]; then
+        _move "$id" "$want"   # you moved on: don't pull you back by focusing it
+    elif [[ "$app" =~ $FOCUS_APPS && "$ws" == "$want" ]]; then
+        niri msg action focus-window --id "$id"
+    fi
   done

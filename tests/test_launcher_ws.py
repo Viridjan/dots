@@ -48,8 +48,7 @@ esac
         if record:
             rec.write_text(f"4 {int(time.time()) - age}\n")
         (self.tmp / "events").write_text("".join(
-            json.dumps(w if "WindowFocusChanged" in w else {"WindowOpenedOrChanged": {"window": w}}) + "\n"
-            for w in windows))
+            json.dumps({"WindowOpenedOrChanged": {"window": w}}) + "\n" for w in windows))
         r = subprocess.run(["bash", str(SCRIPT), "watch"], env=self.env, capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         return self.calls.read_text() if self.calls.exists() else ""
@@ -79,21 +78,29 @@ esac
                                         record=False), "")
 
 
-    def test_agent_window_hands_focus_back(self):
-        # Terminals/browsers open focused by rule; one an agent opened gives focus back.
-        focus = lambda i: {"WindowFocusChanged": {"id": i}}
-        calls = self.run_watch([focus(40), focus(41), {"id": 42, "workspace_id": 4, "app_id": "Alacritty",
-                                                       "pid": 103, "is_focused": True}, focus(42)], record=False)
-        self.assertEqual(calls, "niri msg action focus-window --id 41\n")
+    def test_terminal_or_browser_you_opened_gets_focus(self):
+        # Launched on workspace 4 and you are still there (focused workspace = 4).
+        (self.tmp / "ws.json").write_text(json.dumps([{"id": 4, "idx": 4, "is_focused": True}]))
+        self.assertEqual(self.run_watch([{"id": 50, "workspace_id": 4, "app_id": "Alacritty", "pid": 200}]),
+                         "niri msg action focus-window --id 50\n")
         self.calls.unlink()
-        # Focus event before the window event: hand back to the one before.
-        calls = self.run_watch([focus(41), focus(43), {"id": 43, "workspace_id": 4, "app_id": "Alacritty",
-                                                       "pid": 103, "is_focused": True}], record=False)
-        self.assertEqual(calls, "niri msg action focus-window --id 41\n")
-        self.calls.unlink()
-        # Opened by you: focus stays.
-        self.assertEqual(self.run_watch([focus(41), {"id": 44, "workspace_id": 3, "app_id": "Alacritty",
-                                                     "pid": 200, "is_focused": True}], record=False), "")
+        self.assertEqual(self.run_watch([{"id": 51, "workspace_id": 4, "app_id": "spotify", "pid": 200}]), "")
+        # No launcher/shortcut record (a script opened it): old rule, no focus.
+        self.assertEqual(self.run_watch([{"id": 52, "workspace_id": 4, "app_id": "brave-origin", "pid": 200}],
+                                        record=False), "")
+
+    def test_run_records_only_when_it_will_spawn(self):
+        (self.tmp / "windows.json").write_text(json.dumps([{"id": 1, "app_id": "brave-origin", "workspace_id": 4}]))
+        rec = self.tmp / "launcher-ws"
+        run = lambda *a: subprocess.run(["bash", str(SCRIPT), "run", *a], env=self.env, check=True)
+        os.symlink(subprocess.check_output(["which", "true"], text=True).strip(), self.tmp / "bin/true")
+        run("--app-id", "^brave-origin$", "true")
+        self.assertFalse(rec.exists())   # already open: nirius only focuses it
+        run("--app-id", "^Alacritty$", "true")
+        self.assertEqual(rec.read_text().split()[0], "3")
+        rec.unlink()
+        run("true")
+        self.assertTrue(rec.exists())
 
 
 if __name__ == "__main__":
