@@ -48,7 +48,8 @@ esac
         if record:
             rec.write_text(f"4 {int(time.time()) - age}\n")
         (self.tmp / "events").write_text("".join(
-            json.dumps({"WindowOpenedOrChanged": {"window": w}}) + "\n" for w in windows))
+            json.dumps(w if "WindowFocusChanged" in w else {"WindowOpenedOrChanged": {"window": w}}) + "\n"
+            for w in windows))
         r = subprocess.run(["bash", str(SCRIPT), "watch"], env=self.env, capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         return self.calls.read_text() if self.calls.exists() else ""
@@ -76,6 +77,23 @@ esac
         self.assertTrue((self.tmp / "launcher-ws").exists())
         self.assertEqual(self.run_watch([{"id": 7, "workspace_id": 1, "app_id": "x", "pid": 200}],
                                         record=False), "")
+
+
+    def test_agent_window_hands_focus_back(self):
+        # Terminals/browsers open focused by rule; one an agent opened gives focus back.
+        focus = lambda i: {"WindowFocusChanged": {"id": i}}
+        calls = self.run_watch([focus(40), focus(41), {"id": 42, "workspace_id": 4, "app_id": "Alacritty",
+                                                       "pid": 103, "is_focused": True}, focus(42)], record=False)
+        self.assertEqual(calls, "niri msg action focus-window --id 41\n")
+        self.calls.unlink()
+        # Focus event before the window event: hand back to the one before.
+        calls = self.run_watch([focus(41), focus(43), {"id": 43, "workspace_id": 4, "app_id": "Alacritty",
+                                                       "pid": 103, "is_focused": True}], record=False)
+        self.assertEqual(calls, "niri msg action focus-window --id 41\n")
+        self.calls.unlink()
+        # Opened by you: focus stays.
+        self.assertEqual(self.run_watch([focus(41), {"id": 44, "workspace_id": 3, "app_id": "Alacritty",
+                                                     "pid": 200, "is_focused": True}], record=False), "")
 
 
 if __name__ == "__main__":

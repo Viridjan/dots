@@ -215,6 +215,14 @@ animations {
 window-rule {
     open-focused false
 }
+// Except terminals and browsers (2026-11-24, user request); Picture-in-Picture stays unfocused.
+// Opened by Claude/Codex they still don't keep focus: launcher-ws hands it back.
+window-rule {
+    match app-id="Alacritty"
+    match app-id=r#"^brave-"#
+    exclude title="^Picture-in-Picture$"
+    open-focused true
+}
 window-rule {
     match app-id=r#"^org\.gnome\."#
     draw-border-with-background false
