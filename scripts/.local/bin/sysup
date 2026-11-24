@@ -2312,6 +2312,7 @@ enabled = true
 # compilers needed by paru, USB drives in use, single-user desktop, greeter home is /.
 # forwarding: Docker needs it; arch-audit = the package audit tool; deleted files = PipeWire
 # memfd/flatpak caches; paccheck instead of AIDE; sshd_config 644 with no sshd; BOOT-5264 generic.
+# FILE-6344 /proc hidepid: single user; breaks polkit/logind without gid exceptions.
 _HARDEN_LYNIS='# sysup (_system_hardening): Lynis tests skipped on purpose
 skip-test=KRNL-6000:kernel.modules_disabled
 skip-test=KRNL-6000:kernel.sysrq
@@ -2343,6 +2344,7 @@ skip-test=LOGG-2190
 skip-test=FINT-4350
 skip-test=FILE-7524
 skip-test=BOOT-5264
+skip-test=FILE-6344
 '
 # OpenSnitch allow-always rules for system daemons and tools you would allow anyway
 # (2026-11-24): one rule file per program path, matched by executable path only.
