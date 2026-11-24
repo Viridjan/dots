@@ -629,7 +629,7 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   retry), pending pacnew, orphans. Exit status is unchanged by fixes. New kind =
   `_fix_<kind>` + a `_queue_fix` call; prompts inside a `while read` loop must
   read the loop from another fd. Before any run with a terminal,
-  `_check_repo_current` fetches; if behind upstream it pulls without asking (`--ff-only`; a failed pull warns and continues)
+  `_check_repo_current` fetches — bare `sysup` (menu) does it before the menu opens (`_menu_main`), then exports `SYSUP_SELF_UPDATED` so menu runs skip it; if behind upstream it pulls without asking (`--ff-only`; a failed pull warns and continues)
   + `exec` relaunch (before the lock; `SYSUP_SELF_UPDATED` stops loops).
 - **Failing mirror (2026-11-16).** A mirror that answers a missing file with an HTML
   error page aborts the transaction (`Maximum file size exceeded` on a `.sig`) instead of

@@ -316,6 +316,15 @@ _conflict_paths() {
 # ─── Self-update check ───────────────────────────────────
 # Before a terminal run: if the repo is behind its upstream, offer to pull and
 # relaunch. Runs before the lock is taken, so the relaunched copy can lock.
+# Bare sysup in a terminal: pull before the menu is drawn, not when an option
+# is chosen (user, 2026-11-24). The flag stops the runs the menu starts from
+# fetching again; after a pull, exec relaunches straight into the new menu.
+_menu_main() {
+    _check_repo_current "$@"
+    export SYSUP_SELF_UPDATED=1
+    _menu
+}
+
 _check_repo_current() {
     [[ -z "${SYSUP_SELF_UPDATED:-}" ]] && _fix_tty || return 0
     command -v git >/dev/null || return 0
@@ -4110,7 +4119,7 @@ fi
 if [[ -z "$ACTION" ]]; then
     if [[ -t 0 && -t 1 ]] && command -v fzf &>/dev/null; then
         (( EUID != 0 )) || die "run sysup as your user, not root — it calls sudo itself"
-        _menu || exit; exit 0
+        _menu_main "${_ORIG_ARGS[@]}" || exit; exit 0
     else
         [[ -t 0 && -t 1 ]] && warn "fzf is not installed; showing help instead of the menu"
         usage; exit 0

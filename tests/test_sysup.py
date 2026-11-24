@@ -2062,6 +2062,11 @@ esac''')
         self.mock("timeout", 'shift; "$@"')
         return self.run_check_raw(answer)
 
+    def run_check_raw_cmd(self, cmd):
+        return subprocess.run(["/usr/bin/bash", "-c", 'source "$SCRIPT"\n_fix_tty() { return 0; }\n'
+                               'exec() { echo "EXEC $*"; exit 0; }\n' + cmd],
+                              env=self.env, text=True, capture_output=True, timeout=10, input="")
+
     def run_check_raw(self, answer):
         return subprocess.run(["/usr/bin/bash", "-c", 'source "$SCRIPT"\n_fix_tty() { return 0; }\n'
                                'exec() { echo "EXEC $*"; }\n_check_repo_current --update\necho DONE'],
@@ -2085,6 +2090,17 @@ esac''')
         r = self.run_check(5000, "")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("DONE", r.stdout)
+
+    def test_menu_pulls_before_it_opens(self):
+        self.run_check(3, "")   # writes the git mock
+        r = self.run_check_raw_cmd('_menu() { echo "MENU flag=$SYSUP_SELF_UPDATED"; }\n_menu_main')
+        self.assertIn("pull", Path(self.env["CALLS"]).read_text())
+        self.assertIn("EXEC", r.stdout)   # relaunch happens before the menu
+        self.assertNotIn("MENU", r.stdout)
+        Path(self.env["CALLS"]).unlink()
+        r = self.run_check_raw_cmd('_menu() { echo "MENU flag=$SYSUP_SELF_UPDATED"; }\n'
+                                   '_check_repo_current() { echo CHECKED; }\n_menu_main')
+        self.assertIn("CHECKED\nMENU flag=1", r.stdout)   # menu runs skip the second fetch
 
     def test_current_repo_asks_nothing(self):
         r = self.run_check(0, "p\n")
