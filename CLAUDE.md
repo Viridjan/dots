@@ -59,7 +59,7 @@ dots/
       claude/         → ~/.claude/  (settings.json, keybindings.json, statusline.sh + segment scripts)
       DankMaterialShell/ → ~/.config/DankMaterialShell/
       desktop/        → ~/.config/niri/cfg/{display,input,autostart-machine,surface-layout}.kdl (profile desktop; ln, not stow)
-      fish/           → ~/.config/fish/  (Arch logo override for fastfetch — see fish_greeting in config.fish;
+      fish/           → ~/.config/fish/  (fastfetch logo = vj-logo.txt, Arch logo flipped into a V + j — see fish_greeting in config.fish;
                         functions/claude.fish launches the Claude binary directly; the old tmux retry wrapper
                         used POSIX syntax that fish rejected, closing the session with [exited])
       fonts/          → ~/.local/share/fonts/  (user fonts)
