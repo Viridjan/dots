@@ -695,7 +695,7 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   each choice runs as a child `bash sysup <args>` (`_menu_run`: own lock, recap,
   self-update); sysup then exits with that run's status (no return to the menu,
   2026-11-10). Status waits for a keypress, then back. Sub-screens: q/Esc = back.
-  `_menu_actions` is `fzf --multi` (grouped by `GROUPS`; Enter marks, the top
+  `_menu_actions` is `fzf --multi` (grouped by `GROUPS`, cursor moves skip group headers; Enter marks, the top
   `▶ Run` row or Ctrl-R runs) over `sysup.py menu "${MENU_ORDER[@]}"`
   (feature-gated one-time actions hidden, `[once]` state shown).
   The option rows toggle `--adopt` / `--clean` in place (cursor stays, `start:pos`), added
