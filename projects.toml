@@ -34,3 +34,7 @@ url = "git@github.com:Viridjan/handbook.git"
 [[repo]]
 name = "webapp_detective"
 url = "git@github.com:Viridjan/webapp_detective.git"
+
+[[repo]]
+name = "p40-qmk"
+url = "git@github.com:Viridjan/p40-qmk.git"
