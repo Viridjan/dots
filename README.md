@@ -113,8 +113,13 @@ sysup --help                    # everything else
 ```
 
 Bare `sysup` in a terminal opens a menu (needs `fzf`): update, check, actions
-(grouped, Enter marks, Ctrl-R or the top Run row runs them), options
-(`--adopt`, `--clean`), status. Esc goes back; a run
+(grouped, Enter marks, Ctrl-R or the top Run row runs them), repos, options
+(`--adopt`, `--clean`), profile. **Repos to clone on this PC** lists
+`projects.toml` plus your GitHub account's non-archived repos; your last choice is
+pre-marked and repos added since then start marked. Save stores the marks for this
+machine and clones the missing ones (`sysup --actions repos`); unmarking never deletes
+a clone. **Profile** shows the status and changes the GitHub account (default: the
+`gh` login). Esc goes back; a run
 ends sysup with that run's exit status. Outside a terminal it prints the help.
 
 - **Profiles** (`profiles/<name>.toml`): hardware + package lists + feature
@@ -133,8 +138,9 @@ ends sysup with that run's exit status. Outside a terminal it prints the help.
   `add` (this machine only) and `remove` (demoted to a dependency, removed only
   if nothing needs it), `[declined]` (never install), `[ignored]` (unlisted
   installs not to report), `[once]` (one-time action dates), `[select]`
-  `dotfiles`/`repos` (subsets; missing = all), `[display]` `text_scale`
-  (e.g. `1.3`, applied by the dotfiles deploy). `[declined]`, `[select]` and
+  `dotfiles`/`repos` (subsets; missing = all; `repos` + `repos_seen` are written by the
+  repo menu), `github` (repo-menu account), `[display]` `text_scale`
+  (e.g. `1.3`, applied by the dotfiles deploy). `[declined]`, `[select] dotfiles` and
   `[display]` are edited by hand.
 - **Sorting packages:** `sysup --pkg WHERE NAME...` with WHERE `shared`
   (`packages.toml`), `profile` (this machine's profile file), `local`, `remove`
