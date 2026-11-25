@@ -190,6 +190,12 @@ class ResolveTests(Tmp):
         self.assertEqual((out / "projects.list").read_text().split(), [])
         self.assertEqual((out / "project-builds.list").read_text(), "")
 
+    def test_write_plan_adds_account_repos_by_owner_name(self):
+        out = self.root / "plan"
+        S.write_plan(self.repo, self.cfg, out, repos_selected=["app", "Someone/tool"])
+        self.assertEqual((out / "projects.list").read_text().split(),
+                         ["git@x:app.git", "git@github.com:Someone/tool.git"])
+
     def test_profile_variant_replaces_package(self):
         mine = self.dots / "dotsets/mine"
         for d in ("alacritty@surface", "fish@desktop", "mpd@surface"):
@@ -446,3 +452,55 @@ class CommandTests(Tmp):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class RepoMenuTests(Tmp):
+    def setUp(self):
+        super().setUp()
+        (self.dots / "projects.toml").write_text(
+            '[[repo]]\nname = "dots"\nurl = "git@github.com:Me/dots.git"\n'
+            '[[repo]]\nname = "app"\nurl = "https://github.com/Other/app.git"\nbuild = "make"\n')
+        self.repo = S.load_repo(self.dots)
+        self.home = self.root / "Projects"
+        (self.home / "old").mkdir(parents=True)
+        self.listing = [("Me/dots", ""), ("Me/new", "fresh"), ("Me/old", "")]
+
+    def rows(self, sel=None, listing=None):
+        cfg = S.load_local(self.cfg_path)
+        cfg["github"] = "Me"
+        if sel is not None:
+            cfg["select"]["repos"] = sel
+        out = S.repo_rows(self.repo, cfg, self.listing if listing is None else listing, home=self.home)
+        return [r.split("\t") for r in out]
+
+    def test_default_marks_projects_toml_and_cloned_account_repos(self):
+        rows = self.rows()
+        self.assertEqual([(r[0], r[2]) for r in rows],
+                         [("dots", "x"), ("app", "x"), ("Me/new", " "), ("Me/old", "x")])  # Me/dots deduped
+        self.assertEqual(rows[2][1], "github: Me")
+        self.assertEqual(rows[2][3], "new  — fresh")
+        self.assertEqual(rows[3][3], "old  (cloned)")
+
+    def test_saved_selection_drives_marks(self):
+        self.assertEqual([r[2] for r in self.rows(sel=["app", "Me/new"])], [" ", "x", "x", " "])
+
+    def test_listing_error_is_one_unselectable_row(self):
+        rows = self.rows(listing=S.ConfigError("gh down"))
+        self.assertEqual(rows[-1][:2], ["", "github: Me"])
+        self.assertIn("gh down", rows[-1][3])
+
+    def test_select_repos_validates_and_saves(self):
+        r = self.cli("select-repos", "dots", "Me/new", "Me/new")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(tomllib.loads(self.cfg_path.read_text())["select"]["repos"], ["dots", "Me/new"])
+        for bad in ("nope", "-x", "a/b c", "../etc"):
+            self.assertEqual(self.cli("select-repos", bad).returncode, 2, bad)
+        self.assertEqual(self.cli("select-repos").returncode, 0)  # nothing marked = clone nothing
+        self.assertEqual(tomllib.loads(self.cfg_path.read_text())["select"]["repos"], [])
+
+    def test_account_set_and_validated(self):
+        r = self.cli("account", "Friend-1")
+        self.assertEqual((r.returncode, r.stdout.strip()), (0, "Friend-1"))
+        self.assertEqual(tomllib.loads(self.cfg_path.read_text())["github"], "Friend-1")
+        self.assertEqual(self.cli("account", "bad name").returncode, 2)
+        self.assertEqual(self.cli("account", "-x").returncode, 2)

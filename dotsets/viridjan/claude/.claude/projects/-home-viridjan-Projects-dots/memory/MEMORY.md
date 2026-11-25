@@ -44,3 +44,4 @@
 - [no git pull hint](feedback-no-git-pull-hint.md) — sysup self-pulls in a terminal; give only the sysup command for other machines
 - [update does all](feedback-update-does-all.md) — --update runs the install action; no separate install hints; fewer merged actions preferred
 - [Vj logo](vj-logo.md) — fish fastfetch logo = exact flipped Arch logo + joined j; . → ', resize by dropping rows only
+- [P40S keyboard](p40s-keyboard.md) — X.Tips P40S stays QMK; both P40 repos GitHub-only (dropped locally 2026-11-26); vendor on Xianyu

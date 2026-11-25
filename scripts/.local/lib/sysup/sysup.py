@@ -11,6 +11,9 @@ Commands:
   menu ID...                          menu rows (TSV: id group label state description)
   once-done ID...                     stamp one-time actions done today
   once-skip ID                        mark a one-time action skipped
+  account [NAME]                      print (or set) the GitHub account the repo menu lists
+  repos                               repo menu rows (TSV: key group mark label)
+  select-repos KEY...                 save the repos to clone (projects.toml names, owner/name)
 """
 import copy
 import datetime
@@ -40,6 +43,7 @@ DEFAULTS = {
     "once": {},
     "select": {},   # dotfiles / repos: subsets to deploy / clone; missing = all
     "display": {},  # text_scale (applied by the dotfiles deploy)
+    "github": None,  # account the repo menu lists; unset = the gh login
 }
 
 # Menu groups, in display order.
@@ -64,6 +68,7 @@ ACTIONS = {
     "claude": ("apps", "Install Claude Code plugins", "Install Claude Code plugins, skills and MCP setup."),
     "caveman-code": ("apps", "Install caveman-code", "Install the npm command and refresh its local links."),
     "ollama": ("apps", "Download Ollama model", "Pull qwen3.5 and rebuild the Modelfile models (ollama-model feature)."),
+    "repos": ("apps", "Clone selected repos", "Clone the repos chosen in the menu's repo list (projects.toml by default) into ~/Projects."),
     "vms": ("apps", "Prepare Windows virtual machine", "Create VM storage directories and download the Windows container image."),
     "launchers": ("launchers", "Maintain application launchers", "Remove Steam game launchers (Big Picture off) and stale app launchers."),
     "lostfiles": ("health", "Report files owned by no package", "Run pacreport --unowned-files (about a minute, report only)."),
@@ -304,6 +309,7 @@ def write_plan(repo: Repo, cfg: dict, outdir: Path, stow_selected=None, repos_se
     if stow_selected is not None:   # selections name the base package
         stow = [p for p in stow if p.split("@", 1)[0] in stow_selected]
     projects = [p for p in repo.projects if repos_selected is None or p["name"] in repos_selected]
+    picked = [GH_URL.format(s) for s in repos_selected or [] if "/" in s]  # repo menu: owner/name
     # Audit membership ignores [declined]: a declined package is still known.
     prof = repo.profiles.get(cfg.get("profile"), {})
     known = _uniq([p for src in ("paru", "flatpak")
@@ -318,7 +324,7 @@ def write_plan(repo: Repo, cfg: dict, outdir: Path, stow_selected=None, repos_se
         "npm-install.list": r["npm_install"], "uv-install.list": r["uv_install"],
         "ufw-allow.list": r["ufw_allow"],
         "flatpak-install.list": r["flatpak_install"], "flatpak-remove.list": r["flatpak_remove"],
-        "projects.list": [p["url"] for p in projects], "stow.list": stow,
+        "projects.list": [p["url"] for p in projects] + picked, "stow.list": stow,
         "project-builds.list": [f'{p["name"]}\t{p["build"]}' for p in projects if p.get("build")],
     }
     for name, items in files.items():
@@ -546,6 +552,66 @@ def status_lines(repo: Repo, cfg: dict) -> list:
     return out
 
 
+# ─── Repo menu ───────────────────────────────────────────
+# Choices: projects.toml entries (by name) + repos of one GitHub account (by
+# owner/name), saved as [select] repos. Missing selection = all of projects.toml.
+
+GH_URL = "git@github.com:{}.git"
+_ACCOUNT = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})")
+_OWNER_NAME = re.compile(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+")
+
+
+def github_account(cfg: dict) -> str:
+    if cfg.get("github"):
+        return cfg["github"]
+    try:
+        return subprocess.run(["gh", "api", "user", "--jq", ".login"], capture_output=True,
+                              text=True, check=True, timeout=30).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def gh_repos(account: str) -> list:
+    """Non-archived repos of ACCOUNT: [(owner/name, description)]. Raises ConfigError."""
+    try:
+        out = subprocess.run(["gh", "repo", "list", account, "--limit", "1000", "--no-archived",
+                              "--json", "nameWithOwner,description"],
+                             capture_output=True, text=True, check=True, timeout=60).stdout
+    except (OSError, subprocess.SubprocessError) as e:
+        detail = getattr(e, "stderr", "") or str(e)
+        raise ConfigError(f"gh repo list {account} failed: {detail.strip().splitlines()[-1] if detail.strip() else e}")
+    return sorted((r["nameWithOwner"], r.get("description") or "") for r in json.loads(out))
+
+
+def repo_rows(repo: Repo, cfg: dict, listing, home: Path | None = None) -> list:
+    """TSV rows key, group, mark (x/blank), label. listing = gh_repos() result or a
+    ConfigError (shown as one unselectable row)."""
+    home = home or Path.home() / "Projects"
+    sel = cfg["select"].get("repos")
+    def label(name, desc):
+        return f"{name}{'  (cloned)' if (home / name).is_dir() else ''}{'  — ' + desc if desc else ''}"
+    rows = [("\t".join((p["name"], "projects.toml", "x" if sel is None or p["name"] in sel else " ",
+                        label(p["name"], p.get("build") and "builds" or ""))))
+            for p in repo.projects]
+    acct = f"github: {github_account(cfg) or '?'}"
+    if isinstance(listing, ConfigError):
+        return rows + ["\t".join(("", acct, " ", f"(not listed: {listing})"))]
+    listed = {m[1].lower() for p in repo.projects
+              if (m := re.search(r"github\.com[:/](.+?)(?:\.git)?/?$", p["url"]))}
+    return rows + ["\t".join((nwo, acct, "x" if nwo in (sel or []) or sel is None and (home / nwo.split("/", 1)[1]).is_dir() else " ", label(nwo.split("/", 1)[1], desc)))
+                   for nwo, desc in listing if nwo.lower() not in listed]
+
+
+def select_repos(repo: Repo, keys) -> None:
+    names = {p["name"] for p in repo.projects}
+    bad = [k for k in keys if k not in names and not _OWNER_NAME.fullmatch(k)]
+    if bad:
+        raise ConfigError(f"not a projects.toml name or owner/name: {' '.join(bad)}")
+    cfg = load_local()
+    cfg["select"]["repos"] = list(dict.fromkeys(keys))
+    save_local(cfg)
+
+
 # ─── CLI ─────────────────────────────────────────────────
 
 def _once_ids(ids) -> list:
@@ -578,7 +644,8 @@ def cmd_add(where: str, src: str, name: str, profile: str = "") -> None:
 
 def main(argv) -> int:
     cmd, args = (argv[0], argv[1:]) if argv else ("", [])
-    if cmd in ("plan", "choose", "status", "menu", "add", "once-done", "once-skip"):
+    if cmd in ("plan", "choose", "status", "menu", "add", "once-done", "once-skip",
+               "account", "repos", "select-repos"):
         msg = migrate_config()
         if msg:
             print(msg, file=sys.stderr)
@@ -616,6 +683,27 @@ def main(argv) -> int:
     if cmd == "menu" and args:
         repo = load_repo()
         print("\n".join(menu_rows(repo, effective(repo), args)))
+        return 0
+    if cmd == "account" and len(args) <= 1:
+        cfg = load_local()
+        if args:
+            if not _ACCOUNT.fullmatch(args[0]):
+                raise ConfigError(f"not a GitHub account name: '{args[0]}'")
+            cfg["github"] = args[0]
+            save_local(cfg)
+        print(github_account(cfg))
+        return 0
+    if cmd == "repos" and not args:
+        repo, cfg = load_repo(), load_local()
+        acct = github_account(cfg)
+        try:
+            listing = gh_repos(acct) if acct else ConfigError("no account: gh not logged in, set one in Profile")
+        except ConfigError as e:
+            listing = e
+        print("\n".join(repo_rows(repo, cfg, listing)))
+        return 0
+    if cmd == "select-repos":
+        select_repos(load_repo(), args)
         return 0
     if cmd in ("once-done", "once-skip") and args:
         ids = _once_ids(args)

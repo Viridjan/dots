@@ -1151,6 +1151,28 @@ class ReviewFollowupTests(FixtureCase):
         calls = self.menu("--adopt --clean --adopt update")
         self.assertEqual(calls, ["run --update --clean"])
 
+    def test_menu_repos_saves_marks_then_clones(self):
+        self._menu_fzf()
+        self.env.update(KEYS="repos", PICK="Me/new dots", HDR="1")
+        py = ('_py() { printf "py %s\\n" "$*" >> "$CALLS"; [ "$1" = repos ] && '
+              "printf 'dots\\tprojects.toml\\tx\\tdots\\nMe/new\\tgithub: Me\\t \\tnew\\n'; return 0; }\n"
+              '_menu_run() { printf "run %s\\n" "${*:2}" >> "$CALLS"; }\n')
+        r = self.shell(py + '_menu\necho MENU_RETURNED')
+        self.assertIn("MENU_RETURNED", r.stdout, r.stderr)
+        calls = Path(self.env["CALLS"]).read_text().splitlines()
+        self.assertEqual([c for c in calls if not c.startswith("fzf ")],
+                         ["py repos", "py select-repos Me/new dots", "run --actions repos"])
+        fzf = next(c for c in calls if "--multi" in c)
+        self.assertIn("load:pos(3)+toggle+first", fzf)  # RUN, header, dots (pre-marked)
+
+    def test_menu_repos_escape_saves_nothing(self):
+        self._menu_fzf()
+        self.env.update(KEYS="repos ESC", PICK="ESC")
+        py = '_py() { printf "py %s\\n" "$*" >> "$CALLS"; }\n_menu_run() { echo RUN >> "$CALLS"; }\n'
+        self.shell(py + '_menu')
+        calls = [c for c in Path(self.env["CALLS"]).read_text().splitlines() if not c.startswith("fzf ")]
+        self.assertEqual(calls, ["py repos"])
+
     def test_menu_escape_goes_back_or_quits(self):
         # q is bound to abort (= Esc, exit 130); no search line on any screen
         calls = self.menu("actions ESC", pick="ESC")  # Esc/q in the action list: back, nothing run

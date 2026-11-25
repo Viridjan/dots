@@ -183,7 +183,7 @@ relative to `dotsets/viridjan/` (moved there 2026-10-21).
 - **Display** (2026-11-01): local `[display]` `text_scale` (hand-edited) → plan env
   `SYSUP_TEXT_SCALE` → `_apply_display` (in `_stow_niri_cfg`) sets
   `gsettings … text-scaling-factor`.
-- **Local config** keys: `profile`, `dotset`, `[display]`, `[paru]/[flatpak] add/remove`,
+- **Local config** keys: `profile`, `dotset`, `github` (repo-menu account; unset = `gh api user` login), `[display]`, `[paru]/[flatpak] add/remove`,
   `[declined]`, `[ignored]` (unlisted installs not to report), `[once]` (date
   or "skip"), `[select]` (`dotfiles`/`repos` subsets; missing = all). Path
   `~/.config/sysup/config.toml`, override with `SYSUP_CONFIG`. `sysup.py`
@@ -460,7 +460,7 @@ Dux Calendar (`dcal`) is the calendar: calendar mime types pinned in `mimeapps`,
 `user.js` (untracked, per machine) disables its calendars and alarms; Google
 account added with `dcal account add google`.)
 
-`projects.toml` — `[[repo]]` entries (name + SSH URL) cloned into `~/Projects/` during the `clone_projects` bootstrap phase (missing ones only; local `[select] repos` limits which).
+`projects.toml` — `[[repo]]` entries (name + SSH URL) cloned into `~/Projects/` during the `clone_projects` bootstrap phase (missing ones only; local `[select] repos` limits which, and adds `owner/name` repos picked in the menu's repo list).
 Optional `build = "<cmd>"` → plan `project-builds.list` (`name\tcmd`) →
 `update_projects` (install phase + `--update`): `git pull --ff-only`, then runs
 the command in the repo at lowest priority when HEAD differs from
@@ -688,10 +688,17 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   be run on AMD64 processors with v4 microarchitecture support"); `1.27.4-3` runs on v3.
 - **Menu (2026-11-08).** Bare `sysup` with stdin+stdout on a TTY and `fzf`
   installed runs `_menu`; otherwise help (timer, pipes, tests). `_menu` loops:
-  main screen update / first run / check / actions / `[x] adopt` `[ ] clean` / status (q or Esc quits;
+  main screen update / first run / check / actions / repos / `[x] adopt` `[ ] clean` / profile (q or Esc quits;
   no search line: `_MENU_FZF` = `--no-input --bind=q:abort`, 2026-11-25);
   first run (`_first_run_ids`) = `--actions sources,install,stow-symlinks,dms-import,services`
   + every one-time action whose `[once]` state is "never run" (feature-gated);
+  repos (`_menu_repos`, 2026-11-26) = `sysup.py repos`: projects.toml entries + the `github`
+  account's non-archived repos (`gh repo list`), current `[select] repos` pre-marked (fzf `load:pos(N)+toggle`;
+  no selection = all of projects.toml + already-cloned account repos); Save → `sysup.py select-repos`
+  (account repos stored as `owner/name`, `write_plan` turns them into `git@github.com:owner/name.git`)
+  then `--actions repos` (`clone_projects`). Unmarking never deletes a clone. Profile screen
+  (`_menu_profile`): status + change the GitHub account (`sysup.py account NAME`).
+  Both pickers share `_menu_pick` (grouped multi-select, header-skipping cursor).
   each choice runs as a child `bash sysup <args>` (`_menu_run`: own lock, recap,
   self-update); sysup then exits with that run's status (no return to the menu,
   2026-11-10). Status waits for a keypress, then back. Sub-screens: q/Esc = back.

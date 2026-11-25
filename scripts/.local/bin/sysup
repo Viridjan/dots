@@ -3803,7 +3803,7 @@ phase_sources() {
 phase_install()  { install_all; }
 phase_dotfiles() { deploy_dotfiles; dms_import; }
 # Action IDs for --actions (fish completion reads this line).
-MENU_ORDER=(sources install services snapper automount optimize keyboard kernels greeter keyring-pam nvidia-niri install-scripts fish dms-plugins export claude caveman-code ollama vms launchers lostfiles lynis dotfiles-export stow-symlinks dms-import audit orphan-removal rebuild pacnew-merge git-identity ssh-key fingerprint bitwarden yubikey-pin surface-secureboot)
+MENU_ORDER=(sources install services snapper automount optimize keyboard kernels greeter keyring-pam nvidia-niri install-scripts fish dms-plugins export claude caveman-code ollama vms repos launchers lostfiles lynis dotfiles-export stow-symlinks dms-import audit orphan-removal rebuild pacnew-merge git-identity ssh-key fingerprint bitwarden yubikey-pin surface-secureboot)
 # Merged IDs (2026-11-24); old names still work with --actions.
 declare -A ACTION_ALIASES=([steam-launchers]=launchers [app-launchers]=launchers
     [python-rebuild]=rebuild [dms-export]=export [snitch-export]=export)
@@ -3940,6 +3940,7 @@ phase_configure() {
     _sel "caveman-code"    && _act caveman-code setup_caveman_code
     _sel "ollama"          && _act ollama setup_ollama
     _sel "vms"             && _act vms setup_vms
+    _sel "repos"           && _act repos clone_projects
     _sel "git-identity"    && _act git-identity setup_git_identity
     _sel "ssh-key"         && _act ssh-key setup_ssh_key
     _sel "fingerprint"     && _act fingerprint setup_fingerprint
@@ -4236,7 +4237,8 @@ _menu() {
                 update  "Upgrade + install listed packages, clean caches" \
                 first   "First run: new-machine setup" \
                 check   "Audit, report only" \
-                actions "Choose actions…"
+                actions "Choose actions…" \
+                repos   "Repos to clone on this PC…"
             # Run modifiers: Enter toggles, kept until the menu quits.
             for flag in --adopt --clean; do
                 x=" "; [[ " ${opts[*]} " == *" $flag "* ]] && x=x
@@ -4245,8 +4247,8 @@ _menu() {
                     *)       printf '%s\t[%s] clean: also wipe ~/.cache/paru and ~/.cache/yay\n' "$flag" "$x" ;;
                 esac
             done
-            printf '%s\t%s\n' status "Profile, one-time actions, last check"
-            } | fzf "${_MENU_FZF[@]}" --height=~12 --no-multi --bind="start:pos($pos)" \
+            printf '%s\t%s\n' profile "Profile: status, GitHub account…"
+            } | fzf "${_MENU_FZF[@]}" --height=~13 --no-multi --bind="start:pos($pos)" \
                   --header='Enter: choose/toggle   q: quit') || return 0
         pos=1
         case "${mode%%$'\t'*}" in
@@ -4255,15 +4257,16 @@ _menu() {
             update)  _menu_run "$self" --update "${opts[@]}" || return; return 0 ;;
             check)   _menu_run "$self" --check "${opts[@]}" || return; return 0 ;;
             actions) ids=$(_menu_actions) || continue; _menu_run "$self" --actions "$ids" "${opts[@]}" || return; return 0 ;;
+            repos)   _menu_repos || continue; _menu_run "$self" --actions repos "${opts[@]}" || return; return 0 ;;
             --adopt|--clean)
-                flag=${mode%%$'\t'*}; [[ $flag == --adopt ]] && pos=5 || pos=6
+                flag=${mode%%$'\t'*}; [[ $flag == --adopt ]] && pos=6 || pos=7
                 if [[ " ${opts[*]} " == *" $flag "* ]]; then
                     keep=(); for o in "${opts[@]}"; do [[ "$o" == "$flag" ]] || keep+=("$o"); done
                     opts=("${keep[@]}")
                 else
                     opts+=("$flag")
                 fi ;;
-            status)  _status; _menu_pause ;;
+            profile) _menu_profile ;;
             *)       return 0 ;;
         esac
     done
@@ -4277,30 +4280,69 @@ _first_run_ids() {
         $4 == "never run" && $1 != "services" { printf ",%s", $1 } END { print "" }' <<< "$rows"
 }
 
+# Grouped multi-select. Input rows: ID, display, preview text; a header row
+# (empty ID) opens each group and a RUN row comes first. Enter marks; Enter on
+# RUN (or Ctrl-R) accepts. Every move steps once more when it lands on a header
+# ({1} empty), so the cursor never rests there (no header sits last or next to
+# another, RUN is first). $1 = RUN label, $2 = preview command, rest = fzf args.
+# Prints the marked IDs one per line; fails on Esc.
+_menu_pick() {
+    local dn='transform([ -z {1} ] && echo down)' up='transform([ -z {1} ] && echo up)'
+    fzf "${_MENU_FZF[@]}" --multi --height=80% \
+        --header="Enter/Tab: mark   ▶ $1 or Ctrl-R   q: back" \
+        --bind="enter:transform([ {1} = RUN ] && echo accept || echo toggle+down)+$dn" \
+        --bind="down:down+$dn,ctrl-j:down+$dn,ctrl-n:down+$dn,tab:toggle+down+$dn" \
+        --bind="up:up+$up,ctrl-k:up+$up,ctrl-p:up+$up,btab:toggle+up+$up" \
+        --bind='ctrl-r:accept' --preview="$2" --preview-window=down,4,wrap "${@:3}" \
+        | awk -F'\t' '$1 != "" && $1 != "RUN" { print $1 }'
+}
+
 # Action picker. Prints the marked IDs comma-separated; fails on Esc or no marks.
 _menu_actions() {
-    local rows sel ids
+    local rows ids
     rows=$(_py menu "${MENU_ORDER[@]}") || return 1
-    # Rows arrive grouped; a header row (empty ID) opens each group and a
-    # RUN row comes first. Enter marks; Enter on RUN (or Ctrl-R) runs the marks.
     # Display column: label + one-time state; field 3 = description.
-    # Every move steps once more when it lands on a header ({1} empty), so the
-    # cursor never rests there (no header sits last or next to another, RUN is first).
-    local dn='transform([ -z {1} ] && echo down)' up='transform([ -z {1} ] && echo up)'
-    sel=$(awk -F'\t' 'NR == 1 { printf "RUN\t▶ Run marked actions\t\n" }
+    ids=$(awk -F'\t' 'NR == 1 { printf "RUN\t▶ Run marked actions\t\n" }
             $2 != g { g = $2; printf "\t── %s ──\t\n", g }
             { printf "%s\t   %-38s %s\t%s\n", $1, $3, $4, $5 }' <<< "$rows" \
-        | fzf "${_MENU_FZF[@]}" --multi --height=80% \
-              --header='Enter/Tab: mark   ▶ Run or Ctrl-R: run marked   q: back' \
-              --bind="enter:transform([ {1} = RUN ] && echo accept || echo toggle+down)+$dn" \
-              --bind="down:down+$dn,ctrl-j:down+$dn,ctrl-n:down+$dn,tab:toggle+down+$dn" \
-              --bind="up:up+$up,ctrl-k:up+$up,ctrl-p:up+$up,btab:toggle+up+$up" \
-              --bind='ctrl-r:accept' \
-              --preview="[ -n {3} ] && printf '%s\n\nsysup --actions %s\n' {3} {1}" --preview-window=down,4,wrap) \
-        || return 1
-    ids=$(awk -F'\t' '$1 != "" && $1 != "RUN" { print $1 }' <<< "$sel")
+        | _menu_pick "Run" "[ -n {3} ] && printf '%s\n\nsysup --actions %s\n' {3} {1}") || return 1
     [[ -n "$ids" ]] || return 1
     printf '%s\n' "${ids//$'\n'/,}"
+}
+
+# Repo picker: projects.toml + the account's repos (sysup.py repos), current
+# selection pre-marked. Saves the marks as [select] repos; fails on Esc.
+# Unmarking never deletes a clone.
+_menu_repos() {
+    local rows input marks keys
+    rows=$(_py repos) || return 1
+    input=$(awk -F'\t' 'NR == 1 { printf "RUN\t▶ Save and clone marked\t\n" }
+            $2 != g { g = $2; printf "\t── %s ──\t\n", g }
+            { printf "%s\t   %s\t%s\n", $1, $4, $1 }' <<< "$rows")
+    # Pre-mark: line numbers (fzf pos) of rows sysup.py marked x.
+    marks=$(awk -F'\t' 'NR == 1 { n = 1 } $2 != g { g = $2; n++ } { n++ }
+            $3 == "x" { printf "pos(%d)+toggle+", n }' <<< "$rows")
+    keys=$(_menu_pick "Save" "[ -n {3} ] && echo {3}" --bind="load:${marks}first" <<< "$input") || return 1
+    # shellcheck disable=SC2086 # keys: one owner/name or projects.toml name per word
+    _py select-repos $keys
+}
+
+# Profile screen: status, and the GitHub account the repo list shows. q: back.
+_menu_profile() {
+    local acct pick new
+    while :; do
+        acct=$(_py account) || acct=""
+        pick=$(printf '%s\t%s\n' \
+                status  "Status: profile, features, one-time actions, last check" \
+                account "GitHub account: ${acct:-none}  (Enter: change)" \
+            | fzf "${_MENU_FZF[@]}" --height=~5 --no-multi --header='Enter: choose   q: back') || return 0
+        case "${pick%%$'\t'*}" in
+            status)  _status; _menu_pause ;;
+            account)
+                read -rp "GitHub account [${acct:-none}] (empty keeps it): " new < /dev/tty || new=""
+                [[ -n "$new" ]] && { _py account "$new" >/dev/null && ok "GitHub account: $new" || _menu_pause; } ;;
+        esac
+    done
 }
 
 _menu_run() {
