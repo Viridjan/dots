@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# git clean filter for opensnitch-ui's settings.conf (see .gitattributes): drop the
+# [*Dialog] sections (window geometry/column state, rewritten when a dialog closes).
+# Only the committed blob changes; the live file keeps them.
+exec awk '/^\[/ { skip = /Dialog\]$/ } !skip'

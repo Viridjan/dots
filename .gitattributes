@@ -1,3 +1,5 @@
 # nicotine+ config: password + stats stripped on commit (.githooks/nicotine-clean,
 # registered by sysup deploy_dotfiles)
 dotsets/*/nicotine/.config/nicotine/config filter=nicotine
+# opensnitch-ui settings: dialog geometry stripped on commit (.githooks/opensnitch-clean)
+dotsets/*/opensnitch/.config/opensnitch/settings.conf filter=opensnitch

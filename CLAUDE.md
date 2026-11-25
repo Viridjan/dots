@@ -80,6 +80,8 @@ dots/
       nicotine/       → ~/.config/nicotine/  (nicotine+; notification popups off. `.gitattributes` clean filter
                         .githooks/nicotine-clean blanks `passw` + drops [statistics] on commit — the live file
                         keeps both; registered by deploy_dotfiles. A pull that changes it blanks the local password)
+      opensnitch/     → ~/.config/opensnitch/  (opensnitch-ui settings.conf; clean filter .githooks/opensnitch-clean
+                        drops the [*Dialog] geometry sections on commit. Daemon config is stock; rules: repo opensnitch/rules/)
       nirinit/        → ~/.config/nirinit/  (skip list: apps the niri autostart already opens)
   scripts/        → ~/.local/bin/ + ~/.local/lib/sysup/ (sysup.py, automount.sh)  (sysup, vjsurface, start-windows, start-battlenet, gamescope-media, social-order,
                     launcher-ws: Mod+Space (and `launcher-ws run [--app-id RE] CMD` shortcuts) record the workspace, `launcher-ws watch` moves the launched app back
