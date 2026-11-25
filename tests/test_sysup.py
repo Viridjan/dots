@@ -1131,31 +1131,34 @@ class ReviewFollowupTests(FixtureCase):
         return [l for l in Path(self.env["CALLS"]).read_text().splitlines() if not l.startswith("fzf ")]
 
     def test_menu_runs_actions_then_exits(self):
-        calls = self.menu("actions check quit", pick="sources fish")
+        calls = self.menu("actions check ESC", pick="sources fish")
         self.assertIn("py menu sources install", calls[0])  # whole MENU_ORDER
         self.assertEqual(calls[1:], ["run --actions sources,fish"])  # no return to the menu
 
     def test_menu_returns_the_run_status(self):
         self._menu_fzf()
-        self.env.update(KEYS="check quit")
+        self.env.update(KEYS="check ESC")
         r = self.shell(self.MENU_PY + '_menu_run() { return 3; }\n_menu || echo "RC=$?"')
         self.assertIn("RC=3", r.stdout, r.stderr)
 
     def test_menu_first_run_adds_never_run_once_actions(self):
         # fish is "never run" in MENU_PY; sources has no state
-        calls = self.menu("first quit")
+        calls = self.menu("first ESC")
         self.assertEqual(calls[1:], ["run --actions sources,install,stow-symlinks,dms-import,services,fish"])
 
     def test_menu_options_toggle_and_pass_through(self):
-        # adopt on, clean on, adopt off again, back, update
-        calls = self.menu("options --adopt --clean --adopt ESC update quit")
+        # on the main screen: adopt on, clean on, adopt off again, update
+        calls = self.menu("--adopt --clean --adopt update")
         self.assertEqual(calls, ["run --update --clean"])
 
     def test_menu_escape_goes_back_or_quits(self):
-        calls = self.menu("actions quit", pick="ESC")  # Esc in the action list: back, nothing run
+        # q is bound to abort (= Esc, exit 130); no search line on any screen
+        calls = self.menu("actions ESC", pick="ESC")  # Esc/q in the action list: back, nothing run
         self.assertEqual([c for c in calls if c.startswith("run")], [])
         Path(self.env["CALLS"]).unlink(); Path(self.env["CALLS"] + ".n").unlink()
-        self.assertEqual(self.menu("ESC"), [])  # Esc on the main screen quits
+        self.assertEqual(self.menu("ESC"), [])  # Esc/q on the main screen quits
+        fzf = [l for l in Path(self.env["CALLS"]).read_text().splitlines() if l.startswith("fzf ")]
+        self.assertTrue(fzf and all("--no-input" in l and "--bind=q:abort" in l for l in fzf), fzf)
 
     def test_removed_flags_die_before_any_work(self):
         self.mock("git", 'echo "git $*" >> "$CALLS"')

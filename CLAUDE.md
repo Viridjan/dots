@@ -688,16 +688,17 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   be run on AMD64 processors with v4 microarchitecture support"); `1.27.4-3` runs on v3.
 - **Menu (2026-11-08).** Bare `sysup` with stdin+stdout on a TTY and `fzf`
   installed runs `_menu`; otherwise help (timer, pipes, tests). `_menu` loops:
-  main screen update / first run / check / actions / options / status / quit (Esc quits);
+  main screen update / first run / check / actions / `[x] adopt` `[ ] clean` / status (q or Esc quits;
+  no search line: `_MENU_FZF` = `--no-input --bind=q:abort`, 2026-11-25);
   first run (`_first_run_ids`) = `--actions sources,install,stow-symlinks,dms-import,services`
   + every one-time action whose `[once]` state is "never run" (feature-gated);
   each choice runs as a child `bash sysup <args>` (`_menu_run`: own lock, recap,
   self-update); sysup then exits with that run's status (no return to the menu,
-  2026-11-10). Status waits for a keypress, then back. Sub-screens: Esc = back.
+  2026-11-10). Status waits for a keypress, then back. Sub-screens: q/Esc = back.
   `_menu_actions` is `fzf --multi` (grouped by `GROUPS`; Enter marks, the top
   `▶ Run` row or Ctrl-R runs) over `sysup.py menu "${MENU_ORDER[@]}"`
   (feature-gated one-time actions hidden, `[once]` state shown).
-  `_menu_options` toggles `--adopt` / `--clean`, added
+  The option rows toggle `--adopt` / `--clean` in place (cursor stays, `start:pos`), added
   to every later run until the menu quits. `--dry-run` was removed 2026-11-14
   (static preview, didn't cover `--actions` or list upgrades). `MENU_ORDER` (top-level array) is the only action ID list:
   `--actions` validates against it, fish completion reads it. Labels and

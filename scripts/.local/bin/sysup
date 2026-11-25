@@ -4226,27 +4226,43 @@ _status() {
 
 # Bare sysup in a terminal: a menu loop. Each choice runs as a child sysup
 # (same lock, recap and self-update as the command line), then the menu comes
-# back. Esc quits on the main screen and goes back on the others.
+# back. No search line; q (or Esc) quits on the main screen and goes back on the others.
+_MENU_FZF=(--no-input --bind=q:abort --reverse --delimiter='\t' --with-nth=2)
 _menu() {
-    local self="${BASH_SOURCE[0]}" mode ids opts=()
+    local self="${BASH_SOURCE[0]}" mode ids flag o x pos=1 opts=() keep
     while :; do
-        mode=$(printf '%s\t%s\n' \
+        mode=$({
+            printf '%s\t%s\n' \
                 update  "Upgrade + install listed packages, clean caches" \
                 first   "First run: new-machine setup" \
                 check   "Audit, report only" \
-                actions "Choose actions…" \
-                options "Options… [${opts[*]:-none}]" \
-                status  "Profile, one-time actions, last check" \
-                quit    "Quit" \
-            | fzf --delimiter='\t' --with-nth=2 --height=~12 --reverse --no-multi \
-                  --prompt='sysup> ' --header='Enter: choose   Esc: quit') || return 0
+                actions "Choose actions…"
+            # Run modifiers: Enter toggles, kept until the menu quits.
+            for flag in --adopt --clean; do
+                x=" "; [[ " ${opts[*]} " == *" $flag "* ]] && x=x
+                case "$flag" in
+                    --adopt) printf '%s\t[%s] adopt: stow takes over conflicting live files (backed up first)\n' "$flag" "$x" ;;
+                    *)       printf '%s\t[%s] clean: also wipe ~/.cache/paru and ~/.cache/yay\n' "$flag" "$x" ;;
+                esac
+            done
+            printf '%s\t%s\n' status "Profile, one-time actions, last check"
+            } | fzf "${_MENU_FZF[@]}" --height=~12 --no-multi --bind="start:pos($pos)" \
+                  --header='Enter: choose/toggle   q: quit') || return 0
+        pos=1
         case "${mode%%$'\t'*}" in
             # A run ends the menu: return its exit status.
             first)   ids=$(_first_run_ids) || continue; _menu_run "$self" --actions "$ids" "${opts[@]}" || return; return 0 ;;
             update)  _menu_run "$self" --update "${opts[@]}" || return; return 0 ;;
             check)   _menu_run "$self" --check "${opts[@]}" || return; return 0 ;;
             actions) ids=$(_menu_actions) || continue; _menu_run "$self" --actions "$ids" "${opts[@]}" || return; return 0 ;;
-            options) _menu_options opts ;;
+            --adopt|--clean)
+                flag=${mode%%$'\t'*}; [[ $flag == --adopt ]] && pos=5 || pos=6
+                if [[ " ${opts[*]} " == *" $flag "* ]]; then
+                    keep=(); for o in "${opts[@]}"; do [[ "$o" == "$flag" ]] || keep+=("$o"); done
+                    opts=("${keep[@]}")
+                else
+                    opts+=("$flag")
+                fi ;;
             status)  _status; _menu_pause ;;
             *)       return 0 ;;
         esac
@@ -4271,8 +4287,8 @@ _menu_actions() {
     sel=$(awk -F'\t' 'NR == 1 { printf "RUN\t▶ Run marked actions\t\n" }
             $2 != g { g = $2; printf "\t── %s ──\t\n", g }
             { printf "%s\t   %-38s %s\t%s\n", $1, $3, $4, $5 }' <<< "$rows" \
-        | fzf --multi --delimiter='\t' --with-nth=2 --height=80% --reverse \
-              --prompt='actions> ' --header='Enter/Tab: mark   ▶ Run or Ctrl-R: run marked   Esc: back' \
+        | fzf "${_MENU_FZF[@]}" --multi --height=80% \
+              --header='Enter/Tab: mark   ▶ Run or Ctrl-R: run marked   q: back' \
               --bind="enter:transform:[ {1} = RUN ] && echo accept || { [ -n {1} ] && echo toggle+down || echo down; }" \
               --bind='ctrl-r:accept' \
               --preview="[ -n {3} ] && printf '%s\n\nsysup --actions %s\n' {3} {1}" --preview-window=down,4,wrap) \
@@ -4280,29 +4296,6 @@ _menu_actions() {
     ids=$(awk -F'\t' '$1 != "" && $1 != "RUN" { print $1 }' <<< "$sel")
     [[ -n "$ids" ]] || return 1
     printf '%s\n' "${ids//$'\n'/,}"
-}
-
-# Modifier toggles, kept in the caller's array (name in $1) until the menu quits.
-_menu_options() {
-    local -n _o=$1
-    local pick flag x o keep
-    while :; do
-        pick=$(for flag in --adopt --clean; do
-                x=" "; [[ " ${_o[*]} " == *" $flag "* ]] && x=x
-                case "$flag" in
-                    --adopt)   printf '%s\t[%s] %s\n' "$flag" "$x" "adopt: stow takes over conflicting live files (backed up first)" ;;
-                    *)         printf '%s\t[%s] %s\n' "$flag" "$x" "clean: also wipe ~/.cache/paru and ~/.cache/yay" ;;
-                esac
-            done | fzf --delimiter='\t' --with-nth=2 --height=~6 --reverse --no-multi \
-                       --prompt='options> ' --header='Enter: toggle   Esc: back') || return 0
-        flag=${pick%%$'\t'*}
-        if [[ " ${_o[*]} " == *" $flag "* ]]; then
-            keep=(); for o in "${_o[@]}"; do [[ "$o" == "$flag" ]] || keep+=("$o"); done
-            _o=("${keep[@]}")
-        else
-            _o+=("$flag")
-        fi
-    done
 }
 
 _menu_run() {
