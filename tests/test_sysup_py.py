@@ -484,6 +484,25 @@ class RepoMenuTests(Tmp):
     def test_saved_selection_drives_marks(self):
         self.assertEqual([r[2] for r in self.rows(sel=["app", "Me/new"])], [" ", "x", "x", " "])
 
+    def test_repos_added_after_save_start_ticked(self):
+        cfg = S.load_local(self.cfg_path)
+        cfg["github"] = "Me"
+        cfg["select"].update(repos=["dots"], repos_seen=["dots", "Me/old"])  # app + Me/new are new
+        rows = S.repo_rows(self.repo, cfg, self.listing, home=self.home)
+        self.assertEqual([(r.split("\t")[0], r.split("\t")[2]) for r in rows],
+                         [("dots", "x"), ("app", "x"), ("Me/new", "x"), ("Me/old", " ")])
+        out = self.root / "plan"
+        S.write_plan(self.repo, cfg, out, repos_selected=["dots"], repos_seen=["dots", "Me/old"])
+        self.assertEqual((out / "projects.list").read_text().split(),
+                         ["git@github.com:Me/dots.git", "https://github.com/Other/app.git"])
+
+    def test_select_repos_records_seen(self):
+        r = self.cli("select-repos", "dots", "--seen", "dots", "app", "Me/new")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        sel = tomllib.loads(self.cfg_path.read_text())["select"]
+        self.assertEqual((sel["repos"], sel["repos_seen"]), (["dots"], ["dots", "app", "Me/new"]))
+        self.assertEqual(self.cli("select-repos", "--seen", "bad name").returncode, 2)
+
     def test_listing_error_is_one_unselectable_row(self):
         rows = self.rows(listing=S.ConfigError("gh down"))
         self.assertEqual(rows[-1][:2], ["", "github: Me"])

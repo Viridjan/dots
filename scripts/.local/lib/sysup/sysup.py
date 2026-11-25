@@ -13,7 +13,8 @@ Commands:
   once-skip ID                        mark a one-time action skipped
   account [NAME]                      print (or set) the GitHub account the repo menu lists
   repos                               repo menu rows (TSV: key group mark label)
-  select-repos KEY...                 save the repos to clone (projects.toml names, owner/name)
+  select-repos KEY... [--seen KEY...] save the repos to clone (projects.toml names, owner/name);
+                                      --seen = every repo shown, so later additions start ticked
 """
 import copy
 import datetime
@@ -299,7 +300,8 @@ def features(repo: Repo, cfg: dict) -> list:
     return list(repo.profiles.get(cfg.get("profile"), {}).get("features", []))
 
 
-def write_plan(repo: Repo, cfg: dict, outdir: Path, stow_selected=None, repos_selected=None) -> None:
+def write_plan(repo: Repo, cfg: dict, outdir: Path, stow_selected=None, repos_selected=None,
+               repos_seen=None) -> None:
     """The list files sysup reads, plus a sourceable `env`."""
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
@@ -308,7 +310,9 @@ def write_plan(repo: Repo, cfg: dict, outdir: Path, stow_selected=None, repos_se
     stow = repo.stow_pkgs(dotset, cfg.get("profile"))
     if stow_selected is not None:   # selections name the base package
         stow = [p for p in stow if p.split("@", 1)[0] in stow_selected]
-    projects = [p for p in repo.projects if repos_selected is None or p["name"] in repos_selected]
+    # projects.toml entries added after the last repo-menu save (not in seen) count as selected.
+    projects = [p for p in repo.projects if repos_selected is None or p["name"] in repos_selected
+                or repos_seen is not None and p["name"] not in repos_seen]
     picked = [GH_URL.format(s) for s in repos_selected or [] if "/" in s]  # repo menu: owner/name
     # Audit membership ignores [declined]: a declined package is still known.
     prof = repo.profiles.get(cfg.get("profile"), {})
@@ -587,10 +591,12 @@ def repo_rows(repo: Repo, cfg: dict, listing, home: Path | None = None) -> list:
     """TSV rows key, group, mark (x/blank), label. listing = gh_repos() result or a
     ConfigError (shown as one unselectable row)."""
     home = home or Path.home() / "Projects"
-    sel = cfg["select"].get("repos")
+    sel, seen = cfg["select"].get("repos"), cfg["select"].get("repos_seen")
+    def new(key):  # added since the last save: ticked
+        return seen is not None and key not in seen
     def label(name, desc):
         return f"{name}{'  (cloned)' if (home / name).is_dir() else ''}{'  — ' + desc if desc else ''}"
-    rows = [("\t".join((p["name"], "projects.toml", "x" if sel is None or p["name"] in sel else " ",
+    rows = [("\t".join((p["name"], "projects.toml", "x" if sel is None or p["name"] in sel or new(p["name"]) else " ",
                         label(p["name"], p.get("build") and "builds" or ""))))
             for p in repo.projects]
     acct = f"github: {github_account(cfg) or '?'}"
@@ -598,17 +604,19 @@ def repo_rows(repo: Repo, cfg: dict, listing, home: Path | None = None) -> list:
         return rows + ["\t".join(("", acct, " ", f"(not listed: {listing})"))]
     listed = {m[1].lower() for p in repo.projects
               if (m := re.search(r"github\.com[:/](.+?)(?:\.git)?/?$", p["url"]))}
-    return rows + ["\t".join((nwo, acct, "x" if nwo in (sel or []) or sel is None and (home / nwo.split("/", 1)[1]).is_dir() else " ", label(nwo.split("/", 1)[1], desc)))
+    return rows + ["\t".join((nwo, acct, "x" if nwo in (sel or []) or new(nwo) or sel is None and (home / nwo.split("/", 1)[1]).is_dir() else " ", label(nwo.split("/", 1)[1], desc)))
                    for nwo, desc in listing if nwo.lower() not in listed]
 
 
-def select_repos(repo: Repo, keys) -> None:
+def select_repos(repo: Repo, keys, seen=None) -> None:
     names = {p["name"] for p in repo.projects}
-    bad = [k for k in keys if k not in names and not _OWNER_NAME.fullmatch(k)]
+    bad = [k for k in [*keys, *(seen or [])] if k not in names and not _OWNER_NAME.fullmatch(k)]
     if bad:
         raise ConfigError(f"not a projects.toml name or owner/name: {' '.join(bad)}")
     cfg = load_local()
     cfg["select"]["repos"] = list(dict.fromkeys(keys))
+    if seen is not None:
+        cfg["select"]["repos_seen"] = list(dict.fromkeys([*seen, *keys]))
     save_local(cfg)
 
 
@@ -653,7 +661,8 @@ def main(argv) -> int:
         repo = load_repo()
         cfg = effective(repo)
         write_plan(repo, cfg, Path(args[0]),
-                   stow_selected=cfg["select"].get("dotfiles"), repos_selected=cfg["select"].get("repos"))
+                   stow_selected=cfg["select"].get("dotfiles"), repos_selected=cfg["select"].get("repos"),
+                   repos_seen=cfg["select"].get("repos_seen"))
         return 0
     if cmd == "unused" and len(args) in (1, 2) and (len(args) == 1 or args[1].isdigit()):
         print("\n".join(report(Path(args[0]), int(args[1]) if len(args) == 2 else 60)))
@@ -703,7 +712,8 @@ def main(argv) -> int:
         print("\n".join(repo_rows(repo, cfg, listing)))
         return 0
     if cmd == "select-repos":
-        select_repos(load_repo(), args)
+        i = args.index("--seen") if "--seen" in args else None
+        select_repos(load_repo(), args[:i], None if i is None else args[i + 1:])
         return 0
     if cmd in ("once-done", "once-skip") and args:
         ids = _once_ids(args)

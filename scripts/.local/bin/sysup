@@ -4311,10 +4311,11 @@ _menu_actions() {
 }
 
 # Repo picker: projects.toml + the account's repos (sysup.py repos), current
-# selection pre-marked. Saves the marks as [select] repos; fails on Esc.
+# selection pre-marked. Saves the marks as [select] repos and every listed
+# repo as repos_seen (anything added later starts marked); fails on Esc.
 # Unmarking never deletes a clone.
 _menu_repos() {
-    local rows input marks keys
+    local rows input marks keys seen
     rows=$(_py repos) || return 1
     input=$(awk -F'\t' 'NR == 1 { printf "RUN\t▶ Save and clone marked\t\n" }
             $2 != g { g = $2; printf "\t── %s ──\t\n", g }
@@ -4323,8 +4324,9 @@ _menu_repos() {
     marks=$(awk -F'\t' 'NR == 1 { n = 1 } $2 != g { g = $2; n++ } { n++ }
             $3 == "x" { printf "pos(%d)+toggle+", n }' <<< "$rows")
     keys=$(_menu_pick "Save" "[ -n {3} ] && echo {3}" --bind="load:${marks}first" <<< "$input") || return 1
-    # shellcheck disable=SC2086 # keys: one owner/name or projects.toml name per word
-    _py select-repos $keys
+    seen=$(awk -F'\t' '$1 != "" { print $1 }' <<< "$rows")
+    # shellcheck disable=SC2086 # one owner/name or projects.toml name per word
+    _py select-repos $keys --seen $seen
 }
 
 # Profile screen: status, and the GitHub account the repo list shows. q: back.

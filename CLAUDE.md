@@ -696,7 +696,10 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   account's non-archived repos (`gh repo list`), current `[select] repos` pre-marked (fzf `load:pos(N)+toggle`;
   no selection = all of projects.toml + already-cloned account repos); Save → `sysup.py select-repos`
   (account repos stored as `owner/name`, `write_plan` turns them into `git@github.com:owner/name.git`)
-  then `--actions repos` (`clone_projects`). Unmarking never deletes a clone. Profile screen
+  then `--actions repos` (`clone_projects`). Save also stores every listed repo as `[select] repos_seen`:
+  a repo not in it (added to projects.toml or the account later) starts marked, and a new projects.toml
+  entry is cloned by `sources`/`repos` without a menu visit (new account repos need the menu: the plan
+  never calls gh). Unmarking never deletes a clone. Profile screen
   (`_menu_profile`): status + change the GitHub account (`sysup.py account NAME`).
   Both pickers share `_menu_pick` (grouped multi-select, header-skipping cursor).
   each choice runs as a child `bash sysup <args>` (`_menu_run`: own lock, recap,

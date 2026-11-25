@@ -1161,7 +1161,7 @@ class ReviewFollowupTests(FixtureCase):
         self.assertIn("MENU_RETURNED", r.stdout, r.stderr)
         calls = Path(self.env["CALLS"]).read_text().splitlines()
         self.assertEqual([c for c in calls if not c.startswith("fzf ")],
-                         ["py repos", "py select-repos Me/new dots", "run --actions repos"])
+                         ["py repos", "py select-repos Me/new dots --seen dots Me/new", "run --actions repos"])
         fzf = next(c for c in calls if "--multi" in c)
         self.assertIn("load:pos(3)+toggle+first", fzf)  # RUN, header, dots (pre-marked)
 
