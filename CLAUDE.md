@@ -301,7 +301,7 @@ Both rows were proven empirically on 2026-08-25, not assumed:
   `social-order` (desktop autostart) orders the social columns once all four opened: Whatsie,
   Telegram, Vesktop, Thunderbird.
   `start-battlenet` (umu) gives launcher and games one app-id, `steam_app_battlenet`: title `^Battle\.net` → media
-  and excluded from the `^steam_app_` fullscreen rule, the rest → games.
+  and excluded from the `^steam_app_` tiling rule, the rest → games.
   A workspace added by reload lands at index 1 live; `niri msg action move-workspace-to-index --reference <name> <n>`.
 - **Brave's app-id is `brave-origin`** (not `brave-browser`): match `^brave-`. Its PiP title follows the UI language (`Picture-in-picture` en-GB, `Picture in picture` en-US/it; strings in `/opt/brave-origin-bin/locales/*.pak`) — the PiP and width rules never matched until 2026-11-24.
 - **Window rules**: edit the inline `window-rule {}` blocks in `config.kdl` (per-app column widths, workspace assignments, gaming fullscreen/VRR rules are all there together, in file order — later rules override earlier ones for the same property on a matching window).

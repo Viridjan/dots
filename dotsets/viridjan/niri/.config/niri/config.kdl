@@ -340,16 +340,13 @@ window-rule {
     open-focused false
     default-column-width { proportion 0.5; }
 }
-// Steam games — fullscreen under niri's compositor fullscreen (no exclusive mode).
-// Matches XWayland games (WM_CLASS = steam_app_NNNN). Native Wayland games set their
-// OWN app-id and need a per-game rule instead — see README gaming section.
+// Steam games (XWayland, WM_CLASS = steam_app_NNNN) open tiled, not fullscreen
+// (2026-11-26: forced fullscreen kept MTGA fullscreen; ⌘⇧F toggles it).
 // No VRR here: monitor flickers under VRR (even on-demand) — see cfg/display.kdl note, 2026-08-25.
 window-rule {
     match app-id="^steam_app_"
     exclude app-id=r#"^steam_app_battlenet$"# title=r#"^Battle\.net"#
-    open-fullscreen true
     // Unity games in windowed mode set min==max size hints; niri floats those.
-    // Force tiled so a windowed-mode game can't escape the fullscreen rule.
     open-floating false
 }
 
