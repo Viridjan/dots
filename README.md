@@ -657,7 +657,7 @@ If it won't start, a stale session may hold the prefix:
 
 ### Gamescope launch options
 
-Steam games (`steam_app_*`) open fullscreen on the `games` workspace without
+Steam games (`steam_app_*`) open tiled (⌘⇧F for fullscreen) on the `games` workspace without
 taking focus, via window rules in `config.kdl`. Games run through gamescope
 can't match those rules: gamescope sets no app-id and its title arrives after
 the window opens. For those, use the `gamescope-media` wrapper in Steam →
