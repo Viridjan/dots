@@ -587,7 +587,11 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
     (`SYSUP_MIN_FREE_GB`); keeps an existing sudo ticket alive (`sudo -n -v`
     loop, terminal runs only, killed in `_cleanup`). `--update`/`--yes` in a terminal
     first ask for it once (`_sudo_prime`: sysup-style `==>` line + `sudo -v -p`, skipped when a ticket is valid): an unattended prompt mid-run timed
-    out and failed the upgrade and paccache (2026-11-08). Sudo failures are named in
+    out and failed the upgrade and paccache (2026-11-08). The ticket is per terminal and
+    `_paru`'s pty is a new one, so each paru call asked again: after the password
+    `_sudo_run_grant` installs `/etc/sudoers.d/zz-sysup-run` (`NOPASSWD: ALL`, visudo-checked),
+    `_cleanup` removes it, a `systemd-run` 6h timer covers a killed run (user choice 2026-11-27;
+    a `timestamp_type=global` drop-in would need a second password). Sudo failures are named in
     the recap: `_syuu_fail_detail` reports paru's `sudo:` line, paccache warnings append
     `_sudo_cause` (`sudo -n true` fails = no ticket).
 - **Steam Big Picture off (2026-11-13).** `launchers` first runs

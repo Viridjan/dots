@@ -2272,8 +2272,31 @@ class SudoPrimeTests(FixtureCase):
     def test_valid_ticket_skips_the_prompt(self):
         self.mock("sudo", 'printf "%s\\n" "sudo $*" >> "$CALLS"; exit 0')
         r = self.shell("ACTION=--update; _sudo_prime")
-        self.assertEqual(Path(self.env["CALLS"]).read_text(), "sudo -n true\n")
+        calls = Path(self.env["CALLS"]).read_text().splitlines()
+        self.assertEqual(calls[0], "sudo -n true")
+        self.assertFalse(any(c.startswith("sudo -v") for c in calls))
         self.assertEqual(r.stdout, "")
+
+    def test_run_grant_and_revoke(self):
+        """paru runs in its own pty, where the terminal's ticket doesn't count: one
+        password must cover it (2026-11-27), via a run-only NOPASSWD drop-in."""
+        self.mock("sudo", 'printf "%s\\n" "sudo $*" >> "$CALLS"\n'
+                          '[[ "$2" == visudo ]] && cp "${@: -1}" "$CALLS.rule"; exit 0')
+        self.shell("ACTION=--update; _sudo_prime; _sudo_run_revoke")
+        calls = Path(self.env["CALLS"]).read_text()
+        self.assertIn("NOPASSWD: ALL", Path(self.env["CALLS"] + ".rule").read_text())
+        self.assertIn("install -m 0440 -o root -g root", calls)
+        self.assertIn("/etc/sudoers.d/zz-sysup-run", calls)
+        self.assertIn("systemd-run", calls)  # expiry if sysup is killed
+        self.assertIn("rm -f /etc/sudoers.d/zz-sysup-run", calls)
+
+    def test_invalid_rule_is_not_installed(self):
+        self.mock("sudo", 'printf "%s\\n" "sudo $*" >> "$CALLS"\n'
+                          '[[ "$2" == visudo ]] && exit 1; exit 0')
+        self.shell("ACTION=--update; _sudo_prime; _sudo_run_revoke")
+        calls = Path(self.env["CALLS"]).read_text()
+        self.assertNotIn("install", calls)
+        self.assertNotIn("rm -f", calls)
 
     def test_other_actions_do_not_prompt(self):
         for action in ("--check", "--actions"):

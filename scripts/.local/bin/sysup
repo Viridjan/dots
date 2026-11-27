@@ -350,6 +350,7 @@ _check_repo_current() {
 _TEE_PID=""
 _cleanup() {
     local _rc=$?
+    _sudo_run_revoke
     [[ -n "${_SUDO_PID:-}" ]] && kill "$_SUDO_PID" 2>/dev/null
     ${_PLAN_OWNED:-false} && rm -rf "${SYSUP_PLAN_DIR:?}"
     if [[ -n "${_TEE_PID:-}" ]]; then
@@ -382,13 +383,42 @@ _runtime_error() {
 # still watching; a prompt minutes into an update times out unattended.
 _sudo_prime() {
     case "$ACTION" in --update|-u|--yes|-y) ;; *) return 0 ;; esac
-    sudo -n true 2>/dev/null && return 0
-    info "Root access: enter your password once, it is kept for the whole run"
-    if sudo -v -p "    sudo password for %u: "; then
-        ok "root access granted"
-    else
-        warn "no sudo ticket: steps that need root will fail"
+    if ! sudo -n true 2>/dev/null; then
+        info "Root access: enter your password once, it is kept for the whole run"
+        if sudo -v -p "    sudo password for %u: "; then
+            ok "root access granted"
+        else
+            warn "no sudo ticket: steps that need root will fail"; return 0
+        fi
     fi
+    _sudo_run_grant
+}
+
+# The ticket belongs to this terminal (timestamp_type=tty): paru in _paru's pty
+# asked again on every call. A timestamp_type=global drop-in only applies from the
+# NEXT authentication, so the one password instead buys a NOPASSWD rule for this
+# run: any process of the user gets root without a password until _cleanup
+# removes it. User choice 2026-11-27. A killed run leaves it: systemd timer
+# deletes it after 6h.
+_SUDO_RUN_FILE=/etc/sudoers.d/zz-sysup-run
+_SUDO_RUN_GRANTED=false
+_sudo_run_grant() {
+    local tmp
+    tmp=$(mktemp) || return 0
+    printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$(id -un)" > "$tmp"
+    if sudo -n visudo -cqf "$tmp" >/dev/null 2>&1 \
+        && sudo -n install -m 0440 -o root -g root "$tmp" "$_SUDO_RUN_FILE"; then
+        _SUDO_RUN_GRANTED=true
+        sudo -n systemd-run --quiet --unit="sysup-sudo-expire-$$" --on-active=6h \
+            /usr/bin/rm -f "$_SUDO_RUN_FILE" >/dev/null 2>&1 || true
+    fi
+    rm -f "$tmp"
+}
+_sudo_run_revoke() {
+    ${_SUDO_RUN_GRANTED:-false} || return 0
+    sudo -n rm -f "$_SUDO_RUN_FILE" || true
+    sudo -n systemctl stop "sysup-sudo-expire-$$.timer" >/dev/null 2>&1 || true
+    _SUDO_RUN_GRANTED=false
 }
 
 # Long-lived children must not inherit the run lock: an orphaned one (the
