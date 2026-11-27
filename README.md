@@ -63,6 +63,13 @@ entry checks first and does nothing when already done; one that needs you
 | Set YubiKey FIDO PIN | `ykman fido access change-pin` if the key has no PIN |
 | Enroll linux-surface Secure Boot key | Surface only, only with Secure Boot on (password `surface` at the next boot) |
 
+**Wifi passwords** travel between machines through a Bitwarden secure note
+(`sysup wifi`), never through git. Once per machine: `bw login` (the
+`bitwarden-cli` package). Then `sysup --actions wifi-export` on a machine that has
+the networks, `sysup --actions wifi-import` on the others. Open, WPA-PSK and SAE
+networks only (no 802.1x/WEP). Connecting by hand: `nmcli --ask device wifi connect
+SSID`, which keeps the password off the command line and out of the journal.
+
 DMS needs no separate init: Dotfiles copies any missing `dms/*.kdl` from the
 repo and "Apply repository DMS settings" imports the overrides.
 
@@ -751,7 +758,7 @@ cp /.snapshots/<N>/snapshot/path/to/file ~/restored-file
 Most of these are automated — run `sysup --actions optimize`. It applies steps 1–5 below idempotently: CPU governor,
 disabling NetworkManager-wait-online, masking lvm2-monitor, the rate-mirrors 2h
 delay, the AMD GPU performance udev rule, and pacman's `VerbosePkgLists` (install and
-upgrade lists as a table, one package per row; paru follows it too). Steps 7 (EFI cleanup) and 8 (greetd
+upgrade lists as a table, one package per row; paru follows it too). It also comments out CachyOS's `DisableDownloadTimeout`, so a stalled download aborts instead of hanging forever (both also re-checked before every upgrade). Steps 7 (EFI cleanup) and 8 (greetd
 autologin) stay manual — EFI needs review, autologin conflicts with the DMS
 greeter. Output mode/VRR is set in `dotsets/viridjan/desktop/.config/niri/cfg/display.kdl`
 (`mode "3440x1440@165"`, VRR omitted entirely = off), which is the **only**

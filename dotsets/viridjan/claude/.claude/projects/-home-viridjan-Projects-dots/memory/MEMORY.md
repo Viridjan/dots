@@ -46,3 +46,5 @@
 - [Vj logo](vj-logo.md) — fish fastfetch logo = exact flipped Arch logo + joined j; . → ', resize by dropping rows only
 - [P40S keyboard](p40s-keyboard.md) — X.Tips P40S stays QMK; both P40 repos GitHub-only (dropped locally 2026-11-26); vendor on Xianyu
 - [memory links](feedback-memory-links.md) — write memories at the repo path + restow claude; never sed -i a linked file
+- [DMS wifi password focus](dms-wifi-password-focus.md) — bar/island password box untypable (two exclusive layers); use DMS Settings → Network
+- [wifi via Bitwarden](wifi-bitwarden-sync.md) — wifi-export/-import through note "sysup wifi", not yet run live; DisableDownloadTimeout removed 2026-11-27
