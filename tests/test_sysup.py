@@ -2240,7 +2240,7 @@ _upgrade_system done upgrading''')
 class ClaudePluginUpdateTests(FixtureCase):
     def test_updates_each_user_plugin(self):
         self.mock("claude", '''printf 'claude %s\\n' "$*" >> "$CALLS"
-[[ "$*" == "plugin list --json" ]] && echo '[{"id":"a@m","scope":"user"},{"id":"p@m","scope":"project"}]'
+[[ "$*" == "plugin list --json" ]] && echo '[{"id":"a@m","scope":"user"},{"id":"p@m","scope":"project"},{"id":"b@builtin","scope":"user"}]'
 [[ "$*" == "plugin update a@m --scope user" ]] && exit 1
 exit 0''')
         r = self.shell("update_claude_plugins; print_recap")
@@ -2248,6 +2248,7 @@ exit 0''')
         self.assertIn("claude plugin marketplace update", calls)
         self.assertIn("claude plugin update a@m --scope user", calls)
         self.assertNotIn("p@m", calls)
+        self.assertNotIn("b@builtin", calls)  # ships with Claude Code, not updatable
         self.assertIn("a@m", r.stdout)
         self.assertNotEqual(r.returncode, 0)
 

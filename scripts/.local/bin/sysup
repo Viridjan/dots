@@ -2715,7 +2715,7 @@ update_claude_plugins() {
     while IFS= read -r id; do
         [[ -n "$id" ]] || continue
         claude plugin update "$id" --scope user </dev/null >/dev/null 2>&1 || bad+=("$id")
-    done < <(claude plugin list --json 2>/dev/null | jq -r '.[]? | select(.scope == "user") | .id')
+    done < <(claude plugin list --json 2>/dev/null | jq -r '.[]? | select(.scope == "user" and (.id | endswith("@builtin") | not)) | .id')
     if (( ${#bad[@]} )); then
         _failw claude-plugins "Claude plugin update failed: ${bad[*]} — run: claude plugin update <id>"
     else
