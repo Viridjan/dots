@@ -48,3 +48,4 @@
 - [memory links](feedback-memory-links.md) — write memories at the repo path + restow claude; never sed -i a linked file
 - [DMS wifi password focus](dms-wifi-password-focus.md) — bar/island password box untypable (two exclusive layers); use DMS Settings → Network
 - [wifi via Bitwarden](wifi-bitwarden-sync.md) — wifi-export/-import through note "sysup wifi", not yet run live; DisableDownloadTimeout removed 2026-11-27
+- [sysup sudo once](sysup-sudo-once.md) — one password per run via run-only NOPASSWD drop-in; fingerprint skipped for sysup only (sudo-nofinger + sudo -A)

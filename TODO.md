@@ -63,3 +63,9 @@ No Flatpak: `alacritty` (terminal sandboxing issues), `shelly`.
 ## Wifi passwords via Bitwarden (2026-11-27)
 - [ ] This machine (has the networks): `sysup --actions install` (bitwarden-cli), `bw login` once, then `sysup --actions wifi-export`.
 - [ ] Other machines: `sysup --actions install`, `bw login` once, then `sysup --actions wifi-import`; check `nmcli connection show`.
+
+## CachyOS 2026-11 release (2026-11-27)
+- [ ] Every machine: `sysup --update`, then `sudo chwd -a -f` (cachyos-drm-awaiter replaces early KMS; drops the
+      `kms` mkinitcpio hook), reboot. Desktop: check the new cachyos-recovery entry in the boot menu.
+- [ ] One sudo password per run: on the run after the first `--update` with this change, the prompt asks for the
+      password only (no swipe); afterwards `bash -c 'sudo ls /etc/sudoers.d/'` lists no `zz-sysup-run`.

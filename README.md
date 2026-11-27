@@ -376,6 +376,11 @@ Borrowed from aconfmgr, decman, metapac, dotbot and other dotfile repos (2026-10
 
 - **Preflight:** refuses to run as root, warns under 5 GiB free on `/`
   (`SYSUP_MIN_FREE_GB`), keeps an existing sudo ticket alive during long runs.
+- **One password per run:** `--update`/`--yes` ask once, password only (no
+  fingerprint swipe; other sudo use keeps it). Builds run in their own terminal,
+  so for the run sysup adds `/etc/sudoers.d/zz-sysup-run` (sudo without a
+  password) and removes it on exit, or after 6 h if sysup was killed. The first
+  run after this change still offers the fingerprint once.
 - **Protected packages:** kernels, firmware, microcode, limine, base, glibc,
   pacman and keyrings are never removed by any path.
 - **AUR update review:** before each upgrade, every pending AUR update's
