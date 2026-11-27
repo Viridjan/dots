@@ -742,7 +742,8 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
 - **Claude plugins.** `setup_claude` installs caveman, superpowers, ponytail,
   understand-anything (marketplace `Egonex-AI/Understand-Anything`);
   `update_claude_plugins` (install phase + `--update`) refreshes marketplaces
-  and updates every user-scope plugin.
+  and updates every user-scope plugin except `*@builtin` (they ship with Claude Code;
+  `plugin update` answers "not found", 2026-11-27).
 - **Audit list.** `AUDIT_CHECKS` is the one list `phase_audit` and `--check`
   run (`_run_audit_checks`). `phase_audit` also runs `check_flatpak_orphans`
   (uninstalls runtimes); `--check` stays report-only. `--check` saves its
