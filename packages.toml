@@ -57,6 +57,7 @@ install = [
     "tree",
     "ghidra",  # native backend for REA (rea-agents, [npm]); pulls a JDK
     "bitwarden",
+    "bitwarden-cli",  # bw: sysup wifi-export / wifi-import
     "stow",
     "i2c-tools",
     "profile-sync-daemon",

@@ -450,6 +450,58 @@ class CommandTests(Tmp):
         self.assertTrue((xdg / "vjupdate/config.toml").exists())
 
 
+class WifiKeyfileTests(unittest.TestCase):
+    def setUp(self):
+        t = tempfile.TemporaryDirectory()
+        self.addCleanup(t.cleanup)
+        self.d = Path(t.name)
+
+    def keyfile(self, name, body):
+        (self.d / name).write_text(body)
+
+    def test_read_skips_eap_wep_hotspot_and_agent_secrets(self):
+        self.keyfile("home.nmconnection", "[connection]\nid=home\ntype=wifi\n[wifi]\nmode=infrastructure\nssid=Home Net.x\nhidden=true\n"
+                     "[wifi-security]\nkey-mgmt=wpa-psk\npsk=a:b=c\\\\d\n")
+        self.keyfile("open.nmconnection", "[connection]\ntype=wifi\n[wifi]\nssid=118;106;\n")
+        self.keyfile("work.nmconnection", "[connection]\ntype=wifi\n[wifi]\nssid=work\n[wifi-security]\nkey-mgmt=wpa-eap\n")
+        self.keyfile("wep.nmconnection", "[connection]\ntype=wifi\n[wifi]\nssid=old\n[wifi-security]\nkey-mgmt=none\nwep-key0=x\n")
+        self.keyfile("ap.nmconnection", "[connection]\ntype=wifi\n[wifi]\nmode=ap\nssid=hotspot\n[wifi-security]\nkey-mgmt=wpa-psk\npsk=12345678\n")
+        self.keyfile("agent.nmconnection", "[connection]\ntype=wifi\n[wifi]\nssid=agent\n[wifi-security]\nkey-mgmt=sae\npsk-flags=1\n")
+        self.keyfile("eth.nmconnection", "[connection]\ntype=ethernet\n")
+        got = S.wifi_read(self.d)
+        self.assertEqual(got, [{"ssid": "Home Net.x", "key_mgmt": "wpa-psk", "psk": "a:b=c\\d", "hidden": True},
+                               {"ssid": "vj", "key_mgmt": "", "psk": "", "hidden": False}])
+
+    def test_write_adds_then_round_trips_unchanged(self):
+        nets = [{"ssid": "Home Net", "key_mgmt": "wpa-psk", "psk": " sp:a=ce\\", "hidden": True},
+                {"ssid": "cafe", "key_mgmt": "", "psk": "", "hidden": False}]
+        self.assertEqual(S.wifi_write(self.d, nets), ["added Home Net", "added cafe"])
+        for f in self.d.glob("*.nmconnection"):
+            self.assertEqual(f.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(S.wifi_read(self.d), nets)
+        self.assertEqual(S.wifi_write(self.d, nets), ["unchanged Home Net", "unchanged cafe"])
+        self.assertEqual(sorted(f.name for f in self.d.iterdir()), ["Home Net.nmconnection", "cafe.nmconnection"])
+
+    def test_write_updates_only_the_password(self):
+        self.keyfile("x.nmconnection", "[connection]\nid=mine\nuuid=u-1\ntype=wifi\nautoconnect-priority=5\n"
+                     "[wifi]\nssid=home\ncloned-mac-address=stable\n[wifi-security]\nkey-mgmt=wpa-psk\npsk=old-pass\n")
+        out = S.wifi_write(self.d, [{"ssid": "home", "key_mgmt": "sae", "psk": "new-pass"}])
+        self.assertEqual(out, ["updated home"])
+        text = (self.d / "x.nmconnection").read_text()
+        for line in ("id=mine", "uuid=u-1", "autoconnect-priority=5", "cloned-mac-address=stable",
+                     "key-mgmt=sae", "psk=new-pass"):
+            self.assertIn(line + "\n", text)
+        self.assertNotIn("old-pass", text)
+
+    def test_write_skips_invalid_entries(self):
+        bad = [{"ssid": "", "key_mgmt": "", "psk": ""}, {"ssid": "w", "key_mgmt": "wpa-eap", "psk": "x"},
+               {"ssid": "n", "key_mgmt": "wpa-psk", "psk": ""}, "junk", {"ssid": "../etc", "key_mgmt": "", "psk": ""}]
+        self.assertEqual(S.wifi_write(self.d, bad), ["added ../etc"])
+        self.assertEqual([f.name for f in self.d.iterdir()], ["_etc.nmconnection"])
+        with self.assertRaises(S.ConfigError):
+            S.wifi_write(self.d, {"ssid": "x"})
+
+
 if __name__ == '__main__':
     unittest.main()
 

@@ -15,7 +15,10 @@ Commands:
   repos                               repo menu rows (TSV: key group mark label)
   select-repos KEY... [--seen KEY...] save the repos to clone (projects.toml names, owner/name);
                                       --seen = every repo shown, so later additions start ticked
+  wifi-read [DIR]                     saved wifi networks as JSON (run as root; secrets on stdout)
+  wifi-write [DIR]                    JSON list on stdin → add/update NetworkManager keyfiles (root)
 """
+import configparser
 import copy
 import datetime
 import json
@@ -28,6 +31,7 @@ import sys
 import tempfile
 import time
 import tomllib
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -85,6 +89,8 @@ ACTIONS = {
     "ssh-key": ("accounts", "Create SSH key and add it to GitHub", "ssh-keygen if missing, then gh ssh-key add if GitHub lacks it."),
     "fingerprint": ("accounts", "Enroll fingerprint", "Enroll a fingerprint with fprintd (needs the device)."),
     "bitwarden": ("accounts", "Log in to Bitwarden", "Open Bitwarden if no account is logged in."),
+    "wifi-export": ("accounts", "Save wifi passwords to Bitwarden", "Copy saved wifi networks into the Bitwarden note \"sysup wifi\" (needs bw login)."),
+    "wifi-import": ("accounts", "Add wifi passwords from Bitwarden", "Add or update the networks in the Bitwarden note \"sysup wifi\" on this machine."),
     "yubikey-pin": ("accounts", "Set YubiKey FIDO PIN", "Set the YubiKey FIDO2 PIN (needs the key)."),
     "surface-secureboot": ("accounts", "Enroll linux-surface Secure Boot key", "Install linux-surface-secureboot-mok when Secure Boot is on."),
 }
@@ -650,6 +656,141 @@ def cmd_add(where: str, src: str, name: str, profile: str = "") -> None:
         save_local(cfg)
 
 
+# ─── Wifi networks (NetworkManager keyfiles) ─────────────────────────────
+# wifi-read/wifi-write run as root; secrets go through stdin/stdout only.
+NM_DIR = "/etc/NetworkManager/system-connections"
+WIFI_KEY_MGMT = ("", "wpa-psk", "sae")  # "" = open; WEP (none) and 802.1x (wpa-eap) are not synced
+_GK_UNESC = {"s": " ", "n": "\n", "t": "\t", "r": "\r", "\\": "\\"}
+
+
+def _gk_unescape(v: str) -> str:
+    return re.sub(r"\\(.)", lambda m: _GK_UNESC.get(m.group(1), m.group(0)), v)
+
+
+def _gk_escape(v: str) -> str:
+    v = v.replace("\\", "\\\\").replace("\n", "\\n").replace("\t", "\\t").replace("\r", "\\r")
+    return "\\s" + v[1:] if v.startswith(" ") else v
+
+
+def _keyfile() -> configparser.ConfigParser:
+    cp = configparser.ConfigParser(interpolation=None, delimiters=("=",), strict=False,
+                                   comment_prefixes=("#",))
+    cp.optionxform = str  # keys are case-sensitive
+    return cp
+
+
+def _ssid(raw: str) -> str:
+    raw = _gk_unescape(raw)
+    if re.fullmatch(r"(\d+;)+\d*", raw):  # byte-list form: 118;106;...
+        return bytes(int(b) for b in raw.split(";") if b).decode("utf-8", "replace")
+    return raw
+
+
+def _wifi_files(d: Path):
+    """(path, parser, ssid) for every infrastructure wifi keyfile in d."""
+    for path in sorted(d.glob("*.nmconnection")):
+        cp = _keyfile()
+        try:
+            cp.read(path, encoding="utf-8")
+        except (configparser.Error, UnicodeDecodeError) as e:
+            print(f"skipped {path.name}: {e.__class__.__name__}", file=sys.stderr)
+            continue
+        if cp.get("connection", "type", fallback="") not in ("wifi", "802-11-wireless"):
+            continue
+        if cp.get("wifi", "mode", fallback="infrastructure") != "infrastructure":
+            continue  # own hotspot / ad-hoc
+        ssid = _ssid(cp.get("wifi", "ssid", fallback=""))
+        if ssid:
+            yield path, cp, ssid
+
+
+def wifi_read(d: Path) -> list:
+    out, seen = [], set()
+    for _, cp, ssid in _wifi_files(d):
+        if ssid in seen:
+            continue
+        km = cp.get("wifi-security", "key-mgmt", fallback="")
+        psk = _gk_unescape(cp.get("wifi-security", "psk", fallback=""))
+        if km not in WIFI_KEY_MGMT:
+            print(f"skipped {ssid}: key-mgmt {km} not synced", file=sys.stderr)
+            continue
+        if km and not psk:
+            print(f"skipped {ssid}: password not saved in the keyfile", file=sys.stderr)
+            continue
+        seen.add(ssid)
+        out.append({"ssid": ssid, "key_mgmt": km, "psk": psk,
+                    "hidden": cp.get("wifi", "hidden", fallback="false") == "true"})
+    return out
+
+
+def _write_keyfile(path: Path, cp: configparser.ConfigParser) -> None:
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".sysup-", suffix=".tmp")  # mode 600
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            cp.write(f, space_around_delimiters=False)
+        os.replace(tmp, path)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
+
+
+def _valid_wifi(e) -> bool:
+    return (isinstance(e, dict) and isinstance(e.get("ssid"), str) and e["ssid"]
+            and e.get("key_mgmt", "") in WIFI_KEY_MGMT and isinstance(e.get("psk", ""), str)
+            and bool(e.get("key_mgmt")) == bool(e.get("psk")))
+
+
+def wifi_write(d: Path, entries) -> list:
+    """Add missing networks, update the password of existing ones. Returns 'added|updated|unchanged SSID' lines."""
+    if not isinstance(entries, list):
+        raise ConfigError("wifi list must be a JSON list")
+    local = {}
+    for path, cp, ssid in _wifi_files(d):
+        local.setdefault(ssid, []).append((path, cp))
+    out = []
+    for e in entries:
+        if not _valid_wifi(e):
+            print(f"skipped invalid entry {e.get('ssid', '?') if isinstance(e, dict) else '?'}", file=sys.stderr)
+            continue
+        ssid, km, psk = e["ssid"], e.get("key_mgmt", ""), e.get("psk", "")
+        if ssid in local:
+            changed = False
+            for path, cp in local[ssid]:
+                cur = (cp.get("wifi-security", "key-mgmt", fallback=""),
+                       _gk_unescape(cp.get("wifi-security", "psk", fallback="")))
+                if cur == (km, psk):
+                    continue
+                if km:
+                    if not cp.has_section("wifi-security"):
+                        cp.add_section("wifi-security")
+                    cp["wifi-security"]["key-mgmt"] = km
+                    cp["wifi-security"]["psk"] = _gk_escape(psk)
+                    cp.remove_option("wifi-security", "psk-flags")  # secret now lives in the file
+                else:
+                    cp.remove_section("wifi-security")
+                _write_keyfile(path, cp)
+                changed = True
+            out.append(f"{'updated' if changed else 'unchanged'} {ssid}")
+            continue
+        cp = _keyfile()
+        cp["connection"] = {"id": _gk_escape(ssid), "uuid": str(uuid.uuid4()), "type": "wifi"}
+        cp["wifi"] = {"mode": "infrastructure", "ssid": _gk_escape(ssid)}
+        if e.get("hidden") is True:
+            cp["wifi"]["hidden"] = "true"
+        if km:
+            cp["wifi-security"] = {"key-mgmt": km, "psk": _gk_escape(psk)}
+        cp["ipv4"] = {"method": "auto"}
+        cp["ipv6"] = {"addr-gen-mode": "default", "method": "auto"}
+        name = re.sub(r"[/\x00]", "_", ssid).lstrip(".") or "wifi"
+        path = d / f"{name}.nmconnection"
+        if path.exists():
+            path = d / f"{name}-{cp['connection']['uuid'][:8]}.nmconnection"
+        _write_keyfile(path, cp)
+        local[ssid] = [(path, cp)]
+        out.append(f"added {ssid}")
+    return out
+
+
 def main(argv) -> int:
     cmd, args = (argv[0], argv[1:]) if argv else ("", [])
     if cmd in ("plan", "choose", "status", "menu", "add", "once-done", "once-skip",
@@ -724,6 +865,17 @@ def main(argv) -> int:
             for i in ids:
                 cfg["once"][i] = "skip" if cmd == "once-skip" else datetime.date.today()
             save_local(cfg)
+        return 0
+    if cmd in ("wifi-read", "wifi-write") and len(args) <= 1:
+        d = Path(args[0] if args else NM_DIR)
+        if cmd == "wifi-read":
+            print(json.dumps(wifi_read(d)))
+        else:
+            try:
+                entries = json.load(sys.stdin)
+            except json.JSONDecodeError:
+                raise ConfigError("wifi list on stdin is not JSON") from None
+            print("\n".join(wifi_write(d, entries)))
         return 0
     print(__doc__.split("Commands:")[1].rstrip(), file=sys.stderr)
     return 2

@@ -3,6 +3,7 @@ demote instead of -Rdd, protected packages, declared services, unstow of
 unticked packages, dead-link pruning, staged niri validation, AUR update
 review + source keys, npm/uv tools, pinned installers, config drift, DMS
 owner, login checklist, disk space."""
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -922,6 +923,111 @@ esac''')
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WifiSyncTests(ExtrasCase):
+    """wifi-export/-import through a mocked bw; secrets never on any argv."""
+    PSK = "s3cret-Psk:42"
+
+    def setUp(self):
+        super().setUp()
+        self.nm = self.root / "nm"
+        self.nm.mkdir()
+        self.env["SYSUP_NM_DIR"] = str(self.nm)
+        self.store = self.root / "bw-items.json"
+        self.env["BW_STORE"] = str(self.store)
+        self.env["BW_STATE"] = "unlocked"
+        self.link("base64", "env")
+        self.mock("sudo", 'printf "%s\\n" "sudo $*" >> "$CALLS"; exec "$@"')
+        self.recorder("nmcli")
+        # Items kept in BW_STORE; encode/create/edit read stdin like the real CLI.
+        self.mock("bw", r"""
+printf '%s\n' "bw $*" >> "$CALLS"
+[ "$1" = --nointeraction ] && shift
+[ -f "$BW_STORE" ] || echo '[]' > "$BW_STORE"
+case "$1 $2" in
+  "status "*) printf '{"status":"%s"}\n' "$BW_STATE" ;;
+  "unlock --raw") echo SESSION-KEY ;;
+  "list items") cat "$BW_STORE" ;;
+  "get template") echo '{"type":1,"name":"Item name","notes":"Some notes","login":{"username":"jdoe"},"folderId":null}' ;;
+  "get item") jq --arg id "$3" '.[] | select(.id == $id)' "$BW_STORE" ;;
+  "encode "*) base64 -w0 ;;
+  "create item") base64 -d | jq -c --slurpfile s "$BW_STORE" '$s[0] + [. + {id: "id-1"}]' > "$BW_STORE.n" && mv "$BW_STORE.n" "$BW_STORE" ;;
+  "edit item") base64 -d | jq -c --slurpfile s "$BW_STORE" --arg id "$3" '. as $n | $s[0] | map(if .id == $id then $n else . end)' > "$BW_STORE.n" && mv "$BW_STORE.n" "$BW_STORE" ;;
+esac
+[ "$1" = env ] && env
+exit 0""")
+
+    def keyfile(self, ssid, psk):
+        (self.nm / f"{ssid}.nmconnection").write_text(
+            f"[connection]\nid={ssid}\ntype=wifi\n[wifi]\nssid={ssid}\n[wifi-security]\nkey-mgmt=wpa-psk\npsk={psk}\n")
+
+    def note(self):
+        items = json.loads(self.store.read_text())
+        self.assertEqual(len(items), 1)
+        self.assertEqual((items[0]["type"], items[0]["name"], items[0]["login"]), (2, "sysup wifi", None))
+        return json.loads(items[0]["notes"])
+
+    def run_action(self, fn):
+        return self.shell(f'SYSUP_RESULT_FILE="$CALLS.res"; {fn}; printf "W:%s\\n" "${{WARNINGS[@]}}"; cat "$CALLS.res" 2>/dev/null || true')
+
+    def test_export_creates_note_then_import_adds_on_other_machine(self):
+        self.keyfile("home", self.PSK)
+        r = self.run_action("wifi_export")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.note(), [{"ssid": "home", "key_mgmt": "wpa-psk", "psk": self.PSK, "hidden": False}])
+        self.assertNotIn(self.PSK, r.stdout + r.stderr)
+        # Other machine: empty NetworkManager dir.
+        (self.nm / "home.nmconnection").unlink()
+        r = self.run_action("wifi_import")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("added home", r.stdout)
+        self.assertIn(f"psk={self.PSK}\n", (self.nm / "home.nmconnection").read_text())
+        self.assertIn("nmcli connection reload", self.calls())
+        self.assertNotIn(self.PSK, self.calls())  # argv of every bw/sudo/nmcli call
+        self.assertNotIn("\tfail", r.stdout)
+
+    def test_export_merges_local_wins_and_import_updates(self):
+        self.store.write_text(json.dumps([{"id": "id-9", "type": 2, "name": "sysup wifi", "login": None,
+            "notes": json.dumps([{"ssid": "home", "key_mgmt": "wpa-psk", "psk": "old-pass1", "hidden": False},
+                                 {"ssid": "cafe", "key_mgmt": "", "psk": "", "hidden": False}])}]))
+        self.keyfile("home", self.PSK)
+        self.assertEqual(self.run_action("wifi_export").returncode, 0)
+        self.assertEqual([(n["ssid"], n["psk"]) for n in self.note()], [("home", self.PSK), ("cafe", "")])
+        self.keyfile("home", "old-pass1")
+        r = self.run_action("wifi_import")
+        self.assertIn("updated home", r.stdout)
+        self.assertIn("added cafe", r.stdout)
+        self.assertNotIn("old-pass1", (self.nm / "home.nmconnection").read_text())
+        r = self.run_action("wifi_export")
+        self.assertIn("already has every network", r.stdout)
+        self.assertNotIn(self.PSK, self.calls())
+
+    def test_not_logged_in_or_locked_without_terminal_changes_nothing(self):
+        self.keyfile("home", self.PSK)
+        for state, msg in (("unauthenticated", "bw login"), ("locked", "needs a terminal")):
+            self.env["BW_STATE"] = state
+            r = self.run_action("wifi_export")
+            self.assertIn(msg, r.stdout)
+            self.assertFalse(self.store.exists() and json.loads(self.store.read_text()))
+            self.assertNotIn("sudo", self.calls())
+        r = self.run_action("wifi_import")
+        self.assertNotIn("nmcli", self.calls())
+
+    def test_import_without_note_warns(self):
+        r = self.run_action("wifi_import")
+        self.assertIn("run sysup --actions wifi-export", r.stdout)
+        self.assertEqual(list(self.nm.iterdir()), [])
+
+    def test_unlock_is_locked_again(self):
+        self.env["BW_STATE"] = "locked"
+        self.keyfile("home", self.PSK)
+        r = subprocess.run(["/usr/bin/script", "-qec", 'bash -c \'source "$SCRIPT"; wifi_export\'', "/dev/null"],
+                           env=self.env, text=True, capture_output=True, timeout=10)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        calls = self.calls()
+        self.assertIn("bw unlock --raw", calls)
+        self.assertTrue(calls.rstrip().endswith("bw lock"), calls)
 
 
 class SecretHookTests(unittest.TestCase):

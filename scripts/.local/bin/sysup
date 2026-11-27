@@ -2059,6 +2059,12 @@ setup_snapper() {
 _AUTOMOUNT_LIB="${BASH_SOURCE[0]%/*}/../lib/sysup/automount.sh"  # ~/.local/lib via stow, or the repo
 # shellcheck source=scripts/.local/lib/sysup/automount.sh
 automount_disks() { source "$_AUTOMOUNT_LIB" && automount_disks "$@"; }
+# Wifi passwords via Bitwarden (code in ../lib/sysup/wifi.sh, loaded on use).
+_WIFI_LIB="${BASH_SOURCE[0]%/*}/../lib/sysup/wifi.sh"
+# shellcheck source=scripts/.local/lib/sysup/wifi.sh
+wifi_export() { source "$_WIFI_LIB" && wifi_export "$@"; }
+# shellcheck source=scripts/.local/lib/sysup/wifi.sh
+wifi_import() { source "$_WIFI_LIB" && wifi_import "$@"; }
 
 # ─── Phase 7a: Greeter ───────────────────────────────────
 setup_keyboard() {
@@ -3803,7 +3809,7 @@ phase_sources() {
 phase_install()  { install_all; }
 phase_dotfiles() { deploy_dotfiles; dms_import; }
 # Action IDs for --actions (fish completion reads this line).
-MENU_ORDER=(sources install services snapper automount optimize keyboard kernels greeter keyring-pam nvidia-niri install-scripts fish dms-plugins export claude caveman-code ollama vms repos launchers lostfiles lynis dotfiles-export stow-symlinks dms-import audit orphan-removal rebuild pacnew-merge git-identity ssh-key fingerprint bitwarden yubikey-pin surface-secureboot)
+MENU_ORDER=(sources install services snapper automount optimize keyboard kernels greeter keyring-pam nvidia-niri install-scripts fish dms-plugins export claude caveman-code ollama vms repos launchers lostfiles lynis dotfiles-export stow-symlinks dms-import audit orphan-removal rebuild pacnew-merge git-identity ssh-key fingerprint bitwarden wifi-export wifi-import yubikey-pin surface-secureboot)
 # Merged IDs (2026-11-24); old names still work with --actions.
 declare -A ACTION_ALIASES=([steam-launchers]=launchers [app-launchers]=launchers
     [python-rebuild]=rebuild [dms-export]=export [snitch-export]=export)
@@ -3945,6 +3951,8 @@ phase_configure() {
     _sel "ssh-key"         && _act ssh-key setup_ssh_key
     _sel "fingerprint"     && _act fingerprint setup_fingerprint
     _sel "bitwarden"       && _act bitwarden setup_bitwarden
+    _sel "wifi-export"     && _act wifi-export wifi_export
+    _sel "wifi-import"     && _act wifi-import wifi_import
     _sel "yubikey-pin"     && _act yubikey-pin setup_yubikey_pin
     _sel "surface-secureboot" && _act surface-secureboot setup_surface_secureboot
     # Audit-dependent actions are resolved in bootstrap() from the AUDIT_ACTIONS

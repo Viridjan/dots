@@ -632,6 +632,16 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
   to `~/.local/share/opensnitch/events.db` (`[database] type=1`, 14 days kept) so
   `snitch-report` (scripts; `[HOURS]` summary flagging NEW/DENY/ROOT, `--follow` live new
   program→destination pairs, `SNITCH_DB` override, tests `tests/test_snitch_report.py`) can read it. `lynis` runs via `sysup --actions lynis`.
+- **Wifi passwords (2026-11-27).** `sysup --actions wifi-export` / `wifi-import`
+  (`scripts/.local/lib/sysup/wifi.sh`, loaded on use) sync NetworkManager wifi networks
+  through one Bitwarden secure note `sysup wifi` (JSON list `ssid/key_mgmt/psk/hidden`);
+  nothing secret in git. Export: local wins per SSID; import: the note wins, adds missing
+  keyfiles (600, atomic) and changes only key-mgmt/psk of existing ones, then `nmcli connection
+  reload`. Keyfiles are read/written as root by `sysup.py wifi-read|wifi-write` (`SYSUP_NM_DIR`
+  override). Only open, `wpa-psk` and `sae`; 802.1x, WEP, hotspots and agent-held secrets are
+  skipped. Needs `bitwarden-cli` + `bw login` once per machine; a locked vault is unlocked
+  (terminal only) and locked again. Secrets go through pipes only, never argv
+  (tests: `WifiSyncTests`, `WifiKeyfileTests`).
 - **Guards added 2026-11-01 (Surface incidents).** `_warn_unfolded` (after each
   home package stows): warns when a target is a real dir instead of a folded
   link (stow then links file by file and new files never reach git; skips
