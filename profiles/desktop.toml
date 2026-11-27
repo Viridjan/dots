@@ -15,6 +15,10 @@ install = [
     "lib32-vulkan-radeon",
     "opencl-mesa",
     "lib32-opencl-mesa",
+    "linux-firmware-amdgpu",
+    # Recovery UKI on the ESP (boot any Btrfs snapshot, roll back without a live USB).
+    # Desktop only: UEFI + Limine. Surface boots GRUB with a MOK-signed chain.
+    "cachyos-recovery",
 
     # Desktop peripherals
 

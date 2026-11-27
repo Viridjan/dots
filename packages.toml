@@ -45,6 +45,9 @@ install = [
     "nirinit",                     # save/restore window layout (skip list: dotset nirinit)
 
     # System tools
+    # cachyos-drm-awaiter: waits for GPU drivers before the greeter; replaces early KMS +
+    # nvidia-module-loader (CachyOS 2026-11 release; then `sudo chwd -a -f` once)
+    "cachyos-drm-awaiter",
     "fwupd",
     "kimageformats",
     "cava",
