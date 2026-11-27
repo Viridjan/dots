@@ -208,6 +208,7 @@ install = [
 
     # Browsers
     "brave-origin-bin",
+    "torbrowser-launcher",  # downloads + verifies Tor Browser (bundles its own tor; no tor.service)
 ]
 
 # Force-removed (pacman -Rdd) before installing. Usually unneeded now: a
