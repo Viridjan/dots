@@ -385,7 +385,10 @@ _sudo_prime() {
     case "$ACTION" in --update|-u|--yes|-y) ;; *) return 0 ;; esac
     if ! sudo -n true 2>/dev/null; then
         info "Root access: enter your password once, it is kept for the whole run"
-        if sudo -v -p "    sudo password for %u: "; then
+        local ask=()
+        # Password only: the sudo-nofinger PAM service skips chwd's pam_fprintd.
+        [[ -e "$_SUDO_NOFINGER_PAM" && -x "$_SUDO_ASKPASS" ]] && { export SUDO_ASKPASS="$_SUDO_ASKPASS"; ask=(-A); }
+        if sudo "${ask[@]}" -v -p "    sudo password for %u: "; then
             ok "root access granted"
         else
             warn "no sudo ticket: steps that need root will fail"; return 0
@@ -401,6 +404,9 @@ _sudo_prime() {
 # removes it. User choice 2026-11-27. A killed run leaves it: systemd timer
 # deletes it after 6h.
 _SUDO_RUN_FILE=/etc/sudoers.d/zz-sysup-run
+_SUDO_PAM_SRC=/etc/pam.d/sudo
+_SUDO_NOFINGER_PAM=/etc/pam.d/sudo-nofinger
+_SUDO_ASKPASS="${BASH_SOURCE[0]%/*}/../lib/sysup/askpass"
 _SUDO_RUN_GRANTED=false
 _sudo_run_grant() {
     local tmp
@@ -411,8 +417,26 @@ _sudo_run_grant() {
         _SUDO_RUN_GRANTED=true
         sudo -n systemd-run --quiet --unit="sysup-sudo-expire-$$" --on-active=6h \
             /usr/bin/rm -f "$_SUDO_RUN_FILE" >/dev/null 2>&1 || true
+        _sudo_nofinger_setup
     fi
     rm -f "$tmp"
+}
+
+# PAM service for sysup's own prompt (sudo -A): /etc/pam.d/sudo without the
+# pam_fprintd line chwd adds, so the run asks for the password only (user
+# choice 2026-11-27). Rewritten every run so it follows /etc/pam.d/sudo; the
+# first run after setup still offers the fingerprint.
+_sudo_nofinger_setup() {
+    local pam rule
+    pam=$(mktemp) && rule=$(mktemp) || return 0
+    grep -v 'pam_fprintd\.so' "$_SUDO_PAM_SRC" > "$pam" 2>/dev/null || true
+    printf 'Defaults pam_askpass_service=sudo-nofinger\n' > "$rule"
+    if grep -q '^auth' "$pam"; then
+        sudo -n install -m 0644 -o root -g root "$pam" "$_SUDO_NOFINGER_PAM" || true
+        sudo -n visudo -cqf "$rule" >/dev/null 2>&1 \
+            && sudo -n install -m 0440 -o root -g root "$rule" /etc/sudoers.d/sysup-askpass || true
+    fi
+    rm -f "$pam" "$rule"
 }
 _sudo_run_revoke() {
     ${_SUDO_RUN_GRANTED:-false} || return 0

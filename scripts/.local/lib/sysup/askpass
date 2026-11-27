@@ -1,0 +1,7 @@
+#!/bin/bash
+# sudo -A helper for sysup: read the password from the terminal without echo.
+# sudo -A authenticates via pam_askpass_service (sudo-nofinger, no fingerprint).
+printf '%s' "${1:-Password: }" > /dev/tty
+IFS= read -rs pw < /dev/tty
+printf '\n' > /dev/tty
+printf '%s\n' "$pw"

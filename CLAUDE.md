@@ -591,7 +591,10 @@ Stop Windows VM: `cd ~/Projects/dots/windows && docker compose down`
     `_paru`'s pty is a new one, so each paru call asked again: after the password
     `_sudo_run_grant` installs `/etc/sudoers.d/zz-sysup-run` (`NOPASSWD: ALL`, visudo-checked),
     `_cleanup` removes it, a `systemd-run` 6h timer covers a killed run (user choice 2026-11-27;
-    a `timestamp_type=global` drop-in would need a second password). Sudo failures are named in
+    a `timestamp_type=global` drop-in would need a second password). The prompt skips the
+    fingerprint (chwd's `pam_fprintd` in `/etc/pam.d/sudo`): `_sudo_nofinger_setup` writes
+    `/etc/pam.d/sudo-nofinger` (that file minus fprintd) + `/etc/sudoers.d/sysup-askpass`
+    (`pam_askpass_service`); `_sudo_prime` then uses `sudo -A` with `lib/sysup/askpass`. Sudo failures are named in
     the recap: `_syuu_fail_detail` reports paru's `sudo:` line, paccache warnings append
     `_sudo_cause` (`sudo -n true` fails = no ticket).
 - **Steam Big Picture off (2026-11-13).** `launchers` first runs

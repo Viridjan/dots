@@ -2281,7 +2281,7 @@ class SudoPrimeTests(FixtureCase):
         """paru runs in its own pty, where the terminal's ticket doesn't count: one
         password must cover it (2026-11-27), via a run-only NOPASSWD drop-in."""
         self.mock("sudo", 'printf "%s\\n" "sudo $*" >> "$CALLS"\n'
-                          '[[ "$2" == visudo ]] && cp "${@: -1}" "$CALLS.rule"; exit 0')
+                          '[[ "$2" == visudo ]] && cat "${@: -1}" >> "$CALLS.rule"; exit 0')
         self.shell("ACTION=--update; _sudo_prime; _sudo_run_revoke")
         calls = Path(self.env["CALLS"]).read_text()
         self.assertIn("NOPASSWD: ALL", Path(self.env["CALLS"] + ".rule").read_text())
@@ -2297,6 +2297,28 @@ class SudoPrimeTests(FixtureCase):
         calls = Path(self.env["CALLS"]).read_text()
         self.assertNotIn("install", calls)
         self.assertNotIn("rm -f", calls)
+
+    def test_prime_skips_fingerprint_via_askpass(self):
+        """chwd puts pam_fprintd in /etc/pam.d/sudo; sysup's prompt is password only (2026-11-27)."""
+        pam = Path(self.tmp.name) / "sudo-nofinger"; pam.write_text("auth include system-auth\n")
+        self.mock("sudo", 'printf "%s|%s\\n" "sudo $*" "${SUDO_ASKPASS:-}" >> "$CALLS"\n'
+                          '[[ "$*" == "-n true" ]] && exit 1; exit 0')
+        self.shell(f"ACTION=--update; _SUDO_NOFINGER_PAM={pam}; _sudo_prime")
+        line = [c for c in Path(self.env["CALLS"]).read_text().splitlines() if " -v " in c][0]
+        self.assertIn("sudo -A -v", line)
+        self.assertTrue(line.split("|")[1].endswith("lib/sysup/askpass"))
+
+    def test_grant_writes_nofinger_pam_and_askpass_service(self):
+        src = Path(self.tmp.name) / "pam-sudo"
+        src.write_text("auth sufficient pam_fprintd.so # chwd-fprintd\nauth include system-auth\n")
+        self.mock("sudo", 'printf "%s\\n" "sudo $*" >> "$CALLS"\n'
+                          '[[ "$2" == install ]] && cp "${@: -2:1}" "$CALLS.$(basename "${@: -1}")"; exit 0')
+        self.shell(f"ACTION=--update; _SUDO_PAM_SRC={src}; _sudo_prime")
+        pam = Path(self.env["CALLS"] + ".sudo-nofinger").read_text()
+        self.assertNotIn("pam_fprintd", pam)
+        self.assertIn("system-auth", pam)
+        self.assertIn("pam_askpass_service=sudo-nofinger",
+                      Path(self.env["CALLS"] + ".sysup-askpass").read_text())
 
     def test_other_actions_do_not_prompt(self):
         for action in ("--check", "--actions"):
