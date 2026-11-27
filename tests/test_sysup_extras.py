@@ -445,6 +445,7 @@ print_recap
 systemctl() { [[ "$1" == list-unit-files ]]; }
 lsblk() { echo LVM2_member; }
 _pacman_verbose_lists() { :; }
+_pacman_download_timeout() { :; }
 _system_hardening() { :; }
 sudo() {
     if [[ "$1" == tee ]]; then cat > "$TIMER_OUTPUT"; fi
@@ -923,6 +924,19 @@ esac''')
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DownloadTimeoutTests(ExtrasCase):
+    """DisableDownloadTimeout made a stalled download hang forever (2026-11-27)."""
+    def test_comments_out_disable_download_timeout_once(self):
+        conf = self.root / "pacman.conf"
+        conf.write_text("[options]\nDisableDownloadTimeout\nParallelDownloads = 10\n")
+        self.mock("sudo", 'printf "%s\\n" "sudo $*" >> "$CALLS"; exec "$@"')
+        body = f'_PACMAN_CONF_FILES=("{conf}"); _pacman_download_timeout; _pacman_download_timeout'
+        r = self.shell(body)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(conf.read_text(), "[options]\n#DisableDownloadTimeout\nParallelDownloads = 10\n")
+        self.assertEqual(self.calls().count("sudo sed"), 1)
 
 
 class WifiSyncTests(ExtrasCase):

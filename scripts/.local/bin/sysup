@@ -1142,8 +1142,20 @@ _ensure_locales() {
         || warn "locale-gen failed — missing locales: ${absent[*]}"
 }
 
+# DisableDownloadTimeout (CachyOS default) lets a stalled download wait forever: on a
+# dead hotspot paru -Syuu sat at 0 B/s for 15+ min (2026-11-27). Without it pacman
+# aborts a transfer under 1 B/s for 10 s, then the mirror retry takes over.
+_pacman_download_timeout() {
+    local conf=${_PACMAN_CONF_FILES[0]}
+    grep -q '^DisableDownloadTimeout' "$conf" || return 0
+    sudo sed -i 's/^DisableDownloadTimeout/#DisableDownloadTimeout/' "$conf" \
+        && ok "pacman: download timeout enabled (DisableDownloadTimeout commented out)" \
+        || warn "pacman: could not comment out DisableDownloadTimeout in $conf"
+}
+
 _upgrade_system() {
     _pacman_verbose_lists
+    _pacman_download_timeout
     _ensure_locales
     _system_hardening
     _remove_conflicts
@@ -2480,8 +2492,9 @@ optimize_system() {
         fi
     fi
 
-    # 6. Upgrade list as a table (also checked before every upgrade).
+    # 6. Upgrade list as a table + download timeout (also checked before every upgrade).
     _pacman_verbose_lists
+    _pacman_download_timeout
 
     # 7. Lynis hardening: sysctl, unused protocols, core dumps (also before every upgrade).
     _system_hardening

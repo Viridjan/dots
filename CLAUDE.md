@@ -356,6 +356,8 @@ sysup --actions automount
 # mask lvm2-monitor, rate-mirrors 2h delay, AMD GPU performance udev rule,
 # VerbosePkgLists on in pacman.conf (one package per row; was turned OFF until 2026-11-14;
 # since 2026-11-24 also re-checked before every upgrade by _pacman_verbose_lists;
+# _pacman_download_timeout there too (2026-11-27): comments out CachyOS's DisableDownloadTimeout,
+# which let a stalled download (dead hotspot) hang paru -Syuu forever;
 # _ensure_locales there too: generates locales /etc/locale.conf names but locale -a lacks;
 # _system_hardening too (2026-11-24, Lynis): /etc/sysctl.d/99-dots-hardening.conf,
 # modprobe.d (dccp/sctp/rds/tipc off), coredump.conf.d + security/limits.d (no core dumps),
