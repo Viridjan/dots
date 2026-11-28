@@ -49,4 +49,4 @@
 - [DMS wifi password focus](dms-wifi-password-focus.md) — bar/island password box untypable (two exclusive layers); use DMS Settings → Network
 - [wifi via Bitwarden](wifi-bitwarden-sync.md) — wifi-export/-import through note "sysup wifi", not yet run live; DisableDownloadTimeout removed 2026-11-27
 - [sysup sudo once](sysup-sudo-once.md) — one password per run via run-only NOPASSWD drop-in; fingerprint skipped for sysup only (sudo-nofinger + sudo -A)
-- [desktop suspend](desktop-suspend-amdgpu.md) — RX 6700 XT SMU resume bug, pending AMD smu 11.0.x patch; CachyOS issue drafted, awaiting bugreport link
+- [desktop suspend](desktop-suspend-amdgpu.md) — RX 6700 XT SMU resume bug, pending AMD smu 11.0.x patch; CachyOS issue linux-cachyos#1179

@@ -29,7 +29,7 @@ linux-cachyos 7.3.3 (11-08), systemd 262.2 (11-10), mesa 26.2.6 (11-06). One tes
   Not the `high` udev rule. Reports for drm/amd + CachyOS Discord: `~/Documents/amdgpu-suspend-report/`.
 - [ ] Cause found (2026-11-28): pending AMD patch "drm/amd/pm: Fix SMU messages after system resume for
   smu 11.0.x" (Yang Wang, v2 2026-08-18, drm/amd work item 5620; MP1 here = 11.0.11). Not merged yet.
-  Asked CachyOS (Discord) to carry it, using `~/Documents/amdgpu-suspend-report/cachyos-discord.md`.
+  Asked CachyOS to carry it: https://github.com/CachyOS/linux-cachyos/issues/1179 (2026-11-28).
   Then: update the kernel, rerun `pm_test devices`; done when the screen comes back.
   Firmware rollback (old test B) dropped: SteamOS #2894 hits it before the 10-24 firmware.
 - [ ] Check ASRock for a BIOS newer than 17.03 for H670M-ITX/ax.
