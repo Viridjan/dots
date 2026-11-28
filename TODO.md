@@ -14,8 +14,25 @@ Every logged suspend ends at `PM: suspend entry (deep)` with no resume; next sta
 showing a white screen with three dots. ASRock H670M-ITX/ax BIOS 17.03, RX 6700 XT. Suspects:
 linux-cachyos 7.3.3 (11-08), systemd 262.2 (11-10), mesa 26.2.6 (11-06). One test per suspend:
 
-- [ ] Suspend test 1: boot `linux-cachyos-lts` (6.18.x) from Limine, `systemctl suspend`, wake. Works → kernel 7.3.x regression (hold the kernel).
-- [ ] Suspend test 2: on the normal kernel, `echo s2idle | sudo tee /sys/power/mem_sleep` then `systemctl suspend`. Works → S3 (deep) itself broken (kernel/BIOS/GPU). Resets at reboot.
+- [x] Suspend test 1 (2026-11-28): `linux-cachyos-lts` 6.18.65, deep → powered off too. Not a 7.3.x
+  regression. The log stops at `Starting System Suspend...` (rest never flushed).
+- [ ] Suspend test 4: find the stage that kills it with `pm_test` (no real sleep; each level returns after 5 s):
+  `echo devices | sudo tee /sys/power/pm_test; systemctl suspend`, then `platform`, `processors`, `core`.
+  The first level that powers off is the culprit (devices = a driver, likely amdgpu; platform/core = BIOS/ACPI).
+  `echo none | sudo tee /sys/power/pm_test` afterwards.
+  Result 2026-11-28 (LTS 6.18.65, level `devices`): the system came back, the GPU didn't. Same
+  `RunDcBtc failed!` / `resume of IP block <smu> failed -62`, then `GPU mode1 reset failed`. The fault
+  is in amdgpu suspend/resume (RX 6700 XT SMU), on both kernels, before BIOS/ACPI sleep is reached.
+  Shared by both kernels: `linux-firmware-amdgpu 20261019` (since 2026-10-24), mesa, BIOS.
+  Suspend last worked ~2026-09. cachyos-settings 1.4.1→1.4.4 (11-08..10) checked: no amdgpu/sleep files.
+- [ ] Suspend test A: `echo auto | sudo tee /sys/class/drm/card1/device/power_dpm_force_performance_level`
+  (udev rule `99-amdgpu-performance.rules` forces `high`), then `pm_test devices` + `systemctl suspend`.
+- [ ] Suspend test B (if A fails): boot once with `linux-firmware-amdgpu 20260916` (prime suspect, 10-24 update).
+- [ ] Check ASRock for a BIOS newer than 17.03 for H670M-ITX/ax.
+- [x] Suspend test 2 (2026-11-28, 7.3.6-3): s2idle failed differently. The system woke after 20 s,
+  but the GPU did not: `amdgpu: RunDcBtc failed!` / `Failed to setup smc hw!` / `resume of IP block <smu> failed -62`,
+  then sdma ring timeouts, device wedged, black screen. So the RX 6700 XT's SMU fails on resume;
+  not S3-only. Firmware unchanged since 2026-10-24 (`linux-firmware-amdgpu 20261019`) → test 1 next.
 - [ ] Suspend test 3: while suspended, are fans + power LED fully off (PSU/firmware) or on with a black screen (resume hang)?
 - [ ] White boot screen: note whether it appears before or after the ASRock logo. If all tests fail: suspect PSU, CMOS battery, BIOS update.
 
