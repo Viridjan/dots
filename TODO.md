@@ -16,7 +16,7 @@ linux-cachyos 7.3.3 (11-08), systemd 262.2 (11-10), mesa 26.2.6 (11-06). One tes
 
 - [x] Suspend test 1 (2026-11-28): `linux-cachyos-lts` 6.18.65, deep → powered off too. Not a 7.3.x
   regression. The log stops at `Starting System Suspend...` (rest never flushed).
-- [ ] Suspend test 4: find the stage that kills it with `pm_test` (no real sleep; each level returns after 5 s):
+- [x] Suspend test 4: find the stage that kills it with `pm_test` (no real sleep; each level returns after 5 s):
   `echo devices | sudo tee /sys/power/pm_test; systemctl suspend`, then `platform`, `processors`, `core`.
   The first level that powers off is the culprit (devices = a driver, likely amdgpu; platform/core = BIOS/ACPI).
   `echo none | sudo tee /sys/power/pm_test` afterwards.
@@ -37,8 +37,6 @@ linux-cachyos 7.3.3 (11-08), systemd 262.2 (11-10), mesa 26.2.6 (11-06). One tes
   but the GPU did not: `amdgpu: RunDcBtc failed!` / `Failed to setup smc hw!` / `resume of IP block <smu> failed -62`,
   then sdma ring timeouts, device wedged, black screen. So the RX 6700 XT's SMU fails on resume;
   not S3-only. Firmware unchanged since 2026-10-24 (`linux-firmware-amdgpu 20261019`) → test 1 next.
-- [ ] Suspend test 3: while suspended, are fans + power LED fully off (PSU/firmware) or on with a black screen (resume hang)?
-- [ ] White boot screen: note whether it appears before or after the ASRock logo. If all tests fail: suspect PSU, CMOS battery, BIOS update.
 
 ## sysup rename (2026-11-08) — Surface and Plancia, once each
 

@@ -5,6 +5,8 @@
 set -u
 in=$(cat)
 event=$(jq -r '.hook_event_name // "SessionStart"' <<<"$in")
+# After a compaction the list was already shown this session.
+[ "$(jq -r '.source // empty' <<<"$in")" = compact ] && exit 0
 sid=$(jq -r '.session_id // "x"' <<<"$in")
 dir=$(jq -r '.new_cwd // .cwd // empty' <<<"$in")
 dir=${dir:-$PWD}
