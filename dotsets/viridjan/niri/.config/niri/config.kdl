@@ -215,6 +215,13 @@ animations {
 window-rule {
     open-focused false
 }
+// Password prompts take focus (2026-11-28, user request): polkit, keyring/gpg (gcr), pinentry.
+window-rule {
+    match app-id=r#"polkit-kde-authentication-agent"#
+    match app-id=r#"^gcr-prompter$"#
+    match app-id=r#"pinentry"#
+    open-focused true
+}
 // Terminals/browsers opened from the launcher or a shortcut get focus from launcher-ws.
 window-rule {
     match app-id=r#"^org\.gnome\."#
