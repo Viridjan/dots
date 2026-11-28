@@ -294,6 +294,11 @@ window-rule {
 }
 
 // Workspace assignments
+// Telegram's media viewer asks for fullscreen on every image (2026-11-28); manual fullscreen still works.
+window-rule {
+    match app-id="org.telegram.desktop"
+    open-fullscreen false
+}
 window-rule {
     match app-id="thunderbird"
     match app-id="whatsie"
