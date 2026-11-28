@@ -25,8 +25,8 @@ linux-cachyos 7.3.3 (11-08), systemd 262.2 (11-10), mesa 26.2.6 (11-06). One tes
   is in amdgpu suspend/resume (RX 6700 XT SMU), on both kernels, before BIOS/ACPI sleep is reached.
   Shared by both kernels: `linux-firmware-amdgpu 20261019` (since 2026-10-24), mesa, BIOS.
   Suspend last worked ~2026-09. cachyos-settings 1.4.1→1.4.4 (11-08..10) checked: no amdgpu/sleep files.
-- [ ] Suspend test A: `echo auto | sudo tee /sys/class/drm/card1/device/power_dpm_force_performance_level`
-  (udev rule `99-amdgpu-performance.rules` forces `high`), then `pm_test devices` + `systemctl suspend`.
+- [x] Suspend test A (2026-11-28, 7.3.6): perf level `auto` + `pm_test devices` → same SMU -62 failure.
+  Not the `high` udev rule. Reports for drm/amd + CachyOS Discord: `~/Documents/amdgpu-suspend-report/`.
 - [ ] Suspend test B (if A fails): boot once with `linux-firmware-amdgpu 20260916` (prime suspect, 10-24 update).
 - [ ] Check ASRock for a BIOS newer than 17.03 for H670M-ITX/ax.
 - [x] Suspend test 2 (2026-11-28, 7.3.6-3): s2idle failed differently. The system woke after 20 s,
