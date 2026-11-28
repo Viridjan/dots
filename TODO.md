@@ -90,3 +90,9 @@ No Flatpak: `alacritty` (terminal sandboxing issues), `shelly`.
       `kms` mkinitcpio hook), reboot. Desktop: check the new cachyos-recovery entry in the boot menu.
 - [ ] One sudo password per run: on the run after the first `--update` with this change, the prompt asks for the
       password only (no swipe); afterwards `bash -c 'sudo ls /etc/sudoers.d/'` lists no `zz-sysup-run`.
+
+## Autologin (2026-11-28) — Surface and Plancia, once each
+
+- [ ] DMS Settings → Greeter → Auto login on (`greeterAutoLogin` is in the shared settings.json, but
+  only the toggle writes greetd's `[initial_session]`), then `sysup --actions optimize`: puts
+  `/etc/greetd/config.toml` back to root:root 0644. Reboot: the desktop opens without a password.
