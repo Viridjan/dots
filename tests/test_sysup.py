@@ -1347,6 +1347,20 @@ class RunPlanTests(FixtureCase):
         self.assertIn("no fingerprint reader", r.stdout)
         self.assertIn("FIDO PIN is set", r.stdout)
 
+    def test_fingerprint_reset_deletes_then_enrolls(self):
+        log = self.home / "fp.log"
+        self.mock("fprintd-list", 'echo "Fingerprints for user x on Goodix:"; echo " - #0: right-index-finger"')
+        self.mock("fprintd-delete", f'echo "delete $1" >> {log}')
+        self.mock("fprintd-enroll", f'echo enroll >> {log}')
+        r = self.shell('INTERACTIVE=false; reset_fingerprint')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("needs a terminal", r.stdout)
+        self.assertFalse(log.exists())  # nothing deleted without a terminal
+        r = self.shell('INTERACTIVE=true; reset_fingerprint')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(log.read_text().split("\n")[1], "enroll")
+        self.assertTrue(log.read_text().startswith("delete "))
+
     def test_surface_secureboot_off_needs_nothing(self):
         self.mock("bootctl", 'echo "   Secure Boot: disabled (setup)"; exit 1')  # real one exits 1 here
         r = self.shell('SYSUP_FEATURES=linux-surface; setup_surface_secureboot; SYSUP_FEATURES=; setup_surface_secureboot')
@@ -2263,7 +2277,8 @@ class SudoPrimeTests(FixtureCase):
     """--update/--yes ask for sudo once up front (2026-11-08: prompts timed out mid-run)."""
     def test_update_asks_once_and_warns_on_failure(self):
         self.mock("sudo", 'printf "%s\\n" "sudo $*" >> "$CALLS"; exit 1')
-        r = self.shell('ACTION=--update; _sudo_prime; printf "%s\\n" "${WARNINGS[@]}"')
+        # The host's real /etc/pam.d/sudo-nofinger would switch the prompt to -A.
+        r = self.shell('ACTION=--update; _SUDO_NOFINGER_PAM=/nonexistent; _sudo_prime; printf "%s\\n" "${WARNINGS[@]}"')
         self.assertEqual(Path(self.env["CALLS"]).read_text(),
                          "sudo -n true\nsudo -v -p     sudo password for %u: \n")
         self.assertIn("enter your password once", r.stdout)

@@ -2250,6 +2250,22 @@ setup_fingerprint() {
     fi
 }
 
+# Delete this user's enrolled fingerprints, then enroll again.
+reset_fingerprint() {
+    command -v fprintd-list &>/dev/null || { ok "fprintd not installed — nothing to reset"; return 0; }
+    local out
+    out=$(fprintd-list "$USER" 2>&1 || true)
+    if [[ "$out" == *"No devices available"* ]]; then
+        ok "no fingerprint reader"; return 0
+    fi
+    $INTERACTIVE || { warn "fingerprint reset needs a terminal: sysup --actions fingerprint-reset"; return 0; }
+    if [[ "$out" == *" - #"* ]]; then
+        fprintd-delete "$USER" || { _failw fingerprint-reset "fprintd-delete failed"; return 0; }
+        ok "enrolled fingerprints deleted"
+    fi
+    fprintd-enroll && ok "fingerprint enrolled" || _failw fingerprint-reset "fprintd-enroll failed"
+}
+
 setup_bitwarden() {
     command -v bitwarden-desktop &>/dev/null || { ok "Bitwarden not installed — nothing to do"; return 0; }
     local data="$HOME/.config/Bitwarden/data.json"
@@ -3888,7 +3904,7 @@ phase_sources() {
 phase_install()  { install_all; }
 phase_dotfiles() { deploy_dotfiles; dms_import; }
 # Action IDs for --actions (fish completion reads this line).
-MENU_ORDER=(sources install services snapper automount optimize keyboard kernels greeter keyring-pam nvidia-niri install-scripts fish dms-plugins export claude caveman-code ollama vms repos launchers lostfiles lynis dotfiles-export stow-symlinks dms-import audit orphan-removal rebuild pacnew-merge git-identity ssh-key fingerprint bitwarden wifi-export wifi-import yubikey-pin surface-secureboot)
+MENU_ORDER=(sources install services snapper automount optimize keyboard kernels greeter keyring-pam nvidia-niri install-scripts fish dms-plugins export claude caveman-code ollama vms repos launchers lostfiles lynis dotfiles-export stow-symlinks dms-import audit orphan-removal rebuild pacnew-merge git-identity ssh-key fingerprint fingerprint-reset bitwarden wifi-export wifi-import yubikey-pin surface-secureboot)
 # Merged IDs (2026-11-24); old names still work with --actions.
 declare -A ACTION_ALIASES=([steam-launchers]=launchers [app-launchers]=launchers
     [python-rebuild]=rebuild [dms-export]=export [snitch-export]=export)
@@ -4029,6 +4045,7 @@ phase_configure() {
     _sel "git-identity"    && _act git-identity setup_git_identity
     _sel "ssh-key"         && _act ssh-key setup_ssh_key
     _sel "fingerprint"     && _act fingerprint setup_fingerprint
+    _sel "fingerprint-reset" && _act fingerprint-reset reset_fingerprint
     _sel "bitwarden"       && _act bitwarden setup_bitwarden
     _sel "wifi-export"     && _act wifi-export wifi_export
     _sel "wifi-import"     && _act wifi-import wifi_import

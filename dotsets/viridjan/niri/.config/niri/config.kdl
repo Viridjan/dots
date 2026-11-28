@@ -300,6 +300,10 @@ window-rule {
     open-fullscreen false
 }
 window-rule {
+    match app-id="org.telegram.desktop" title="^Media viewer$"
+    open-floating true
+}
+window-rule {
     match app-id="thunderbird"
     match app-id="whatsie"
     match app-id="TelegramDesktop"

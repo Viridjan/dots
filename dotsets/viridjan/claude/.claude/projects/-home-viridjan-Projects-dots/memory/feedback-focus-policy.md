@@ -10,3 +10,5 @@ New windows never take focus (global niri `open-focused false`). Exceptions the 
 **Why:** a first attempt used a niri `open-focused true` rule by app-id; that also focused script-opened terminals/browsers, which the user rejected.
 
 **How to apply:** don't express such exceptions as niri window rules (they can't see who launched a window). Route the keybind through `launcher-ws run [--app-id RE] CMD` and act in `launcher-ws watch` on the first window after the record. Apps opened by Claude/Codex go unfocused to the agent's workspace. Also user actions inside an app count: a non-floating Brave/terminal window opened while the same app is focused (Ctrl+N, Ctrl+Shift+N) takes focus (2026-11-24); PiP/dialogs (floating) don't. Related: [[feedback-no-focus-moves]], [[niri-gaming]].
+
+2026-11-28: password prompts are an explicit exception by niri app-id rule (`open-focused true` for polkit-kde agent, `gcr-prompter`, `pinentry`), user request: "a floating window asking for password … should take focus".

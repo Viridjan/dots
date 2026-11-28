@@ -88,6 +88,7 @@ ACTIONS = {
     "git-identity": ("accounts", "Set Git name and email", "Set git user.name/email if unset."),
     "ssh-key": ("accounts", "Create SSH key and add it to GitHub", "ssh-keygen if missing, then gh ssh-key add if GitHub lacks it."),
     "fingerprint": ("accounts", "Enroll fingerprint", "Enroll a fingerprint with fprintd (needs the device)."),
+    "fingerprint-reset": ("accounts", "Reset fingerprint", "Delete your enrolled fingerprints, then enroll again (needs the device and a terminal)."),
     "bitwarden": ("accounts", "Log in to Bitwarden", "Open Bitwarden if no account is logged in."),
     "wifi-export": ("accounts", "Save wifi passwords to Bitwarden", "Copy saved wifi networks into the Bitwarden note \"sysup wifi\" (needs bw login)."),
     "wifi-import": ("accounts", "Add wifi passwords from Bitwarden", "Add or update the networks in the Bitwarden note \"sysup wifi\" on this machine."),
