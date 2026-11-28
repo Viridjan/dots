@@ -259,6 +259,19 @@ class HardeningTests(ExtrasCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertFalse(Path(self.env["CALLS"]).exists(), r.stdout)
 
+    def test_user_owned_greetd_config_goes_back_to_root(self):
+        # DMS's autologin toggle mv's its temp file into place: viridjan-owned, 0600.
+        etc = self.root / "etc"
+        (etc / "greetd").mkdir(parents=True)
+        (etc / "greetd/config.toml").write_text("[initial_session]\n")
+        self.env["SYSUP_ETC"] = str(etc)
+        self.mock("sudo", 'echo "sudo $*" >> "$CALLS"')
+        r = self.shell("_greetd_config_owner")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        calls = Path(self.env["CALLS"]).read_text()
+        self.assertIn(f"sudo chown root:root {etc}/greetd/config.toml", calls)
+        self.assertIn(f"sudo chmod 644 {etc}/greetd/config.toml", calls)
+
 
 class ServiceTests(ExtrasCase):
     def test_failed_enable_is_not_recorded_as_managed(self):

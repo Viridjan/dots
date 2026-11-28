@@ -2443,7 +2443,19 @@ _snitch_rule() {
 ' "$1" "$2"
 }
 
+# DMS's greeter autologin toggle mv's a user temp file over /etc/greetd/config.toml
+# (viridjan-owned, 0600). greetd runs its commands as root, so a user-writable
+# config lets any user process get root at the next login (2026-11-28).
+_greetd_config_owner() {
+    local f=${SYSUP_ETC:-/etc}/greetd/config.toml
+    [[ -f "$f" && "$(stat -c %U:%G "$f")" != root:root ]] || return 0
+    sudo chown root:root "$f" && sudo chmod 644 "$f" \
+        && ok "greetd config owned by root again" \
+        || warn "greetd: $f is not root-owned; run: sudo chown root:root $f"
+}
+
 _system_hardening() {
+    _greetd_config_owner
     local etc=${SYSUP_ETC:-/etc} f rel content changed=() name path
     local -A etc_files=(
         [sysctl.d/99-dots-hardening.conf]=$_HARDEN_SYSCTL

@@ -646,5 +646,7 @@
   "matugenTemplateEquibop": false,
   "matugenTemplateGhostty": false,
   "matugenTemplateFoot": false,
-  "matugenTemplateZed": false
+  "matugenTemplateZed": false,
+  "greeterAutoLogin": true,
+  "greeterEnableFprint": false
 }
