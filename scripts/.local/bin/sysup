@@ -2370,6 +2370,12 @@ install sctp /bin/false
 install rds /bin/false
 install tipc /bin/false
 '
+# CachyOS ships SystemMaxUse=50M (/usr/lib/systemd/journald.conf.d/00-journal-size.conf):
+# about one day of logs, too little to see when a problem started (2026-11-28).
+_HARDEN_JOURNALD='# sysup (_system_hardening): keep weeks of logs, not one day
+[Journal]
+SystemMaxUse=1G
+'
 _HARDEN_COREDUMP='# sysup (_system_hardening): no core dumps (Lynis KRNL-5820)
 [Coredump]
 Storage=none
@@ -2477,6 +2483,7 @@ _system_hardening() {
         [sysctl.d/99-dots-hardening.conf]=$_HARDEN_SYSCTL
         [modprobe.d/dots-hardening.conf]=$_HARDEN_MODPROBE
         [systemd/coredump.conf.d/dots-hardening.conf]=$_HARDEN_COREDUMP
+        [systemd/journald.conf.d/99-dots.conf]=$_HARDEN_JOURNALD
         [fail2ban/jail.d/dots.local]=$_HARDEN_FAIL2BAN
         [lynis/custom.prf]=$_HARDEN_LYNIS
         [security/limits.d/dots-hardening.conf]=$_HARDEN_LIMITS
@@ -2503,6 +2510,8 @@ _system_hardening() {
         || warn "hardening: sysctl apply failed (applies at next boot)"
     [[ " ${changed[*]} " != *" fail2ban/"* ]] \
         || sudo systemctl try-reload-or-restart fail2ban 2>/dev/null || true
+    [[ " ${changed[*]} " != *" systemd/journald.conf.d/"* ]] \
+        || sudo systemctl restart systemd-journald || warn "hardening: journald restart failed (applies at next boot)"
     # opensnitchd watches its rules directory: new rule files load without a restart.
     ok "hardening applied: ${changed[*]}"
 }

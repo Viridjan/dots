@@ -135,7 +135,7 @@ install = [
 
     # Development
     "go",  # builds dux-player (projects.toml)
-    "nodejs-lts-krypton",
+    "nodejs-lts-jod",  # Node 22 LTS: bitwarden-cli depends on it (krypton broke it, 2026-11-28)
     "npm",
     "uv",  # runs the [uv] tools (graphifyy)
     "git-filter-repo",
@@ -229,7 +229,7 @@ remove = [
     "vim",
     "vim-runtime",
     "cachyos-zsh-config",
-    # Plain nodejs conflicts with the listed nodejs-lts-krypton (pacman
+    # Plain nodejs conflicts with the listed nodejs-lts-jod (pacman
     # --noconfirm declines the swap prompt); the LTS package provides nodejs.
     "nodejs",
     # oniri: auto-maximized a workspace's lone window; dropped 2026-10-31
@@ -259,7 +259,7 @@ remove = [
     "cachyos-gaming-applications",
     "heroic-games-launcher",
     "lutris",
-    "nodejs-lts-jod",
+    "nodejs-lts-krypton",
     "brave-bin",
     "gomuks",
     "gomuks-web-bin",

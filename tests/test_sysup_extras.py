@@ -244,6 +244,8 @@ class HardeningTests(ExtrasCase):
         self.assertIn("banaction = ufw\n", (etc / "fail2ban/jail.d/dots.local").read_text())
         self.assertIn("skip-test=KRNL-6000:kernel.sysrq\n", (etc / "lynis/custom.prf").read_text())
         self.assertIn("* hard core 0\n", (etc / "security/limits.d/dots-hardening.conf").read_text())
+        self.assertIn("SystemMaxUse=1G\n", (etc / "systemd/journald.conf.d/99-dots.conf").read_text())
+        self.assertIn("systemctl restart systemd-journald", Path(self.env["CALLS"]).read_text())
         import json
         rule = json.loads((etc / "opensnitchd/rules/dots-allow-timesyncd.json").read_text())
         self.assertEqual((rule["name"], rule["action"], rule["duration"]), ("dots-allow-timesyncd", "allow", "always"))
